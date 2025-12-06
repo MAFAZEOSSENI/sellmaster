@@ -1,0 +1,274 @@
+require('dotenv').config();
+const authMiddleware = require('./middleware/authMiddleware');
+const orderAuth = require('./extensions/middleware/orderAuth');
+const User = require('./models/User');
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+const createTables = require('./database/init');
+const app = express();
+const PORT = process.env.PORT || 3000;
+const authRoutes = require('./extensions/auth/authRoutes');
+const licenseRoutes = require('./extensions/licenses/licenseRoutes');
+const paymentRoutes = require('./extensions/payments/paymentRoutes');
+const adminRoutes = require('./extensions/admin/adminRoutes');
+
+// Middleware de base
+app.use(cors());
+app.use(express.json({ limit: '10mb' }));
+
+// Middleware pour gérer les BigInt
+const bigIntHandler = () => {
+  return (req, res, next) => {
+    const originalJson = res.json;
+    res.json = function(data) {
+      const stringifiedData = JSON.stringify(data, (key, value) => {
+        return typeof value === 'bigint' ? value.toString() : value;
+      });
+      res.setHeader('Content-Type', 'application/json');
+      res.send(stringifiedData);
+    };
+    next();
+  };
+};
+
+app.use(bigIntHandler());
+
+// Service fichiers statiques
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Import des modèles
+const Product = require('./models/Product');
+const Order = require('./models/Order');
+
+// Import des routes Shopify
+const shopifyRoutesV2 = require('./routes/shopify.routes'); // Nouveau fichier
+app.use('/api/shopify', shopifyRoutesV2);
+
+// ==================== ROUTES API ====================
+
+// Routes Produits
+app.get('/api/products', authMiddleware, async (req, res) => {
+  try {
+    const products = await Product.findAll(req.userId);
+    res.json(products);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/products', authMiddleware, async (req, res) => {
+  try {
+    const { name, description, price, stock } = req.body;
+    
+    const product = await Product.create({
+      name,
+      description: description || '',
+      price: parseFloat(price),
+      stock: parseInt(stock),
+      image_url: null
+    }, req.userId);
+
+    res.status(201).json(product);
+  } catch (error) {
+    console.error('❌ Erreur création produit:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.get('/api/products/:id', authMiddleware, async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id, req.userId);
+    if (!product) {
+      return res.status(404).json({ error: 'Produit non trouvé' });
+    }
+    res.json(product);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== ROUTES COMMANDES ====================
+
+app.get('/api/orders', authMiddleware, async (req, res) => {
+  try {
+    console.log('📦 Récupération commandes pour user:', req.userId);
+    
+    const orders = await Order.findAll(req.userId);
+    res.json(orders);
+  } catch (error) {
+    console.error('❌ Erreur récupération commandes:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🆕 REMPLACER l'ancienne route POST /api/orders
+app.post('/api/orders', authMiddleware, orderAuth, async (req, res) => {
+  try {
+    console.log('📦 Création commande avec numéro personnalisé pour user:', req.userId, req.body);
+    
+    const order = await Order.createWithCustomNumber(req.body, req.userId);
+    
+    const user = await User.findById(req.userId);
+    await User.updateOrderCount(req.userId, user.order_count + 1);
+    
+    console.log('✅ Commande créée, compteur mis à jour:', user.order_count + 1);
+    
+    res.status(201).json(order);
+  } catch (error) {
+    console.error('❌ Erreur création commande:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// 🆕 NOUVELLE ROUTE : Statistiques de numérotation
+app.get('/api/orders/number-stats', authMiddleware, async (req, res) => {
+  try {
+    console.log('📊 Récupération stats numérotation pour user:', req.userId);
+    
+    const stats = await Order.getOrderNumberStats(req.userId);
+    
+    console.log('✅ Stats numérotation:', stats);
+    res.json(stats);
+  } catch (error) {
+    console.error('❌ Erreur stats numérotation:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 🆕 NOUVELLE ROUTE : Trouver une commande par son numéro personnalisé
+app.get('/api/orders/custom/:orderNumber', authMiddleware, async (req, res) => {
+  try {
+    const { orderNumber } = req.params;
+    console.log('🔍 Recherche commande par numéro personnalisé:', orderNumber, 'pour user:', req.userId);
+    
+    const order = await Order.findByCustomNumber(orderNumber, req.userId);
+    
+    if (!order) {
+      return res.status(404).json({ error: 'Commande non trouvée' });
+    }
+    
+    res.json(order);
+  } catch (error) {
+    console.error('❌ Erreur recherche commande personnalisée:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/user/orders', authMiddleware, async (req, res) => {
+  try {
+    console.log('📦 Récupération commandes user spécifique:', req.userId);
+    
+    const orders = await Order.findAll({
+      where: { user_id: req.userId },
+      order: [['created_at', 'DESC']]
+    });
+    
+    console.log(`✅ ${orders.length} commandes pour user ${req.userId}`);
+    res.json(orders);
+  } catch (error) {
+    console.error('❌ Erreur récupération commandes user:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/orders/:id', authMiddleware, async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ error: 'Commande non trouvée' });
+    }
+    
+    if (order.user_id !== req.userId) {
+      return res.status(403).json({ error: 'Accès non autorisé à cette commande' });
+    }
+    
+    res.json(order);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.patch('/api/orders/:id/status', authMiddleware, async (req, res) => {
+  try {
+    const { status } = req.body;
+    console.log('🔄 Mise à jour statut pour user:', req.userId, req.params.id, status);
+    
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ error: 'Commande non trouvée' });
+    }
+    if (order.user_id !== req.userId) {
+      return res.status(403).json({ error: 'Accès non autorisé' });
+    }
+    
+    const updatedOrder = await Order.updateStatus(req.params.id, status);
+    res.json(updatedOrder);
+  } catch (error) {
+    console.error('❌ Erreur mise à jour statut:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.get('/api/orders/stats/dashboard', authMiddleware, async (req, res) => {
+  try {
+    console.log('📊 Récupération stats pour user:', req.userId);
+    
+    const stats = await Order.getDashboardStats(req.userId);
+    
+    console.log('✅ Stats récupérées:', stats);
+    res.json(stats);
+  } catch (error) {
+    console.error('❌ Erreur récupération stats:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== ROUTES DE BASE ====================
+
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'API Gestion Commandes en marche! 🚀',
+    endpoints: {
+      products: ['GET /api/products', 'POST /api/products', 'GET /api/products/:id'],
+      orders: ['GET /api/orders', 'POST /api/orders', 'GET /api/orders/:id', 'PATCH /api/orders/:id/status', 'GET /api/orders/number-stats', 'GET /api/orders/custom/:orderNumber'],
+      stats: ['GET /api/orders/stats/dashboard'],
+      shopify: ['POST /api/shopify/webhook', 'GET /api/shopify/orders']
+    }
+  });
+});
+
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'OK ✅', 
+    timestamp: new Date().toISOString(),
+    database: 'MariaDB'
+  });
+});
+
+app.use('/api/auth', authRoutes);
+app.use('/api/licenses', licenseRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/admin', adminRoutes);
+
+// Démarrer le serveur
+async function startServer() {
+  try {  
+    await createTables();
+    
+    app.listen(PORT, () => {
+      console.log(`🚀 Serveur démarré sur http://localhost:${PORT}`);
+      console.log(`🛍️  API Products: http://localhost:${PORT}/api/products`);
+      console.log(`📦 API Orders: http://localhost:${PORT}/api/orders`);
+      console.log(`📊 API Stats: http://localhost:${PORT}/api/orders/stats/dashboard`);
+      console.log(`🔢 API Numérotation: http://localhost:${PORT}/api/orders/number-stats`);
+      console.log(`🛒 API Shopify: http://localhost:${PORT}/api/shopify`);
+      console.log(`❤️  Health: http://localhost:${PORT}/health`);
+      console.log(`📁 Uploads: http://localhost:${PORT}/uploads`);
+    });
+  } catch (error) {
+    console.error('❌ Erreur démarrage serveur:', error);
+  }
+}
+
+startServer();
