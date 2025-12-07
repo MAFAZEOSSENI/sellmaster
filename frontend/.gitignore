@@ -1,0 +1,25 @@
+# Flutter
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+.metadata
+**/build/
+**/.ios
+**.iml
+.idea/
+
+# Android
+android/app/build/
+android/.gradle/
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+
+# Autres
+*.lock
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
