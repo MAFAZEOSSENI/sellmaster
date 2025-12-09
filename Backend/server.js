@@ -14,7 +14,15 @@ const paymentRoutes = require('./extensions/payments/paymentRoutes');
 const adminRoutes = require('./extensions/admin/adminRoutes');
 
 // Middleware de base
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://sellmaster.web.app',
+    'https://sellmaster.firebaseapp.com',
+    'http://localhost:3000',
+    'http://localhost:8080'
+  ],
+  credentials: true
+}));
 app.use(express.json({ limit: '10mb' }));
 
 // Middleware pour gérer les BigInt
