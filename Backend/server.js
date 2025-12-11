@@ -74,9 +74,23 @@ app.use('/api/shopify', shopifyRoutesV2);
 // Routes Produits
 app.get('/api/products', authMiddleware, async (req, res) => {
   try {
+    console.log('🛍️  Récupération produits pour user:', req.userId);
+    
     const products = await Product.findAll(req.userId);
-    res.json(products);
+    
+    console.log('📦 Produits bruts:', products);
+    console.log('📦 Type:', typeof products);
+    console.log('📦 Est Array?', Array.isArray(products));
+    
+    // FORCER la transformation en JSON
+    const jsonProducts = JSON.parse(JSON.stringify(products));
+    
+    console.log('✅ Produits transformés:', jsonProducts);
+    
+    res.json(jsonProducts);
+    
   } catch (error) {
+    console.error('❌ Erreur produits:', error);
     res.status(500).json({ error: error.message });
   }
 });
