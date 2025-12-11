@@ -23,7 +23,7 @@ const corsOptions = {
       'http://localhost:3000',
       'http://127.0.0.1:9090',
       'http://127.0.0.1:8080',
-      'https://sellmaster-frontend.onrender.com', // Si tu as un frontend sur Render
+      'https://sellmaster-1ca2f.web.app', // Si tu as un frontend sur Render
       // Ajoute ici tes autres domaines de production
     ];
     
