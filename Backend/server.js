@@ -13,65 +13,9 @@ const licenseRoutes = require('./extensions/licenses/licenseRoutes');
 const paymentRoutes = require('./extensions/payments/paymentRoutes');
 const adminRoutes = require('./extensions/admin/adminRoutes');
 
-// ==================== CONFIGURATION CORS (CORRIGÉ) ====================
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Liste des origines autorisées
-    const allowedOrigins = [
-      'http://localhost:9090',
-      'http://localhost:8080',
-      'http://localhost:3000',
-      'http://127.0.0.1:9090',
-      'http://127.0.0.1:8080',
-      'https://sellmaster-1ca2f.web.app', // Si tu as un frontend sur Render
-      // Ajoute ici tes autres domaines de production
-    ];
-    
-    // Autoriser les requêtes sans origin (mobile apps, Postman, curl)
-    if (!origin) {
-      return callback(null, true);
-    }
-    
-    // En développement, autoriser toutes les origines localhost
-    if (process.env.NODE_ENV !== 'production' && origin.includes('localhost')) {
-      return callback(null, true);
-    }
-    
-    // Vérifier si l'origine est autorisée
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.log('⚠️  Origine bloquée par CORS:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
-    'X-Requested-With',
-    'Accept',
-    'Origin'
-  ],
-  credentials: true, // Important pour les cookies/auth
-  optionsSuccessStatus: 200,
-  maxAge: 86400 // Cache preflight 24h
-};
-
-// Appliquer CORS AVANT toutes les autres routes
-app.use(cors(corsOptions));
-
-// Gérer explicitement les requêtes OPTIONS (preflight)
-app.options('*', cors(corsOptions));
-
 // Middleware de base
+app.use(cors());
 app.use(express.json({ limit: '10mb' }));
-
-// Log des requêtes entrantes (utile pour debug CORS)
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path} - Origin: ${req.headers.origin || 'no-origin'}`);
-  next();
-});
 
 // Middleware pour gérer les BigInt
 const bigIntHandler = () => {
@@ -98,7 +42,7 @@ const Product = require('./models/Product');
 const Order = require('./models/Order');
 
 // Import des routes Shopify
-const shopifyRoutesV2 = require('./routes/shopify.routes');
+const shopifyRoutesV2 = require('./routes/shopify.routes'); // Nouveau fichier
 app.use('/api/shopify', shopifyRoutesV2);
 
 // ==================== ROUTES API ====================
@@ -158,6 +102,7 @@ app.get('/api/orders', authMiddleware, async (req, res) => {
   }
 });
 
+// 🆕 REMPLACER l'ancienne route POST /api/orders
 app.post('/api/orders', authMiddleware, orderAuth, async (req, res) => {
   try {
     console.log('📦 Création commande avec numéro personnalisé pour user:', req.userId, req.body);
@@ -176,6 +121,7 @@ app.post('/api/orders', authMiddleware, orderAuth, async (req, res) => {
   }
 });
 
+// 🆕 NOUVELLE ROUTE : Statistiques de numérotation
 app.get('/api/orders/number-stats', authMiddleware, async (req, res) => {
   try {
     console.log('📊 Récupération stats numérotation pour user:', req.userId);
@@ -190,6 +136,7 @@ app.get('/api/orders/number-stats', authMiddleware, async (req, res) => {
   }
 });
 
+// 🆕 NOUVELLE ROUTE : Trouver une commande par son numéro personnalisé
 app.get('/api/orders/custom/:orderNumber', authMiddleware, async (req, res) => {
   try {
     const { orderNumber } = req.params;
@@ -282,7 +229,6 @@ app.get('/api/orders/stats/dashboard', authMiddleware, async (req, res) => {
 app.get('/', (req, res) => {
   res.json({ 
     message: 'API Gestion Commandes en marche! 🚀',
-    cors: 'Configuré et fonctionnel ✅',
     endpoints: {
       products: ['GET /api/products', 'POST /api/products', 'GET /api/products/:id'],
       orders: ['GET /api/orders', 'POST /api/orders', 'GET /api/orders/:id', 'PATCH /api/orders/:id/status', 'GET /api/orders/number-stats', 'GET /api/orders/custom/:orderNumber'],
@@ -296,8 +242,7 @@ app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK ✅', 
     timestamp: new Date().toISOString(),
-    database: 'MariaDB',
-    cors: 'Enabled'
+    database: 'MariaDB'
   });
 });
 
@@ -306,22 +251,6 @@ app.use('/api/licenses', licenseRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Gestion d'erreurs globale
-app.use((err, req, res, next) => {
-  console.error('❌ Erreur globale:', err);
-  
-  // Erreur CORS spécifique
-  if (err.message === 'Not allowed by CORS') {
-    return res.status(403).json({ 
-      error: 'CORS Error',
-      message: 'Origine non autorisée',
-      origin: req.headers.origin 
-    });
-  }
-  
-  res.status(500).json({ error: 'Erreur serveur interne' });
-});
-
 // Démarrer le serveur
 async function startServer() {
   try {  
@@ -329,7 +258,6 @@ async function startServer() {
     
     app.listen(PORT, () => {
       console.log(`🚀 Serveur démarré sur http://localhost:${PORT}`);
-      console.log(`🌐 CORS activé pour origines autorisées`);
       console.log(`🛍️  API Products: http://localhost:${PORT}/api/products`);
       console.log(`📦 API Orders: http://localhost:${PORT}/api/orders`);
       console.log(`📊 API Stats: http://localhost:${PORT}/api/orders/stats/dashboard`);
