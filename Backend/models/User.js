@@ -1,4 +1,4 @@
-const { pool } = require('../config/database');
+ const { pool } = require('../config/database');
 
 class User {
   // Créer un nouvel utilisateur - ✅ CORRIGÉ
@@ -23,7 +23,8 @@ class User {
   }
 
   // Trouver un utilisateur par email - ✅ CORRIGÉ
- static async findByEmail(email) {
+ // Dans User.js - findByEmail()
+static async findByEmail(email) {
   const connection = await pool.getConnection();
   try {
     const [rows] = await connection.query(
@@ -58,14 +59,6 @@ class User {
     connection.release();
   }
 }
-      
-      // ✅ CORRECTION : MariaDB retourne [rows] avec query()
-      const rows = Array.isArray(result) ? result : [result];
-      return rows.length > 0 ? rows[0] : null;
-    } finally {
-      connection.release();
-    }
-  }
 
   // Trouver un utilisateur par ID - ✅ CORRIGÉ  
  static async findById(id) {
