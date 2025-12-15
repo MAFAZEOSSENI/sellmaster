@@ -1,0 +1,13 @@
+{
+  "builds": [
+    {
+      "src": "frontend/**",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build/web"
+      }
+    }
+  ],
+  "buildCommand": "cd frontend && flutter config --enable-web && flutter build web --release --web-renderer canvaskit",
+  "installCommand": "cd frontend && flutter pub get"
+}
