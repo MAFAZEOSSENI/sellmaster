@@ -1,18 +1,41 @@
+// models/Product.js - VERSION FINALE CORRIGÉE
 const { pool } = require('../config/database');
 
+// Fonction utilitaire pour convertir les résultats MariaDB
+const convertRowToPlainObject = (row) => {
+  if (!row) return null;
+  
+  const plain = {};
+  for (const key in row) {
+    const value = row[key];
+    
+    // Gérer les types spéciaux
+    if (value instanceof Date) {
+      plain[key] = value.toISOString();
+    } else if (typeof value === 'bigint') {
+      plain[key] = Number(value); // ou value.toString() si vous voulez une string
+    } else if (value && typeof value === 'object') {
+      // Cas spécial pour les buffers ou objets complexes
+      plain[key] = value;
+    } else {
+      plain[key] = value;
+    }
+  }
+  
+  return plain;
+};
+
 const Product = {
-  // ✅ CORRECTION : findAll avec filtre user_id
   async findAll(userId = null) {
     let conn;
     try {
       conn = await pool.getConnection();
       
-      let query = `
-        SELECT * FROM products 
-      `;
+      console.log(`🔍 Product.findAll pour user: ${userId}`);
+      
+      let query = `SELECT * FROM products `;
       let params = [];
       
-      // ✅ FILTRER PAR USER_ID SI FOURNI
       if (userId) {
         query += ` WHERE user_id = ? `;
         params.push(userId);
@@ -20,70 +43,137 @@ const Product = {
       
       query += ` ORDER BY created_at DESC `;
       
+      console.log(`📝 Query: ${query}`);
+      console.log(`📝 Params: ${JSON.stringify(params)}`);
+      
+      // Utiliser query() pour MariaDB
       const rows = await conn.query(query, params);
-      console.log(`🛍️ ${rows.length} produits trouvés${userId ? ` pour user ${userId}` : ''}`);
-      return rows;
+      
+      console.log(`✅ ${rows.length} lignes retournées par la DB`);
+      
+      if (rows.length === 0) {
+        console.log('📭 Aucun produit trouvé');
+        return [];
+      }
+      
+      // DEBUG: Afficher le premier élément pour voir sa structure
+      if (rows.length > 0) {
+        console.log('🔬 Premier élément brut:', rows[0]);
+        console.log('🔬 Type:', typeof rows[0]);
+        console.log('🔬 Clés:', Object.keys(rows[0]));
+      }
+      
+      // Convertir chaque ligne
+      const products = rows.map(row => convertRowToPlainObject(row));
+      
+      console.log(`🛍️  ${products.length} produits convertis`);
+      return products;
+      
+    } catch (error) {
+      console.error('❌ Erreur Product.findAll:', error);
+      console.error('❌ Stack:', error.stack);
+      throw error;
     } finally {
       if (conn) conn.release();
     }
   },
 
-  // ✅ CORRECTION : findById avec vérification user_id
   async findById(id, userId = null) {
     let conn;
     try {
       conn = await pool.getConnection();
       
-      let query = `
-        SELECT * FROM products WHERE id = ?
-      `;
+      let query = `SELECT * FROM products WHERE id = ?`;
       let params = [id];
       
-      // ✅ VÉRIFICATION USER_ID SI FOURNI
       if (userId) {
         query += ` AND user_id = ?`;
         params.push(userId);
       }
       
       const rows = await conn.query(query, params);
-      return rows[0];
+      
+      if (rows.length === 0) {
+        console.log(`❌ Produit ${id} non trouvé pour user ${userId}`);
+        return null;
+      }
+      
+      return convertRowToPlainObject(rows[0]);
+      
+    } catch (error) {
+      console.error('❌ Erreur Product.findById:', error);
+      throw error;
     } finally {
       if (conn) conn.release();
     }
   },
 
-  // ✅ CORRECTION : create avec user_id
   async create(productData, userId = null) {
     let conn;
     try {
       conn = await pool.getConnection();
       
-      console.log('🛍️ Création produit avec user_id:', userId);
+      console.log('➕ Product.create appelé');
+      console.log('📦 Données:', productData);
+      console.log('👤 User ID:', userId);
       
-      // ✅ AJOUTER USER_ID DANS L'INSERTION
+      // Validation
+      if (!userId) {
+        throw new Error('User ID requis pour créer un produit');
+      }
+      
+      if (!productData.name || !productData.price) {
+        throw new Error('Nom et prix sont requis');
+      }
+      
       const result = await conn.query(`
-        INSERT INTO products (name, description, price, stock, image_url, user_id) 
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO products (
+          user_id, 
+          name, 
+          description, 
+          price, 
+          stock, 
+          image_url,
+          created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, NOW())
       `, [
+        userId,
         productData.name,
         productData.description || '',
-        productData.price,
-        productData.stock,
-        productData.image_url || null,
-        userId // 🆕 USER_ID AJOUTÉ
+        parseFloat(productData.price),
+        parseInt(productData.stock || 0),
+        productData.image_url || null
       ]);
       
-      console.log('✅ Produit créé avec ID:', result.insertId);
+      console.log(`✅ Insertion réussie, insertId: ${result.insertId}`);
+      console.log(`✅ Rows affected: ${result.affectedRows}`);
       
-      // Retourner le produit créé
-      const [newProduct] = await conn.query('SELECT * FROM products WHERE id = ?', [result.insertId]);
-      return newProduct;
+      // Récupérer le produit créé
+      const [newProduct] = await conn.query(
+        'SELECT * FROM products WHERE id = ?',
+        [result.insertId]
+      );
+      
+      if (!newProduct) {
+        throw new Error('Produit créé mais non retrouvé');
+      }
+      
+      const product = convertRowToPlainObject(newProduct);
+      console.log('✅ Produit créé:', product);
+      return product;
+      
+    } catch (error) {
+      console.error('❌ Erreur Product.create:');
+      console.error('❌ Message:', error.message);
+      console.error('❌ Code:', error.code);
+      console.error('❌ SQL State:', error.sqlState);
+      console.error('❌ SQL Message:', error.sqlMessage);
+      throw error;
     } finally {
       if (conn) conn.release();
     }
   },
 
-  // ✅ CORRECTION : update avec vérification user_id
   async update(id, productData, userId = null) {
     let conn;
     try {
@@ -96,29 +186,35 @@ const Product = {
       `;
       let params = [
         productData.name,
-        productData.description,
-        productData.price,
-        productData.stock,
-        productData.image_url,
+        productData.description || '',
+        parseFloat(productData.price),
+        parseInt(productData.stock || 0),
+        productData.image_url || null,
         id
       ];
       
-      // ✅ VÉRIFICATION USER_ID SI FOURNI
       if (userId) {
         query += ` AND user_id = ?`;
         params.push(userId);
       }
       
-      await conn.query(query, params);
+      const result = await conn.query(query, params);
       
-      console.log('✅ Produit mis à jour, ID:', id);
+      if (result.affectedRows === 0) {
+        throw new Error('Produit non trouvé ou non autorisé');
+      }
+      
+      console.log(`✅ Produit ${id} mis à jour`);
       return await this.findById(id, userId);
+      
+    } catch (error) {
+      console.error('❌ Erreur Product.update:', error);
+      throw error;
     } finally {
       if (conn) conn.release();
     }
   },
 
-  // ✅ CORRECTION : delete avec vérification user_id
   async delete(id, userId = null) {
     let conn;
     try {
@@ -127,7 +223,6 @@ const Product = {
       let query = `DELETE FROM products WHERE id = ?`;
       let params = [id];
       
-      // ✅ VÉRIFICATION USER_ID SI FOURNI
       if (userId) {
         query += ` AND user_id = ?`;
         params.push(userId);
@@ -135,26 +230,37 @@ const Product = {
       
       const result = await conn.query(query, params);
       
-      const isDeleted = result.affectedRows > 0;
-      console.log(`✅ Produit ${id} ${isDeleted ? 'supprimé' : 'non trouvé ou accès non autorisé'}`);
+      const deleted = result.affectedRows > 0;
+      console.log(`✅ Produit ${id} ${deleted ? 'supprimé' : 'non trouvé'}`);
+      return deleted;
       
-      return isDeleted;
+    } catch (error) {
+      console.error('❌ Erreur Product.delete:', error);
+      throw error;
     } finally {
       if (conn) conn.release();
     }
   },
 
-  // ✅ NOUVELLE MÉTHODE : Produits par utilisateur
   async findByUserId(userId) {
     let conn;
     try {
       conn = await pool.getConnection();
+      
+      console.log(`🔍 Recherche produits pour user ${userId}`);
+      
       const rows = await conn.query(
         'SELECT * FROM products WHERE user_id = ? ORDER BY created_at DESC',
         [userId]
       );
-      console.log(`🛍️ ${rows.length} produits trouvés pour user ${userId}`);
-      return rows;
+      
+      console.log(`✅ ${rows.length} produits trouvés`);
+      
+      return rows.map(row => convertRowToPlainObject(row));
+      
+    } catch (error) {
+      console.error('❌ Erreur Product.findByUserId:', error);
+      throw error;
     } finally {
       if (conn) conn.release();
     }
