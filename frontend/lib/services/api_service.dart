@@ -6,7 +6,7 @@ import 'dart:io';
 import 'auth_service.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:3000/api';
+   static const String baseUrl = 'https://sellmaster-2.onrender.com';
   
   // 🆕 TOKEN STATIQUE ACCESSIBLE PARTOUT
   static String? _authToken;
@@ -69,7 +69,7 @@ class ApiService {
   static Future<List<Product>> getProducts() async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/products'),
+        Uri.parse('https://sellmaster-2.onrender.com/api/products'),
         headers: await _getHeaders(),
       );
       
@@ -88,7 +88,7 @@ class ApiService {
   static Future<void> addProduct(Product product) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/products'),
+        Uri.parse('https://sellmaster-2.onrender.com/api/products'),
         headers: await _getHeaders(),
         body: json.encode({
           'name': product.name,
@@ -110,7 +110,7 @@ class ApiService {
   static Future<void> updateProduct(String productId, Map<String, dynamic> productData) async {
     try {
       final response = await http.put(
-        Uri.parse('$baseUrl/products/$productId'),
+        Uri.parse('https://sellmaster-2.onrender.com/api/products/$productId'),
         headers: await _getHeaders(),
         body: json.encode(productData),
       );
@@ -127,7 +127,7 @@ class ApiService {
   static Future<void> deleteProduct(String productId) async {
     try {
       final response = await http.delete(
-        Uri.parse('$baseUrl/products/$productId'),
+        Uri.parse('https://sellmaster-2.onrender.com/api/products/$productId'),
         headers: await _getHeaders(),
       );
 
@@ -145,7 +145,7 @@ class ApiService {
   static Future<List<Order>> getOrders() async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/orders'),
+        Uri.parse('https://sellmaster-2.onrender.com/api/orders'),
         headers: await _getHeaders(),
       );
       
@@ -166,7 +166,7 @@ class ApiService {
       print('📦 Tentative création commande...');
       
       final response = await http.post(
-        Uri.parse('$baseUrl/orders'),
+        Uri.parse('https://sellmaster-2.onrender.com/api/orders'),
         headers: await _getHeaders(),
         body: json.encode(orderData),
       );
@@ -198,7 +198,7 @@ class ApiService {
   static Future<void> updateOrderStatus(String orderId, String status) async {
     try {
       final response = await http.patch(
-        Uri.parse('$baseUrl/orders/$orderId/status'),
+        Uri.parse('https://sellmaster-2.onrender.com/api/orders/$orderId/status'),
         headers: await _getHeaders(),
         body: json.encode({'status': status}),
       );
@@ -217,7 +217,7 @@ class ApiService {
   static Future<Map<String, dynamic>> getDashboardStats() async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/orders/stats/dashboard'),
+        Uri.parse('https://sellmaster-2.onrender.com/api/orders/stats/dashboard'),
         headers: await _getHeaders(),
       );
       
@@ -237,7 +237,7 @@ class ApiService {
   static Future<Map<String, dynamic>> getLicenseStatus() async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/licenses/status'),
+        Uri.parse('https://sellmaster-2.onrender.com/api/licenses/status'),
         headers: await _getHeaders(),
       );
       
@@ -255,7 +255,7 @@ class ApiService {
   static Future<Map<String, dynamic>> generateTestLicense(String type) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/licenses/test/generate'),
+        Uri.parse('https://sellmaster-2.onrender.com/api/licenses/test/generate'),
         headers: await _getHeaders(),
         body: json.encode({'type': type}),
       );
@@ -275,7 +275,7 @@ class ApiService {
 
   static Future<String> uploadImage(File imageFile) async {
     try {
-      var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/upload'));
+      var request = http.MultipartRequest('POST', Uri.parse('https://sellmaster-2.onrender.com/api/upload'));
       
       // Ajouter le token d'auth
       final headers = await _getHeaders();
@@ -315,7 +315,7 @@ class ApiService {
   static Future<Map<String, dynamic>> getOrderNumberStats() async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/orders/number-stats'),
+        Uri.parse('https://sellmaster-2.onrender.com/api/orders/number-stats'),
         headers: await _getHeaders(),
       );
       
@@ -333,7 +333,7 @@ class ApiService {
   static Future<Map<String, dynamic>> findOrderByCustomNumber(String customNumber) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/orders/custom/$customNumber'),
+        Uri.parse('https://sellmaster-2.onrender.com/api/orders/custom/$customNumber'),
         headers: await _getHeaders(),
       );
       

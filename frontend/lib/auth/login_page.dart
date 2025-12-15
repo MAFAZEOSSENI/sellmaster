@@ -16,30 +16,43 @@ class _LoginPageState extends State<LoginPage> {
   bool _isLoading = false;
 
   void _login() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      await Provider.of<AuthProvider>(context, listen: false).login(
-        _emailController.text.trim(),
-        _passwordController.text,
-      );
-      
-      // Retour à la page précédente après connexion réussie
-      Navigator.of(context).pop();
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Connexion réussie! 🎉')),
-      );
-    } catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $error'), backgroundColor: Colors.red),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
+  print('🟡 DÉBUT LOGIN FUNCTION');
+  
+  if (!_formKey.currentState!.validate()) {
+    print('❌ Validation échouée');
+    return;
   }
+
+  setState(() => _isLoading = true);
+  print('🔄 isLoading = true');
+
+  try {
+    print('📞 Appel AuthProvider.login()');
+    print('📧 Email: ${_emailController.text}');
+    
+    // DEBUG: Vérifiez l'URL AVANT d'appeler
+    print('🌐 Vérification URL ApiService...');
+    
+    await Provider.of<AuthProvider>(context, listen: false).login(
+      _emailController.text.trim(),
+      _passwordController.text,
+    );
+    
+    print('✅ AuthProvider.login() réussi');
+    
+  } catch (error, stackTrace) {
+    print('🔴 ERREUR CATCHÉE DANS LOGIN:');
+    print('🔴 Message: $error');
+    print('🔴 Stack: $stackTrace');
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Erreur: $error'), backgroundColor: Colors.red),
+    );
+  } finally {
+    print('🏁 finally block');
+    setState(() => _isLoading = false);
+  }
+}
 
   @override
   Widget build(BuildContext context) {

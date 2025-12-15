@@ -115,7 +115,7 @@ class AuthProvider with ChangeNotifier {
 
     try {
       final response = await http.post(
-        Uri.parse('http://localhost:3000/api/auth/register'),
+        Uri.parse('${ApiService.baseUrl}/api/auth/register'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'email': email,
@@ -165,7 +165,7 @@ class AuthProvider with ChangeNotifier {
 
     try {
       final response = await http.post(
-        Uri.parse('http://localhost:3000/api/auth/login'),
+        Uri.parse('https://sellmaster-2.onrender.com/api/auth/login'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'email': email,
