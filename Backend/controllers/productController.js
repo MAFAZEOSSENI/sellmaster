@@ -15,35 +15,24 @@ const productController = {
         length: products ? products.length : 0
       });
       
-      // ✅ CORRECTION : Gérer le format [data, metadata]
-      let cleanProducts;
-      
-      if (Array.isArray(products)) {
-        if (products.length >= 2) {
-          // Vérifier si c'est le format [[data], [metadata]]
-          const firstItem = products[0];
-          const secondItem = products[1];
-          
-          if (Array.isArray(firstItem) && Array.isArray(secondItem)) {
-            // Format [[data], [metadata]] de Render
-            console.log('⚠️  Format [data, metadata] détecté (Render)');
-            cleanProducts = firstItem;
-          } else if (secondItem && secondItem.name === 'id') {
-            // Format [data, metadata] avec metadata comme objet
-            console.log('⚠️  Métadonnées dans le résultat');
-            cleanProducts = firstItem || [];
-          } else {
-            // Format normal [data]
-            console.log('✅ Format normal [data] (Local)');
-            cleanProducts = products;
-          }
-        } else {
-          // Format normal [data]
-          cleanProducts = products;
+      // ✅ CORRECTION : Normaliser/extraire les données quand le driver renvoie
+      // un format du type [[data], [metadata]] ou [data, metadata] selon l'environnement.
+      const unwrap = (res) => {
+        let current = res;
+        // Déplier récursivement tant que le premier élément est encore un tableau
+        while (Array.isArray(current) && current.length > 0 && Array.isArray(current[0])) {
+          current = current[0];
         }
-      } else {
-        console.log('❌ products n\'est pas un tableau');
-        cleanProducts = [];
+        // Si on reçoit [rows, metadataObj] où rows est un tableau d'objets,
+        // l'étape précédente l'a déjà extrait. Si ce n'est pas un tableau, renvoyer tableau vide.
+        if (!Array.isArray(current)) return [];
+        return current;
+      };
+
+      let cleanProducts = unwrap(products);
+
+      if (products && Array.isArray(products) && products.length >= 2) {
+        console.log('⚠️  Résultat initial du driver détecté, normalisé pour extraction des données');
       }
       
       // Convertir les prix string en number
