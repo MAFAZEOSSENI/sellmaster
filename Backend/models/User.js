@@ -23,22 +23,42 @@ class User {
   }
 
   // Trouver un utilisateur par email - ✅ CORRIGÉ
-  static async findByEmail(email) {
-    const connection = await pool.getConnection();
-    try {
-      // ✅ CORRECTION : Utiliser query() et gérer le format MariaDB
-      const result = await connection.query(
-        'SELECT * FROM app_users WHERE email = ?',
-        [email]
-      );
+ // Dans User.js - findByEmail()
+static async findByEmail(email) {
+  const connection = await pool.getConnection();
+  try {
+    const [rows] = await connection.query(
+      'SELECT * FROM app_users WHERE email = ?',
+      [email]
+    );
+    
+    if (rows.length > 0) {
+      const user = rows[0];
       
-      // ✅ CORRECTION : MariaDB retourne [rows] avec query()
-      const rows = Array.isArray(result) ? result : [result];
-      return rows.length > 0 ? rows[0] : null;
-    } finally {
-      connection.release();
+      // NORMALISATION: S'assurer qu'on a toujours les deux formats
+      if (user.password_hash && !user.passwordHash) {
+        user.passwordHash = user.password_hash; // Crée camelCase
+      }
+      if (user.passwordHash && !user.password_hash) {
+        user.password_hash = user.passwordHash; // Crée snake_case
+      }
+      
+      console.log(`✅ Utilisateur trouvé: ${user.email}`);
+      console.log(`🔑 Hash disponible: ${user.password_hash ? 'Oui' : 'Non'}`);
+      
+      return user;
     }
+    
+    console.log(`❌ Utilisateur non trouvé: ${email}`);
+    return null;
+    
+  } catch (error) {
+    console.error('❌ Erreur findByEmail:', error);
+    throw error;
+  } finally {
+    connection.release();
   }
+}
 
   // Trouver un utilisateur par ID - ✅ CORRIGÉ  
  static async findById(id) {

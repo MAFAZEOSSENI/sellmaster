@@ -15,15 +15,31 @@ const adminRoutes = require('./extensions/admin/adminRoutes');
 
 // Middleware de base
 app.use(cors({
-  origin: [
-    'https://sellmaster-1ca2f.web.app/',
-    //'https://sellmaster.firebaseapp.com',
-    'http://localhost:3000',
-    'http://localhost:8080'
-  ],
-  credentials: true
+  origin: true, // Autorise TOUTES les origines
+  credentials: true, // ESSENTIEL pour les tokens/cookies
+  exposedHeaders: ['Authorization'], // ESSENTIEL pour que mobile puisse lire le header
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin']
 }));
 app.use(express.json({ limit: '10mb' }));
+// Middleware pour set les headers CORS explicitement
+app.use((req, res, next) => {
+  // Set headers CORS
+  const origin = req.headers.origin;
+  
+  // Autoriser toutes les origines avec credentials
+  res.header('Access-Control-Allow-Origin', origin || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Expose-Headers', 'Authorization, Content-Length');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  
+  // Pour les requêtes OPTIONS (preflight)
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
 
 // Middleware pour gérer les BigInt
 const bigIntHandler = () => {
@@ -58,9 +74,23 @@ app.use('/api/shopify', shopifyRoutesV2);
 // Routes Produits
 app.get('/api/products', authMiddleware, async (req, res) => {
   try {
+    console.log('🛍️  Récupération produits pour user:', req.userId);
+    
     const products = await Product.findAll(req.userId);
-    res.json(products);
+    
+    console.log('📦 Produits bruts:', products);
+    console.log('📦 Type:', typeof products);
+    console.log('📦 Est Array?', Array.isArray(products));
+    
+    // FORCER la transformation en JSON
+    const jsonProducts = JSON.parse(JSON.stringify(products));
+    
+    console.log('✅ Produits transformés:', jsonProducts);
+    
+    res.json(jsonProducts);
+    
   } catch (error) {
+    console.error('❌ Erreur produits:', error);
     res.status(500).json({ error: error.message });
   }
 });
