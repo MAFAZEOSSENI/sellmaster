@@ -6,7 +6,7 @@ import 'dart:io';
 import 'auth_service.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:3000/api';
+  static const String baseUrl = 'https://sellmaster-1.onrender.com/api';
   
   // 🆕 TOKEN STATIQUE ACCESSIBLE PARTOUT
   static String? _authToken;

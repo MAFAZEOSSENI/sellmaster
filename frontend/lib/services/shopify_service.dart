@@ -4,7 +4,7 @@ import '../services/api_service.dart';
 import '../models/shopify_config.dart';
 
 class ShopifyService {
-  static const String baseUrl = 'http://localhost:3000/api';
+  static const String baseUrl = 'https://sellmaster-1.onrender.com/api';
 
   // ============================================
   // MÉTHODE UNIFIÉE : UTILISEZ ApiService.getAuthHeaders()
