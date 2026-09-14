@@ -1,4 +1,4 @@
-const { pool } = require('../config/database');
+const { pool, queryWithRetry } = require('../config/database');
 
 async function createTables() {
   let conn;
@@ -6,7 +6,7 @@ async function createTables() {
     conn = await pool.getConnection();
     
     // Table produits
-    await conn.query(`
+    await queryWithRetry(conn, `
       CREATE TABLE IF NOT EXISTS products (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
@@ -19,7 +19,7 @@ async function createTables() {
     `);
 
     // Table commandes
-    await conn.query(`
+    await queryWithRetry(conn, `
       CREATE TABLE IF NOT EXISTS orders (
         id INT AUTO_INCREMENT PRIMARY KEY,
         client_name VARCHAR(255) NOT NULL,
@@ -33,7 +33,7 @@ async function createTables() {
     `);
 
     // Table order_items (AJOUT CRITIQUE)
-    await conn.query(`
+    await queryWithRetry(conn, `
       CREATE TABLE IF NOT EXISTS order_items (
         id INT AUTO_INCREMENT PRIMARY KEY,
         order_id INT NOT NULL,

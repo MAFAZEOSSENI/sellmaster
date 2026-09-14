@@ -26,7 +26,7 @@ class ShopifyConfig {
     let conn;
     try {
       conn = await pool.getConnection();
-      const configs = await conn.query(
+      const [configs] = await conn.query(
         `SELECT id, shop_name, api_key, is_active, connected_at, last_sync 
          FROM shopify_configs 
          WHERE user_id = ? 
@@ -45,7 +45,7 @@ class ShopifyConfig {
     try {
       conn = await pool.getConnection();
       
-      const result = await conn.query(`
+      const [result] = await conn.query(`
         INSERT INTO shopify_configs 
         (shop_name, api_key, access_token, user_id, is_active, connected_at)
         VALUES (?, ?, ?, ?, 1, NOW())
@@ -87,7 +87,7 @@ class ShopifyConfig {
     let conn;
     try {
       conn = await pool.getConnection();
-      const result = await conn.query(
+      const [result] = await conn.query(
         `DELETE FROM shopify_configs WHERE id = ? AND user_id = ?`,
         [id, userId]
       );

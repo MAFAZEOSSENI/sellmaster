@@ -1,0 +1,28 @@
+# Dépendances
+node_modules/
+
+# Environnement
+.env
+.env.*
+!.env.example
+
+# Firebase
+.firebase/
+.firebaserc
+firebase.json
+
+# Flutter/Dart
+frontend/build/
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/linux/flutter/generated_plugin_registrant.*
+frontend/linux/flutter/generated_plugins.cmake
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db

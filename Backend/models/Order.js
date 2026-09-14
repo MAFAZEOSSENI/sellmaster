@@ -8,12 +8,12 @@ const Order = {
       conn = await pool.getConnection();
       
       // Compter les commandes de cet utilisateur
-      const result = await conn.query(
+      const [rows] = await conn.query(
         'SELECT COUNT(*) as order_count FROM orders WHERE user_id = ?',
         [userId]
       );
       
-      const orderCount = Number(result[0].order_count) + 1;
+      const orderCount = Number(rows[0].order_count) + 1;
       
       // Format: USR{user_id}-CMD{numero}
       const customNumber = `USR${userId}-CMD${orderCount}`;
@@ -43,7 +43,7 @@ const Order = {
       const safeShopifyOrderId = shopifyOrderId ? shopifyOrderId.toString() : null;
 
       // 🆕 CRÉER LA COMMANDE AVEC LE NUMÉRO PERSONNALISÉ
-      const orderResult = await conn.query(`
+      const [orderResult] = await conn.query(`
         INSERT INTO orders 
         (client_name, client_phone, client_address, status, total_amount, notes, source, shopify_order_id, shopify_data, user_id, custom_order_number)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -109,7 +109,7 @@ await conn.query(
     try {
       conn = await pool.getConnection();
       
-      const stats = await conn.query(`
+      const [stats] = await conn.query(`
         SELECT 
           COUNT(*) as total_orders,
           MAX(custom_order_number) as last_order_number,
@@ -138,7 +138,7 @@ await conn.query(
         params.push(userId);
       }
       
-      const orders = await conn.query(query, params);
+      const [orders] = await conn.query(query, params);
       return orders.length > 0 ? orders[0] : null;
     } finally {
       if (conn) conn.release();
@@ -184,7 +184,7 @@ await conn.query(
       
       query += ` ORDER BY created_at DESC `;
       
-      const orders = await conn.query(query, params);
+      const [orders] = await conn.query(query, params);
       
       if (userId && userId !== '[object Object]') {
         console.log(`📦 ${orders.length} commandes trouvées pour user ${userId}`);
@@ -237,13 +237,13 @@ await conn.query(
         params.push(userId);
       }
       
-      const orders = await conn.query(query, params);
+      const [orders] = await conn.query(query, params);
       
       if (orders.length === 0) return null;
       
       const order = orders[0];
       
-      order.items = await conn.query(`
+      const [items] = await conn.query(`
         SELECT 
           oi.id,
           oi.order_id,
@@ -257,6 +257,7 @@ await conn.query(
         LEFT JOIN products p ON oi.product_id = p.id
         WHERE oi.order_id = ?
       `, [id]);
+      order.items = items;
       
       return order;
     } finally {
@@ -351,12 +352,12 @@ await conn.query(
     try {
       conn = await pool.getConnection();
       
-      const existingOrder = await conn.query('SELECT * FROM orders WHERE id = ?', [id]);
-      if (existingOrder.length === 0) {
+      const [existingOrders] = await conn.query('SELECT * FROM orders WHERE id = ?', [id]);
+      if (existingOrders.length === 0) {
         throw new Error('Commande non trouvée');
       }
       
-      const result = await conn.query(`
+      const [result] = await conn.query(`
         UPDATE orders 
         SET status = ?
         WHERE id = ?
@@ -395,7 +396,7 @@ await conn.query(
         params.push(userId);
       }
       
-      const stats = await conn.query(query, params);
+      const [stats] = await conn.query(query, params);
       
       console.log(`📊 Stats${userId ? ` pour user ${userId}` : ''}:`, stats[0]);
       
@@ -416,7 +417,7 @@ await conn.query(
     let conn;
     try {
       conn = await pool.getConnection();
-      const orders = await conn.query(
+      const [orders] = await conn.query(
         'SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC',
         [userId]
       );
@@ -431,11 +432,11 @@ await conn.query(
     let conn;
     try {
       conn = await pool.getConnection();
-      const result = await conn.query(
+      const [rows] = await conn.query(
         'SELECT COUNT(*) as count FROM orders WHERE user_id = ?',
         [userId]
       );
-      const count = Number(result[0].count);
+      const count = Number(rows[0].count);
       console.log(`🔢 ${count} commandes au total pour user ${userId}`);
       return count;
     } finally {

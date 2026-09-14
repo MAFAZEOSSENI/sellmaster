@@ -7,6 +7,7 @@ const router = express.Router();
 // Routes publiques
 router.post('/register', AuthController.register);
 router.post('/login', AuthController.login);
+router.post('/google', AuthController.googleLogin);
 
 // Routes protégées
 router.get('/profile', authMiddleware, AuthController.getProfile);

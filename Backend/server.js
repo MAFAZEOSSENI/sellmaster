@@ -212,7 +212,7 @@ app.get('/api/user/orders', authMiddleware, async (req, res) => {
 
 app.get('/api/orders/:id', authMiddleware, async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id);
+    const order = await Order.findById(req.params.id, req.userId);
     if (!order) {
       return res.status(404).json({ error: 'Commande non trouvée' });
     }
@@ -232,12 +232,9 @@ app.patch('/api/orders/:id/status', authMiddleware, async (req, res) => {
     const { status } = req.body;
     console.log('🔄 Mise à jour statut pour user:', req.userId, req.params.id, status);
     
-    const order = await Order.findById(req.params.id);
+    const order = await Order.findById(req.params.id, req.userId);
     if (!order) {
-      return res.status(404).json({ error: 'Commande non trouvée' });
-    }
-    if (order.user_id !== req.userId) {
-      return res.status(403).json({ error: 'Accès non autorisé' });
+      return res.status(404).json({ error: 'Commande non trouvée ou non autorisée' });
     }
     
     const updatedOrder = await Order.updateStatus(req.params.id, status);

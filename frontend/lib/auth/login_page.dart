@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../auth/auth_provider.dart';
@@ -26,9 +27,6 @@ class _LoginPageState extends State<LoginPage> {
         _passwordController.text,
       );
       
-      // Retour à la page précédente après connexion réussie
-      Navigator.of(context).pop();
-      
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Connexion réussie! 🎉')),
       );
@@ -38,6 +36,26 @@ class _LoginPageState extends State<LoginPage> {
       );
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loginWithGoogle() async {
+    setState(() => _isLoading = true);
+    try {
+      final signedIn = await Provider.of<AuthProvider>(context, listen: false).loginWithGoogle();
+      if (!mounted) return;
+      if (signedIn) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Connexion Google réussie!')),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur Google: $error'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -109,6 +127,18 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                     ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _isLoading || (!kIsWeb && defaultTargetPlatform == TargetPlatform.linux)
+                    ? null
+                    : _loginWithGoogle,
+                icon: const Icon(Icons.login),
+                label: Text(
+                  (!kIsWeb && defaultTargetPlatform == TargetPlatform.linux)
+                      ? 'Google indisponible sur Linux'
+                      : 'Continuer avec Google',
+                ),
+              ),
               const SizedBox(height: 16),
               TextButton(
                 onPressed: () {

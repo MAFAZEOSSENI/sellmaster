@@ -8,7 +8,7 @@ class User {
     const connection = await pool.getConnection();
     try {
       // ✅ CORRECTION : Utiliser query() au lieu de execute() pour MariaDB
-      const result = await connection.query(
+      const [result] = await connection.query(
         `INSERT INTO app_users (email, password_hash, phone, trial_used, order_count, max_orders) 
          VALUES (?, ?, ?, FALSE, 0, 10)`,
         [email, passwordHash, phone]
@@ -64,12 +64,11 @@ static async findByEmail(email) {
  static async findById(id) {
   const connection = await pool.getConnection();
   try {
-    const result = await connection.query(
+      const [rows] = await connection.query(
       'SELECT id, email, phone, trial_used, order_count, max_orders, license_key, license_expiry FROM app_users WHERE id = ?',
       [id]
     );
     
-    const rows = Array.isArray(result) ? result : [result];
     if (rows.length > 0) {
       const user = rows[0];
       // ✅ Convertir BigInt en Number

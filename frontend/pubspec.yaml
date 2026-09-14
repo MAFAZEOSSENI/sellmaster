@@ -5,7 +5,7 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.9.2
+  sdk: ^3.5.4
 
  
 dependencies:
@@ -17,6 +17,7 @@ dependencies:
   shared_preferences: ^2.2.2
   intl: ^0.18.1
   cached_network_image: ^3.3.0
+  google_sign_in: ^6.2.1
    
   cupertino_icons: ^1.0.8
 

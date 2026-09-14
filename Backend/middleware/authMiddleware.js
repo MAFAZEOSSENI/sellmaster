@@ -9,6 +9,9 @@ const authMiddleware = (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'votre_secret_jwt');
+    if (decoded.userId === null || decoded.userId === undefined) {
+      return res.status(401).json({ error: 'Session invalide, veuillez vous reconnecter' });
+    }
     req.userId = decoded.userId;
     req.userEmail = decoded.email;
     

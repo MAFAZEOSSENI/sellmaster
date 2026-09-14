@@ -1,6 +1,10 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const { OAuth2Client } = require('google-auth-library');
 const User = require('../../models/User');
+
+const googleClient = new OAuth2Client();
 
 class AuthController {
   // Inscription
@@ -117,6 +121,66 @@ class AuthController {
     } catch (error) {
       console.error('Erreur connexion:', error);
       res.status(500).json({ error: 'Erreur lors de la connexion' });
+    }
+  }
+
+  // Connexion Google: le token Google est vérifié côté serveur avant émission du JWT Sellmaster.
+  static async googleLogin(req, res) {
+    try {
+      const { idToken } = req.body;
+      if (!idToken) {
+        return res.status(400).json({ error: 'Jeton Google requis' });
+      }
+
+      const audience = process.env.GOOGLE_CLIENT_ID || undefined;
+      const ticket = await googleClient.verifyIdToken({
+        idToken,
+        audience,
+      });
+      const payload = ticket.getPayload();
+
+      if (!payload || !payload.email || payload.email_verified !== true) {
+        return res.status(401).json({ error: 'Compte Google non vérifié' });
+      }
+
+      let user = await User.findByEmail(payload.email);
+      if (!user) {
+        const passwordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
+        user = await User.create({
+          email: payload.email,
+          passwordHash,
+          phone: null,
+        });
+      }
+
+      const userId = Number(user.id);
+      if (!Number.isInteger(userId) || userId <= 0) {
+        throw new Error('Identifiant utilisateur invalide');
+      }
+
+      const token = jwt.sign(
+        { userId, email: user.email },
+        process.env.JWT_SECRET || 'votre_secret_jwt',
+        { expiresIn: '30d' }
+      );
+
+      return res.json({
+        message: 'Connexion Google réussie',
+        user: {
+          id: userId,
+          email: user.email,
+          phone: user.phone,
+          trial_used: user.trial_used,
+          order_count: user.order_count,
+          max_orders: user.max_orders,
+          license_key: user.license_key,
+          license_expiry: user.license_expiry,
+        },
+        token,
+      });
+    } catch (error) {
+      console.error('Erreur connexion Google:', error);
+      return res.status(401).json({ error: 'Jeton Google invalide ou expiré' });
     }
   }
 

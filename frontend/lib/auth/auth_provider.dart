@@ -3,6 +3,10 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+
+const googleWebClientId =
+  '679713157139-e8r3ahd7milpcuvng9vfiruiijcghm12.apps.googleusercontent.com';
 
 class AuthProvider with ChangeNotifier {
   String? _token;
@@ -203,6 +207,58 @@ class AuthProvider with ChangeNotifier {
     } catch (error) {
       if (kDebugMode) {
         print('❌ Erreur connexion: $error');
+      }
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> loginWithGoogle() async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final googleUser = await GoogleSignIn(
+        clientId: googleWebClientId,
+      ).signIn();
+      if (googleUser == null) {
+        return false;
+      }
+
+      final authentication = await googleUser.authentication;
+      final idToken = authentication.idToken;
+      if (idToken == null || idToken.isEmpty) {
+        throw Exception('Google n’a pas fourni de jeton de connexion');
+      }
+
+      final response = await http.post(
+        Uri.parse('http://localhost:3000/api/auth/google'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'idToken': idToken}),
+      );
+
+      if (response.statusCode != 200) {
+        final error = json.decode(response.body);
+        throw Exception(error['error'] ?? 'Erreur de connexion Google');
+      }
+
+      final data = json.decode(response.body);
+      final receivedToken = data['token'];
+      final receivedUser = data['user'];
+      if (receivedToken is! String || receivedToken.isEmpty || receivedUser is! Map<String, dynamic>) {
+        throw Exception('Réponse de connexion Google invalide');
+      }
+
+      _token = receivedToken;
+      _user = receivedUser;
+      await AuthService().saveToken(_token!);
+      ApiService.setToken(_token!);
+      return true;
+    } catch (error) {
+      if (kDebugMode) {
+        print('❌ Erreur connexion Google: $error');
       }
       rethrow;
     } finally {

@@ -18,8 +18,30 @@ const pool = mysql.createPool({
   
   // Optionnel: Cast personnalisé
   dateStrings: true, // Dates en String ISO
-  charset: 'utf8mb4'
+  charset: 'utf8mb4',
+
+  // 🛡️ Robustesse réseau (utile pour bases distantes gratuites type Railway/Clever Cloud DEV)
+  connectTimeout: 20000, // 20s pour établir la connexion avant d'abandonner
+  enableKeepAlive: true, // Envoie des paquets keepalive pour éviter que le proxy ne coupe une connexion inactive
+  keepAliveInitialDelay: 10000 // Démarre le keepalive après 10s
 });
+
+// Réessaie automatiquement une requête si la connexion a été coupée par le proxy distant
+async function queryWithRetry(conn, sql, retries = 2) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await conn.query(sql);
+    } catch (error) {
+      const isConnectionLost = error.code === 'PROTOCOL_CONNECTION_LOST' || error.fatal;
+      if (isConnectionLost && attempt < retries) {
+        console.warn(`⚠️ Connexion perdue, nouvelle tentative (${attempt + 1}/${retries})...`);
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        continue;
+      }
+      throw error;
+    }
+  }
+}
 
 console.log('📊 Database config:', {
   host: process.env.MYSQLHOST,
@@ -28,4 +50,4 @@ console.log('📊 Database config:', {
   options: 'decimalNumbers: true, supportBigNumbers: true'
 });
 
-module.exports = { pool };
+module.exports = { pool, queryWithRetry };

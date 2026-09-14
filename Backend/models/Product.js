@@ -47,7 +47,7 @@ const Product = {
       console.log(`📝 Params: ${JSON.stringify(params)}`);
       
       // Utiliser query() pour MariaDB
-      const rows = await conn.query(query, params);
+      const [rows] = await conn.query(query, params);
       
       console.log(`✅ ${rows.length} lignes retournées par la DB`);
       
@@ -91,7 +91,7 @@ const Product = {
         params.push(userId);
       }
       
-      const rows = await conn.query(query, params);
+      const [rows] = await conn.query(query, params);
       
       if (rows.length === 0) {
         console.log(`❌ Produit ${id} non trouvé pour user ${userId}`);
@@ -126,7 +126,7 @@ const Product = {
         throw new Error('Nom et prix sont requis');
       }
       
-      const result = await conn.query(`
+      const [result] = await conn.query(`
         INSERT INTO products (
           user_id, 
           name, 
@@ -149,10 +149,11 @@ const Product = {
       console.log(`✅ Rows affected: ${result.affectedRows}`);
       
       // Récupérer le produit créé
-      const [newProduct] = await conn.query(
+      const [products] = await conn.query(
         'SELECT * FROM products WHERE id = ?',
         [result.insertId]
       );
+      const newProduct = products[0];
       
       if (!newProduct) {
         throw new Error('Produit créé mais non retrouvé');
@@ -198,7 +199,7 @@ const Product = {
         params.push(userId);
       }
       
-      const result = await conn.query(query, params);
+      const [result] = await conn.query(query, params);
       
       if (result.affectedRows === 0) {
         throw new Error('Produit non trouvé ou non autorisé');
@@ -228,7 +229,7 @@ const Product = {
         params.push(userId);
       }
       
-      const result = await conn.query(query, params);
+      const [result] = await conn.query(query, params);
       
       const deleted = result.affectedRows > 0;
       console.log(`✅ Produit ${id} ${deleted ? 'supprimé' : 'non trouvé'}`);
@@ -249,7 +250,7 @@ const Product = {
       
       console.log(`🔍 Recherche produits pour user ${userId}`);
       
-      const rows = await conn.query(
+      const [rows] = await conn.query(
         'SELECT * FROM products WHERE user_id = ? ORDER BY created_at DESC',
         [userId]
       );
