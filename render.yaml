@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: sellmaster-backend
+    runtime: node
+    rootDir: Backend
+    buildCommand: npm ci
+    startCommand: npm start
