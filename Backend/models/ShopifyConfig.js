@@ -39,6 +39,27 @@ class ShopifyConfig {
     }
   }
 
+  // Trouver un store par le domaine Shopify
+  static async findByShopName(shopName) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      const normalizedShopName = shopName
+        .replace(/^https?:\/\//i, '')
+        .replace(/\.myshopify\.com.*$/i, '')
+        .replace(/\.myshopify\.com$/i, '')
+        .trim();
+
+      const [config] = await conn.query(
+        `SELECT * FROM shopify_configs WHERE LOWER(REPLACE(shop_name, 'https://', '')) LIKE ? LIMIT 1`,
+        [`%${normalizedShopName}%`]
+      );
+      return config || null;
+    } finally {
+      if (conn) conn.release();
+    }
+  }
+
   // Créer un nouveau store
   static async create(storeData, userId) {
     let conn;

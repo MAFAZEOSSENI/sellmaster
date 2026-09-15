@@ -20,6 +20,9 @@ app.use(cors({
   exposedHeaders: ['Authorization'], // ESSENTIEL pour que mobile puisse lire le header
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin']
 }));
+
+// Pour les webhooks Shopify, il faut traiter le body brut (signature HMAC)
+app.use('/api/shopify/webhook', express.raw({ type: 'application/json', limit: '10mb' }));
 app.use(express.json({ limit: '10mb' }));
 // Middleware pour set les headers CORS explicitement
 app.use((req, res, next) => {

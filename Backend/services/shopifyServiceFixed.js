@@ -15,7 +15,7 @@ class ShopifyServiceFixed {
       }
       cleanName = cleanName.replace('https://', '').replace('http://', '').trim();
       
-      const url = `https://${cleanName}.myshopify.com/admin/api/2024-01/products.json?limit=1`;
+      const url = `https://${cleanName}.myshopify.com/admin/api/${SHOPIFY_API_VERSION}/products.json?limit=1`;
       
       console.log(`🔗 [FIXED] URL: ${url}`);
       
@@ -48,7 +48,7 @@ class ShopifyServiceFixed {
       let cleanName = shopName.replace('.myshopify.com', '').trim();
       cleanName = cleanName.replace('https://', '').replace('http://', '');
       
-      const url = `https://${cleanName}.myshopify.com/admin/api/2024-01/orders/count.json`;
+      const url = `https://${cleanName}.myshopify.com/admin/api/${SHOPIFY_API_VERSION}/orders/count.json`;
       
       const response = await axios.get(url, {
         headers: {

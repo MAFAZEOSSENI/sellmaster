@@ -2,6 +2,8 @@ const ShopifyConfig = require('../models/ShopifyConfig');
 const Order = require('../models/Order');
 const axios = require('axios');
 
+const SHOPIFY_API_VERSION = '2026-07';
+
 class ShopifyService {
   constructor(userId) {
     this.userId = userId;
@@ -19,7 +21,7 @@ class ShopifyService {
       }
       cleanShopName = cleanShopName.replace('https://', '').replace('http://', '').trim();
       
-      const url = `https://${cleanShopName}.myshopify.com/admin/api/2024-01/shop.json`;
+      const url = `https://${cleanShopName}.myshopify.com/admin/api/${SHOPIFY_API_VERSION}/shop.json`;
       
       console.log(`🔗 URL: ${url}`);
       
@@ -70,7 +72,7 @@ class ShopifyService {
       }
       cleanShopName = cleanShopName.replace('https://', '').replace('http://', '').trim();
       
-      const url = `https://${cleanShopName}.myshopify.com/admin/api/2024-01/orders.json?limit=${limit}&status=any`;
+      const url = `https://${cleanShopName}.myshopify.com/admin/api/${SHOPIFY_API_VERSION}/orders.json?limit=${limit}&status=any`;
       
       const response = await axios.get(url, {
         headers: {
@@ -404,7 +406,7 @@ class ShopifyService {
       }
       cleanShopName = cleanShopName.replace('https://', '').replace('http://', '').trim();
       
-      const url = `https://${cleanShopName}.myshopify.com/admin/api/2024-01/orders/count.json`;
+      const url = `https://${cleanShopName}.myshopify.com/admin/api/${SHOPIFY_API_VERSION}/orders/count.json`;
       
       const response = await axios.get(url, {
         headers: {
