@@ -88,6 +88,38 @@ class ShopifyConfig {
     }
   }
 
+  // Créer ou mettre à jour une boutique connectée via OAuth
+  static async upsertOAuthStore(storeData, userId) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      const [existing] = await conn.query(
+        `SELECT id FROM shopify_configs WHERE shop_name = ? AND user_id = ? LIMIT 1`,
+        [storeData.shopName, userId]
+      );
+
+      if (existing.length > 0) {
+        await conn.query(
+          `UPDATE shopify_configs
+           SET api_key = ?, access_token = ?, is_active = 1, connected_at = NOW()
+           WHERE id = ? AND user_id = ?`,
+          [storeData.apiKey, storeData.accessToken, existing[0].id, userId]
+        );
+        return { id: existing[0].id, shop_name: storeData.shopName, user_id: userId };
+      }
+
+      const [result] = await conn.query(`
+        INSERT INTO shopify_configs
+        (shop_name, api_key, access_token, user_id, is_active, connected_at)
+        VALUES (?, ?, ?, ?, 1, NOW())
+      `, [storeData.shopName, storeData.apiKey, storeData.accessToken, userId]);
+
+      return { id: result.insertId, shop_name: storeData.shopName, user_id: userId };
+    } finally {
+      if (conn) conn.release();
+    }
+  }
+
   // Mettre à jour le dernier sync
   static async updateLastSync(id, userId) {
     let conn;
