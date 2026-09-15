@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import '../models/product.dart';
 import '../models/order.dart';
-import 'dart:io';
 import 'auth_service.dart';
 
 class ApiService {
@@ -273,27 +273,28 @@ class ApiService {
 
   // ==================== UPLOAD ====================
 
-  static Future<String> uploadImage(File imageFile) async {
+  static Future<String> uploadImage(XFile imageFile) async {
     try {
-      var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/upload'));
-      
-      // Ajouter le token d'auth
+      final imageBytes = await imageFile.readAsBytes();
+      final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/upload'));
+
       final headers = await _getHeaders();
       if (headers.containsKey('Authorization')) {
         request.headers['Authorization'] = headers['Authorization']!;
       }
-      
+
       request.files.add(
-        await http.MultipartFile.fromPath(
+        http.MultipartFile.fromBytes(
           'image',
-          imageFile.path,
+          imageBytes,
+          filename: imageFile.name,
         ),
       );
 
-      var response = await request.send();
+      final response = await request.send();
       if (response.statusCode == 200) {
-        var responseData = await response.stream.bytesToString();
-        var jsonResponse = json.decode(responseData);
+        final responseData = await response.stream.bytesToString();
+        final jsonResponse = json.decode(responseData);
         return jsonResponse['imageUrl'];
       } else {
         throw Exception('Erreur upload image: ${response.statusCode}');
@@ -304,7 +305,7 @@ class ApiService {
     }
   }
 
-  static Future<void> addProductWithImage(Product product, File? imageFile) async {
+  static Future<void> addProductWithImage(Product product, XFile? imageFile) async {
     try {
       await addProduct(product);
     } catch (e) {

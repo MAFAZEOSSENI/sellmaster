@@ -1,6 +1,6 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 import '../services/api_service.dart';
 import '../models/product.dart';
 
@@ -454,7 +454,7 @@ class ProductCard extends StatelessWidget {
                 ),
                 image: product.imageUrl != null && product.imageUrl!.isNotEmpty
                     ? DecorationImage(
-                        image: NetworkImage('http://localhost:3000${product.imageUrl!}'),
+                        image: NetworkImage('https://sellmaster-1.onrender.com${product.imageUrl!}'),
                         fit: BoxFit.cover,
                       )
                     : null,
@@ -839,16 +839,19 @@ class AddProductDialogState extends State<AddProductDialog> {
   final _stockController = TextEditingController();
   final _descriptionController = TextEditingController();
   
-  File? _selectedImage;
+  XFile? _selectedImage;
+  Uint8List? _selectedImageBytes;
   bool _isLoading = false;
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    
+
     if (pickedFile != null) {
+      final imageBytes = await pickedFile.readAsBytes();
       setState(() {
-        _selectedImage = File(pickedFile.path);
+        _selectedImage = pickedFile;
+        _selectedImageBytes = imageBytes;
       });
     }
   }
@@ -964,11 +967,11 @@ class AddProductDialogState extends State<AddProductDialog> {
                         width: 2,
                       ),
                     ),
-                    child: _selectedImage != null
+                    child: _selectedImage != null && _selectedImageBytes != null
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(10),
-                            child: Image.file(
-                              _selectedImage!,
+                            child: Image.memory(
+                              _selectedImageBytes!,
                               fit: BoxFit.cover,
                             ),
                           )
