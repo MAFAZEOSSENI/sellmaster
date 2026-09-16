@@ -16,7 +16,11 @@ const SHOPIFY_REDIRECT_URI = process.env.SHOPIFY_REDIRECT_URI || 'https://sellma
 const FRONTEND_URL = process.env.SHOPIFY_FRONTEND_URL || 'https://sellmaster.web.app';
 
 function normalizeShopDomain(shop) {
-  const value = String(shop || '').trim().toLowerCase();
+  const value = String(shop || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/\/$/, '');
   const domain = value.endsWith('.myshopify.com') ? value : `${value}.myshopify.com`;
   if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(domain)) {
     throw new Error('Nom de boutique Shopify invalide');
@@ -160,7 +164,7 @@ router.get('/auth/callback', async (req, res) => {
       console.error('[Shopify OAuth] Missing Shopify client secret');
       return res.status(500).send('Shopify OAuth is not configured');
     }
-    if (decoded.shop !== shopDomain) {
+    if (normalizeShopDomain(decoded.shop) !== shopDomain) {
       console.warn('[Shopify OAuth] State/shop mismatch:', {
         stateShop: decoded.shop,
         callbackShop: shopDomain
