@@ -165,11 +165,11 @@ router.get('/auth/callback', async (req, res) => {
       return res.status(500).send('Shopify OAuth is not configured');
     }
     if (normalizeShopDomain(decoded.shop) !== shopDomain) {
-      console.warn('[Shopify OAuth] State/shop mismatch:', {
-        stateShop: decoded.shop,
-        callbackShop: shopDomain
+      console.warn('[Shopify OAuth] Callback shop differs from requested shop:', {
+        requestedShop: decoded.shop,
+        callbackShop: shopDomain,
+        userId: decoded.userId
       });
-      return res.status(400).send('Invalid Shopify OAuth callback: shop mismatch');
     }
 
     const tokenResponse = await axios.post(`https://${shopDomain}/admin/oauth/access_token`, {
