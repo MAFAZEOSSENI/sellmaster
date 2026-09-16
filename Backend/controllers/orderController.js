@@ -2,7 +2,7 @@ const Order = require('../models/Order');
 
 exports.getAllOrders = async (req, res) => {
   try {
-    const orders = await Order.findAll();
+    const orders = await Order.findAll(req.userId);
     res.json(orders);
   } catch (error) {
     res.status(500).json({ error: error.message });

@@ -447,11 +447,11 @@ await conn.query(
     let conn;
     try {
       conn = await pool.getConnection();
-      const [order] = await conn.query(
+      const [orders] = await conn.query(
         'SELECT * FROM orders WHERE shopify_order_id = ?',
         [shopifyOrderId]
       );
-      return order;
+      return orders[0] || null;
     } finally {
       if (conn) conn.release();
     }
@@ -514,10 +514,10 @@ async createFromShopify(orderData, userId) {
       INSERT INTO orders (
         user_id, client_name, client_phone, 
         client_address, total_amount, 
-        status, notes,
+        status, notes, source,
         products, shopify_order_id, shopify_store_id, shopify_data,
         custom_order_number, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     `, [
       userId,                                  // user_id
       orderData.customer_name || '',           // client_name
@@ -526,6 +526,7 @@ async createFromShopify(orderData, userId) {
       totalAmount,                             // total_amount (déjà parsé)
       orderData.status || 'en_attente',        // status
       orderData.notes || '',                   // notes
+      'shopify',                               // source
       orderData.products || '[]',              // products
       safeShopifyOrderId,                      // shopify_order_id
       orderData.shopify_store_id || null,      // shopify_store_id
