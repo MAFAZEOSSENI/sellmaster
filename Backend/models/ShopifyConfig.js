@@ -14,8 +14,8 @@ class ShopifyConfig {
         params.push(userId);
       }
       
-      const [config] = await conn.query(query, params);
-      return config;
+      const [configs] = await conn.query(query, params);
+      return configs[0] || null;
     } finally {
       if (conn) conn.release();
     }
@@ -50,11 +50,11 @@ class ShopifyConfig {
         .replace(/\.myshopify\.com$/i, '')
         .trim();
 
-      const [config] = await conn.query(
+      const [configs] = await conn.query(
         `SELECT * FROM shopify_configs WHERE LOWER(REPLACE(shop_name, 'https://', '')) LIKE ? LIMIT 1`,
         [`%${normalizedShopName}%`]
       );
-      return config || null;
+      return configs[0] || null;
     } finally {
       if (conn) conn.release();
     }
