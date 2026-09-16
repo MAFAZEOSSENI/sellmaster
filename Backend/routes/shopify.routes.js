@@ -135,11 +135,37 @@ router.get('/auth/start', authMiddleware, (req, res) => {
 router.get('/auth/callback', async (req, res) => {
   try {
     const { code, state, shop } = req.query;
+    if (req.query.error) {
+      console.warn('[Shopify OAuth] Merchant declined or Shopify returned an error:', {
+        error: req.query.error,
+        errorDescription: req.query.error_description,
+        shop
+      });
+      return res.redirect(`${FRONTEND_URL}?shopify=cancelled`);
+    }
+
+    if (!code || !state || !shop) {
+      console.warn('[Shopify OAuth] Missing callback parameters:', {
+        hasCode: Boolean(code),
+        hasState: Boolean(state),
+        hasShop: Boolean(shop)
+      });
+      return res.status(400).send('Invalid Shopify OAuth callback: missing parameters');
+    }
+
     const decoded = jwt.verify(String(state || ''), process.env.JWT_SECRET || 'votre_secret_jwt');
     const shopDomain = normalizeShopDomain(shop || decoded.shop);
     const secret = getShopifySecret();
-    if (!code || !secret || decoded.shop !== shopDomain) {
-      return res.status(400).send('Invalid Shopify OAuth callback');
+    if (!secret) {
+      console.error('[Shopify OAuth] Missing Shopify client secret');
+      return res.status(500).send('Shopify OAuth is not configured');
+    }
+    if (decoded.shop !== shopDomain) {
+      console.warn('[Shopify OAuth] State/shop mismatch:', {
+        stateShop: decoded.shop,
+        callbackShop: shopDomain
+      });
+      return res.status(400).send('Invalid Shopify OAuth callback: shop mismatch');
     }
 
     const tokenResponse = await axios.post(`https://${shopDomain}/admin/oauth/access_token`, {
