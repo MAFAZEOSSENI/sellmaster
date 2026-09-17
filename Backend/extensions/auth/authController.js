@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
 const User = require('../../models/User');
+const Rbac = require('../../models/Rbac');
 
 const googleClient = new OAuth2Client();
 
@@ -201,7 +202,8 @@ class AuthController {
           order_count: user.order_count,
           max_orders: user.max_orders,
           license_key: user.license_key,
-          license_expiry: user.license_expiry
+          license_expiry: user.license_expiry,
+          roles: await Rbac.getRolesForUser(req.userId)
         }
       });
 

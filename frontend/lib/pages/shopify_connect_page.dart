@@ -42,7 +42,10 @@ class _ShopifyConnectPageState extends State<ShopifyConnectPage> {
         throw Exception(json.decode(response.body)['error'] ?? 'Erreur Shopify');
       }
       final url = json.decode(response.body)['url'] as String;
-      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      final launched = await launchUrl(Uri.parse(url), mode: LaunchMode.platformDefault);
+      if (!launched) {
+        throw Exception('Impossible d’ouvrir la page Shopify');
+      }
     } catch (error) {
       if (mounted) {
         setState(() {

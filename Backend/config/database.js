@@ -27,10 +27,14 @@ const pool = mysql.createPool({
 });
 
 // Réessaie automatiquement une requête si la connexion a été coupée par le proxy distant
-async function queryWithRetry(conn, sql, retries = 2) {
+async function queryWithRetry(conn, sql, params = [], retries = 2) {
+  if (typeof params === 'number') {
+    retries = params;
+    params = [];
+  }
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      return await conn.query(sql);
+      return await conn.query(sql, params);
     } catch (error) {
       const isConnectionLost = error.code === 'PROTOCOL_CONNECTION_LOST' || error.fatal;
       if (isConnectionLost && attempt < retries) {

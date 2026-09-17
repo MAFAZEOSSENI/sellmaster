@@ -1,4 +1,5 @@
  const { pool } = require('../config/database');
+const Rbac = require('./Rbac');
 
 class User {
   // Créer un nouvel utilisateur - ✅ CORRIGÉ
@@ -16,6 +17,11 @@ class User {
       
       // ✅ CORRECTION : result est déjà l'objet d'insertion
       console.log('📝 Résultat insertion:', result);
+      try {
+        await Rbac.assignRole(result.insertId, 'owner');
+      } catch (error) {
+        console.warn('⚠️ Rôle owner non assigné:', error.message);
+      }
       return { id: result.insertId, email, phone };
     } finally {
       connection.release();
