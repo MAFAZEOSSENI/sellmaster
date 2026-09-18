@@ -4,6 +4,28 @@ const Rbac = require('../../models/Rbac');
 
 const allowedTeamRoles = ['manager', 'closer', 'courier'];
 
+async function ensureExclusiveManagerAssignment(conn, { memberUserId, ownerUserId, roleName }) {
+  const normalizedRole = String(roleName || '').trim().toLowerCase();
+  if (normalizedRole !== 'manager') {
+    return;
+  }
+
+  const [rows] = await conn.query(
+    `SELECT id
+     FROM team_memberships
+     WHERE member_user_id = ?
+       AND role_name = 'manager'
+       AND status IN ('pending', 'active')
+       AND owner_user_id != ?
+     LIMIT 1`,
+    [memberUserId, ownerUserId]
+  );
+
+  if (rows.length > 0) {
+    throw new Error('Un manager ne peut pas travailler pour plusieurs e-commerçants.');
+  }
+}
+
 const adminController = {
   async get(req, res) {
     res.json({
@@ -60,8 +82,10 @@ const adminController = {
 
   async searchUsers(req, res) {
     try {
-      const { q } = req.query;
-      const users = await User.searchUsers(q || '');
+      const { q, role } = req.query;
+      const ownerUserId = Number(req.userId);
+      const targetRole = String(role || '').trim().toLowerCase();
+      const users = await User.searchUsers(q || '', ownerUserId, targetRole || null);
       res.json({ users });
     } catch (error) {
       console.error('[ADMIN] Search users error:', error);
@@ -103,6 +127,8 @@ const adminController = {
       const memberUserId = Number(existingUser.id);
       const conn = await pool.getConnection();
       try {
+        await ensureExclusiveManagerAssignment(conn, { memberUserId, ownerUserId, roleName });
+
         await conn.query(
           `INSERT INTO team_memberships (owner_user_id, member_user_id, role_name, status, invited_by)
            VALUES (?, ?, ?, 'pending', ?)
@@ -187,6 +213,8 @@ const adminController = {
 
       const conn = await pool.getConnection();
       try {
+        await ensureExclusiveManagerAssignment(conn, { memberUserId: Number(memberUserId), ownerUserId: Number(req.userId), roleName });
+
         await conn.query(
           `INSERT INTO team_memberships (owner_user_id, member_user_id, role_name, status, invited_by)
            VALUES (?, ?, ?, 'pending', ?)
@@ -273,6 +301,28 @@ const adminController = {
       }
 
       const normalizedRoles = [...new Set(roles.map((role) => String(role).trim().toLowerCase()).filter(Boolean))];
+      const conn = await pool.getConnection();
+      try {
+        if (normalizedRoles.includes('manager')) {
+          const [rows] = await conn.query(
+            `SELECT id
+             FROM team_memberships
+             WHERE member_user_id = ?
+               AND role_name = 'manager'
+               AND status IN ('pending', 'active')
+               AND owner_user_id != ?
+             LIMIT 1`,
+            [Number(id), Number(req.userId)]
+          );
+
+          if (rows.length > 0) {
+            return res.status(400).json({ error: 'Un manager ne peut pas travailler pour plusieurs e-commerçants.' });
+          }
+        }
+      } finally {
+        conn.release();
+      }
+
       await Rbac.setRolesForUser(Number(id), normalizedRoles);
 
       const updatedUser = (await Rbac.getUsersWithRoles()).find((user) => Number(user.id) === Number(id));

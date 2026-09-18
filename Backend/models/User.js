@@ -77,34 +77,55 @@ class User {
     }
   }
 
-  static async searchUsers(query) {
+  static async searchUsers(query, ownerUserId = null, roleName = null) {
     const connection = await pool.getConnection();
     try {
-      const q = `%${String(query || '').trim()}%`;
-      if (!q || q === '%%') {
+      const trimmedQuery = String(query || '').trim();
+      const q = `%${trimmedQuery}%`;
+      if (!trimmedQuery || q === '%%') {
         return [];
       }
 
       const [columns] = await connection.query('SHOW COLUMNS FROM app_users');
       const hasFullName = columns.some((column) => column.Field === 'full_name');
 
-      const [rows] = hasFullName
-        ? await connection.query(
-            `SELECT id, email, phone, full_name, trial_used, order_count, max_orders
-             FROM app_users
-             WHERE full_name LIKE ? OR email LIKE ? OR phone LIKE ?
-             ORDER BY full_name IS NOT NULL DESC, email ASC
-             LIMIT 20`,
-            [q, q, q]
-          )
-        : await connection.query(
-            `SELECT id, email, phone, trial_used, order_count, max_orders
-             FROM app_users
-             WHERE email LIKE ? OR phone LIKE ?
-             ORDER BY email ASC
-             LIMIT 20`,
-            [q, q]
-          );
+      const params = [q, q, q];
+      const baseSql = hasFullName
+        ? `SELECT id, email, phone, full_name, trial_used, order_count, max_orders
+           FROM app_users
+           WHERE (full_name LIKE ? OR email LIKE ? OR phone LIKE ?)`
+        : `SELECT id, email, phone, trial_used, order_count, max_orders
+           FROM app_users
+           WHERE (email LIKE ? OR phone LIKE ?)`;
+
+      let sql = baseSql;
+      const values = [...params];
+
+      if (ownerUserId !== null && ownerUserId !== undefined && Number(ownerUserId) > 0) {
+        sql += ` AND id != ? AND id NOT IN (
+          SELECT member_user_id
+          FROM team_memberships
+          WHERE owner_user_id = ? AND status IN ('pending', 'active')
+        )`;
+        values.push(Number(ownerUserId), Number(ownerUserId));
+      }
+
+      if (String(roleName || '').trim().toLowerCase() === 'manager') {
+        sql += ` AND id NOT IN (
+          SELECT member_user_id
+          FROM team_memberships
+          WHERE role_name = 'manager'
+            AND status IN ('pending', 'active')
+            AND owner_user_id != ?
+        )`;
+        values.push(Number(ownerUserId || 0));
+      }
+
+      sql += hasFullName
+        ? ` ORDER BY full_name IS NOT NULL DESC, email ASC LIMIT 20`
+        : ` ORDER BY email ASC LIMIT 20`;
+
+      const [rows] = await connection.query(sql, values);
 
       return rows.map((row) => ({
         id: Number(row.id),
