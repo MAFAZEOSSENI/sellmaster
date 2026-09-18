@@ -28,8 +28,34 @@ async function createTables() {
         status VARCHAR(20) DEFAULT 'dashboard',
         total_amount DECIMAL(10,2) NOT NULL,
         notes TEXT,
+        user_id INT NULL,
+        assigned_to INT NULL,
+        assigned_by INT NULL,
+        assigned_at TIMESTAMP NULL,
+        assignment_note TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
+    `);
+
+    await queryWithRetry(conn, `
+      ALTER TABLE orders
+      ADD COLUMN IF NOT EXISTS user_id INT NULL AFTER notes
+    `);
+    await queryWithRetry(conn, `
+      ALTER TABLE orders
+      ADD COLUMN IF NOT EXISTS assigned_to INT NULL AFTER user_id
+    `);
+    await queryWithRetry(conn, `
+      ALTER TABLE orders
+      ADD COLUMN IF NOT EXISTS assigned_by INT NULL AFTER assigned_to
+    `);
+    await queryWithRetry(conn, `
+      ALTER TABLE orders
+      ADD COLUMN IF NOT EXISTS assigned_at TIMESTAMP NULL AFTER assigned_by
+    `);
+    await queryWithRetry(conn, `
+      ALTER TABLE orders
+      ADD COLUMN IF NOT EXISTS assignment_note TEXT AFTER assigned_at
     `);
 
     // Table order_items (AJOUT CRITIQUE)

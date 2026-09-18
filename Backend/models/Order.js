@@ -165,6 +165,10 @@ await conn.query(
           source,
           shopify_order_id,
           user_id,
+          assigned_to,
+          assigned_by,
+          assigned_at,
+          assignment_note,
           custom_order_number,
           CASE 
             WHEN shopify_order_id IS NOT NULL THEN CAST(shopify_order_id AS CHAR)
@@ -221,6 +225,10 @@ await conn.query(
           updated_at,
           source,
           user_id,
+          assigned_to,
+          assigned_by,
+          assigned_at,
+          assignment_note,
           custom_order_number,
           CASE 
             WHEN shopify_order_id IS NOT NULL THEN CAST(shopify_order_id AS CHAR)
@@ -365,6 +373,31 @@ await conn.query(
       
       console.log('Résultat mise à jour:', result);
       
+      return await this.findById(id);
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
+  async assignToOrder(id, assigneeUserId, assignedByUserId = null, assignmentNote = null) {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+
+      const [existingOrders] = await conn.query('SELECT * FROM orders WHERE id = ?', [id]);
+      if (existingOrders.length === 0) {
+        throw new Error('Commande non trouvée');
+      }
+
+      const targetUserId = assigneeUserId !== undefined && assigneeUserId !== null ? Number(assigneeUserId) : null;
+      const byUserId = assignedByUserId !== undefined && assignedByUserId !== null ? Number(assignedByUserId) : null;
+
+      await conn.query(`
+        UPDATE orders
+        SET assigned_to = ?, assigned_by = ?, assigned_at = NOW(), assignment_note = ?
+        WHERE id = ?
+      `, [targetUserId, byUserId, assignmentNote ?? null, id]);
+
       return await this.findById(id);
     } finally {
       if (conn) conn.release();

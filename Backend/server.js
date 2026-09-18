@@ -248,6 +248,30 @@ app.patch('/api/orders/:id/status', authMiddleware, async (req, res) => {
   }
 });
 
+app.patch('/api/orders/:id/assign', authMiddleware, async (req, res) => {
+  try {
+    const { user_id, assignment_note } = req.body;
+    const assigneeUserId = user_id !== undefined && user_id !== null ? user_id : req.userId;
+
+    const order = await Order.findById(req.params.id, req.userId);
+    if (!order) {
+      return res.status(404).json({ error: 'Commande non trouvée ou non autorisée' });
+    }
+
+    const updatedOrder = await Order.assignToOrder(
+      req.params.id,
+      assigneeUserId,
+      req.userId,
+      assignment_note || `Assignée par ${req.userId}`
+    );
+
+    res.json(updatedOrder);
+  } catch (error) {
+    console.error('❌ Erreur attribution commande:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
 app.get('/api/orders/stats/dashboard', authMiddleware, async (req, res) => {
   try {
     console.log('📊 Récupération stats pour user:', req.userId);
