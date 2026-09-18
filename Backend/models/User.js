@@ -8,12 +8,20 @@ class User {
     const connection = await pool.getConnection();
     try {
       const assignedRole = ['owner', 'manager', 'closer', 'courier'].includes(role) ? role : 'owner';
+      const [columns] = await connection.query('SHOW COLUMNS FROM app_users');
+      const hasFullName = columns.some((column) => column.Field === 'full_name');
 
-      const [result] = await connection.query(
-        `INSERT INTO app_users (email, password_hash, phone, full_name, trial_used, order_count, max_orders)
-         VALUES (?, ?, ?, ?, FALSE, 0, 10)`,
-        [email, passwordHash, phone || null, fullName || null]
-      );
+      const [result] = hasFullName
+        ? await connection.query(
+            `INSERT INTO app_users (email, password_hash, phone, full_name, trial_used, order_count, max_orders)
+             VALUES (?, ?, ?, ?, FALSE, 0, 10)`,
+            [email, passwordHash, phone || null, fullName || null]
+          )
+        : await connection.query(
+            `INSERT INTO app_users (email, password_hash, phone, trial_used, order_count, max_orders)
+             VALUES (?, ?, ?, FALSE, 0, 10)`,
+            [email, passwordHash, phone || null]
+          );
 
       console.log('📝 Résultat insertion:', result);
 
@@ -77,20 +85,32 @@ class User {
         return [];
       }
 
-      const [rows] = await connection.query(
-        `SELECT id, email, phone, full_name, trial_used, order_count, max_orders
-         FROM app_users
-         WHERE full_name LIKE ? OR email LIKE ? OR phone LIKE ?
-         ORDER BY full_name IS NOT NULL DESC, email ASC
-         LIMIT 20`,
-        [q, q, q]
-      );
+      const [columns] = await connection.query('SHOW COLUMNS FROM app_users');
+      const hasFullName = columns.some((column) => column.Field === 'full_name');
+
+      const [rows] = hasFullName
+        ? await connection.query(
+            `SELECT id, email, phone, full_name, trial_used, order_count, max_orders
+             FROM app_users
+             WHERE full_name LIKE ? OR email LIKE ? OR phone LIKE ?
+             ORDER BY full_name IS NOT NULL DESC, email ASC
+             LIMIT 20`,
+            [q, q, q]
+          )
+        : await connection.query(
+            `SELECT id, email, phone, trial_used, order_count, max_orders
+             FROM app_users
+             WHERE email LIKE ? OR phone LIKE ?
+             ORDER BY email ASC
+             LIMIT 20`,
+            [q, q]
+          );
 
       return rows.map((row) => ({
         id: Number(row.id),
         email: row.email,
         phone: row.phone,
-        full_name: row.full_name,
+        full_name: row.full_name || (row.email ? row.email.split('@')[0] : null),
         trial_used: row.trial_used,
         order_count: Number(row.order_count || 0),
         max_orders: Number(row.max_orders || 10),
@@ -103,8 +123,13 @@ class User {
   static async findById(id) {
     const connection = await pool.getConnection();
     try {
+      const [columns] = await connection.query('SHOW COLUMNS FROM app_users');
+      const hasFullName = columns.some((column) => column.Field === 'full_name');
+
       const [rows] = await connection.query(
-        'SELECT id, email, phone, full_name, trial_used, order_count, max_orders, license_key, license_expiry FROM app_users WHERE id = ?',
+        hasFullName
+          ? 'SELECT id, email, phone, full_name, trial_used, order_count, max_orders, license_key, license_expiry FROM app_users WHERE id = ?'
+          : 'SELECT id, email, phone, trial_used, order_count, max_orders, license_key, license_expiry FROM app_users WHERE id = ?',
         [id]
       );
 

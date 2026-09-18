@@ -1,20 +1,29 @@
 const { pool, queryWithRetry } = require('../config/database');
 
-async function ensureOrderAssignmentColumns(conn) {
-  const [columns] = await conn.query('SHOW COLUMNS FROM orders');
+async function ensureColumnExists(conn, tableName, columnName, columnSql) {
+  const [columns] = await conn.query(`SHOW COLUMNS FROM ${tableName}`);
   const columnNames = new Set(columns.map((column) => column.Field));
 
+  if (!columnNames.has(columnName)) {
+    await conn.query(`ALTER TABLE ${tableName} ${columnSql}`);
+  }
+}
+
+async function ensureOrderAssignmentColumns(conn) {
+  const columns = await conn.query('SHOW COLUMNS FROM orders');
+  const columnNames = new Set(columns[0].map((column) => column.Field));
+
   const migrations = [
-    { name: 'user_id', sql: 'ALTER TABLE orders ADD COLUMN user_id INT NULL AFTER notes' },
-    { name: 'assigned_to', sql: 'ALTER TABLE orders ADD COLUMN assigned_to INT NULL AFTER user_id' },
-    { name: 'assigned_by', sql: 'ALTER TABLE orders ADD COLUMN assigned_by INT NULL AFTER assigned_to' },
-    { name: 'assigned_at', sql: 'ALTER TABLE orders ADD COLUMN assigned_at TIMESTAMP NULL AFTER assigned_by' },
-    { name: 'assignment_note', sql: 'ALTER TABLE orders ADD COLUMN assignment_note TEXT AFTER assigned_at' },
+    { name: 'user_id', sql: 'ADD COLUMN user_id INT NULL AFTER notes' },
+    { name: 'assigned_to', sql: 'ADD COLUMN assigned_to INT NULL AFTER user_id' },
+    { name: 'assigned_by', sql: 'ADD COLUMN assigned_by INT NULL AFTER assigned_to' },
+    { name: 'assigned_at', sql: 'ADD COLUMN assigned_at TIMESTAMP NULL AFTER assigned_by' },
+    { name: 'assignment_note', sql: 'ADD COLUMN assignment_note TEXT AFTER assigned_at' },
   ];
 
   for (const migration of migrations) {
     if (!columnNames.has(migration.name)) {
-      await conn.query(migration.sql);
+      await conn.query(`ALTER TABLE orders ${migration.sql}`);
     }
   }
 }
@@ -76,26 +85,11 @@ async function createTables() {
       )
     `);
 
-    await queryWithRetry(conn, `
-      ALTER TABLE orders
-      ADD COLUMN IF NOT EXISTS user_id INT NULL AFTER notes
-    `);
-    await queryWithRetry(conn, `
-      ALTER TABLE orders
-      ADD COLUMN IF NOT EXISTS assigned_to INT NULL AFTER user_id
-    `);
-    await queryWithRetry(conn, `
-      ALTER TABLE orders
-      ADD COLUMN IF NOT EXISTS assigned_by INT NULL AFTER assigned_to
-    `);
-    await queryWithRetry(conn, `
-      ALTER TABLE orders
-      ADD COLUMN IF NOT EXISTS assigned_at TIMESTAMP NULL AFTER assigned_by
-    `);
-    await queryWithRetry(conn, `
-      ALTER TABLE orders
-      ADD COLUMN IF NOT EXISTS assignment_note TEXT AFTER assigned_at
-    `);
+    await ensureColumnExists(conn, 'orders', 'user_id', 'ADD COLUMN user_id INT NULL AFTER notes');
+    await ensureColumnExists(conn, 'orders', 'assigned_to', 'ADD COLUMN assigned_to INT NULL AFTER user_id');
+    await ensureColumnExists(conn, 'orders', 'assigned_by', 'ADD COLUMN assigned_by INT NULL AFTER assigned_to');
+    await ensureColumnExists(conn, 'orders', 'assigned_at', 'ADD COLUMN assigned_at TIMESTAMP NULL AFTER assigned_by');
+    await ensureColumnExists(conn, 'orders', 'assignment_note', 'ADD COLUMN assignment_note TEXT AFTER assigned_at');
 
     // Table order_items (AJOUT CRITIQUE)
     await queryWithRetry(conn, `
@@ -112,10 +106,7 @@ async function createTables() {
       )
     `);
 
-    await queryWithRetry(conn, `
-      ALTER TABLE app_users
-      ADD COLUMN IF NOT EXISTS full_name VARCHAR(255) NULL AFTER email
-    `);
+    await ensureColumnExists(conn, 'app_users', 'full_name', 'ADD COLUMN full_name VARCHAR(255) NULL AFTER email');
 
     await queryWithRetry(conn, `
       CREATE TABLE IF NOT EXISTS team_memberships (
