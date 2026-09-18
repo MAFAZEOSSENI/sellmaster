@@ -18,6 +18,12 @@ class AuthProvider with ChangeNotifier {
   Map<String, dynamic>? get user => _user;
   bool get isLoading => _isLoading;
   bool get isAuthenticated => _token != null;
+  List<String> get roles {
+    final value = _user?['roles'];
+    if (value is! List) return const [];
+    return value.whereType<String>().toList();
+  }
+  String get primaryRole => roles.isNotEmpty ? roles.first : 'owner';
 
   // ✅ CORRIGÉ : Vérification au démarrage avec SharedPreferences
   Future<void> initialize() async {
@@ -65,8 +71,20 @@ class AuthProvider with ChangeNotifier {
   Future<void> _fetchUserData() async {
     try {
       if (_token == null) return;
-      
-      // Vous pouvez ajouter un endpoint /api/user/me plus tard
+      final response = await http.get(
+        Uri.parse('https://sellmaster-1.onrender.com/api/auth/profile'),
+        headers: {'Authorization': 'Bearer $_token'},
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['user'] is Map<String, dynamic>) {
+          _user = data['user'] as Map<String, dynamic>;
+        }
+      } else if (response.statusCode == 401) {
+        await AuthService().deleteToken();
+        ApiService.clearToken();
+        _token = null;
+      }
     } catch (e) {
       if (kDebugMode) {
         print('❌ Erreur fetch user data: $e');

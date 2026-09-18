@@ -5,6 +5,7 @@ import 'pages/products_page.dart';
 import 'pages/orders_page.dart';
 import 'pages/shopify_stores_page.dart';
 import 'pages/profile_page.dart';
+import 'pages/role_workspace_page.dart';
 import 'auth/login_page.dart';
 import 'auth/register_page.dart';
 import 'license/purchase_page.dart';
@@ -106,25 +107,38 @@ class MainNavigationPage extends StatefulWidget {
 class MainNavigationPageState extends State<MainNavigationPage> {
   int _currentIndex = 0;
 
-  final List<Widget> _pages = [
-    const DashboardPage(),
-    const ProductsPage(),
-    const OrdersPage(),
-    const ShopifyStoresPage(),
-    const ProfilePage(),
-  ];
+  List<Widget> _pagesForRole(String role) {
+    if (role == 'closer' || role == 'courier') {
+      return [
+        RoleWorkspacePage(role: role),
+        const OrdersPage(),
+        const ProfilePage(),
+      ];
+    }
+    return [
+      const DashboardPage(),
+      const ProductsPage(),
+      const OrdersPage(),
+      const ShopifyStoresPage(),
+      const ProfilePage(),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final pages = _pagesForRole(authProvider.primaryRole);
+    if (_currentIndex >= pages.length) {
+      _currentIndex = pages.length - 1;
+    }
     
     return Scaffold(
       appBar: _buildAppBar(authProvider, context),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
-        child: _pages[_currentIndex],
+        child: pages[_currentIndex],
       ),
-      bottomNavigationBar: _buildBottomNavigationBar(),
+      bottomNavigationBar: _buildBottomNavigationBar(authProvider.primaryRole),
     );
   }
 
@@ -136,6 +150,18 @@ class MainNavigationPageState extends State<MainNavigationPage> {
       title: _buildTimeWidget(),
       centerTitle: true,
       actions: [
+        Padding(
+          padding: const EdgeInsets.only(top: 12, bottom: 12, right: 8),
+          child: Chip(
+            label: Text(
+              authProvider.primaryRole,
+              style: const TextStyle(fontSize: 11, color: Color(0xFF006064)),
+            ),
+            backgroundColor: const Color(0xFFE0F7FA),
+            side: BorderSide.none,
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
         Container(
           margin: const EdgeInsets.only(right: 8, top: 8),
           decoration: BoxDecoration(
@@ -159,7 +185,7 @@ class MainNavigationPageState extends State<MainNavigationPage> {
               GestureDetector(
                 onTap: () {
                   setState(() {
-                    _currentIndex = 4;
+                    _currentIndex = _pagesForRole(authProvider.primaryRole).length - 1;
                   });
                 },
                 child: CircleAvatar(
@@ -215,7 +241,8 @@ class MainNavigationPageState extends State<MainNavigationPage> {
     );
   }
 
-  Widget _buildBottomNavigationBar() {
+  Widget _buildBottomNavigationBar(String role) {
+    final isFieldRole = role == 'closer' || role == 'courier';
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -253,7 +280,25 @@ class MainNavigationPageState extends State<MainNavigationPage> {
           fontWeight: FontWeight.w500,
         ),
         iconSize: 24,
-        items: const [
+        items: isFieldRole
+            ? const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.work_outline),
+                  activeIcon: Icon(Icons.work),
+                  label: 'Espace',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.receipt_long_outlined),
+                  activeIcon: Icon(Icons.receipt_long),
+                  label: 'Commandes',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person_outline),
+                  activeIcon: Icon(Icons.person),
+                  label: 'Profil',
+                ),
+              ]
+            : const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
             activeIcon: Icon(Icons.home),
