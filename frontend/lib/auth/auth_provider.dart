@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:js' as js;
+import 'dart:js_util' as js_util;
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -239,17 +241,24 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final googleUser = await GoogleSignIn(
-        clientId: googleWebClientId,
-      ).signIn();
-      if (googleUser == null) {
-        throw Exception('Connexion Google annulée ou bloquée par le navigateur. Vérifiez les pop-ups et le client OAuth Google.');
-      }
+      String idToken;
 
-      final authentication = await googleUser.authentication;
-      final idToken = authentication.idToken;
-      if (idToken == null || idToken.isEmpty) {
-        throw Exception('Google n’a pas fourni de jeton de connexion valide. Vérifiez la configuration OAuth web et les permissions du compte.');
+      if (kIsWeb) {
+        final dynamic promise = js_util.callMethod(js.context, 'googleWebSignIn', []);
+        idToken = await js_util.promiseToFuture<String>(promise);
+      } else {
+        final googleUser = await GoogleSignIn(
+          clientId: googleWebClientId,
+        ).signIn();
+        if (googleUser == null) {
+          throw Exception('Connexion Google annulée ou bloquée par le navigateur. Vérifiez les pop-ups et le client OAuth Google.');
+        }
+
+        final authentication = await googleUser.authentication;
+        idToken = authentication.idToken ?? '';
+        if (idToken.isEmpty) {
+          throw Exception('Google n’a pas fourni de jeton de connexion valide. Vérifiez la configuration OAuth web et les permissions du compte.');
+        }
       }
 
       final response = await http.post(

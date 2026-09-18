@@ -15,6 +15,10 @@ class Order {
   final OrderSource source;
   final String? shopifyOrderId;
   final Map<String, dynamic>? shopifyData;
+  final int? assignedTo;
+  final int? assignedBy;
+  final DateTime? assignedAt;
+  final String? assignmentNote;
 
   const Order({
     required this.id,
@@ -28,12 +32,19 @@ class Order {
     this.source = OrderSource.manual,
     this.shopifyOrderId,
     this.shopifyData,
+    this.assignedTo,
+    this.assignedBy,
+    this.assignedAt,
+    this.assignmentNote,
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
     final sourceString = json['source'];
     final shopifyOrderId = json['shopify_order_id'];
     final shopifyData = json['shopify_data'];
+    final assignedToRaw = json['assigned_to'];
+    final assignedByRaw = json['assigned_by'];
+    final assignedAtRaw = json['assigned_at'];
     
     return Order(
       id: json['id'] as int,
@@ -49,6 +60,10 @@ class Order {
           : OrderSource.manual,
       shopifyOrderId: shopifyOrderId != null ? shopifyOrderId.toString() : null,
       shopifyData: _parseShopifyData(shopifyData),
+      assignedTo: _parseNullableInt(assignedToRaw),
+      assignedBy: _parseNullableInt(assignedByRaw),
+      assignedAt: assignedAtRaw != null ? DateTime.tryParse(assignedAtRaw.toString()) : null,
+      assignmentNote: json['assignment_note'] as String?,
     );
   }
 
@@ -70,6 +85,14 @@ class Order {
         return null;
       }
     }
+    return null;
+  }
+
+  static int? _parseNullableInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
     return null;
   }
 

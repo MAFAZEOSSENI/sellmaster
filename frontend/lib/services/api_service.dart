@@ -212,6 +212,31 @@ class ApiService {
     }
   }
 
+  static Future<void> assignOrder(String orderId, {int? userId, String? note}) async {
+    try {
+      final body = <String, dynamic>{};
+      if (userId != null) {
+        body['user_id'] = userId;
+      }
+      if (note != null && note.isNotEmpty) {
+        body['assignment_note'] = note;
+      }
+
+      final response = await http.patch(
+        Uri.parse('$baseUrl/orders/$orderId/assign'),
+        headers: await _getHeaders(),
+        body: json.encode(body),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Erreur attribution commande: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Erreur assignOrder: $e');
+      rethrow;
+    }
+  }
+
   // ==================== STATISTIQUES ====================
 
   static Future<Map<String, dynamic>> getDashboardStats() async {
