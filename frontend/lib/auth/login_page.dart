@@ -48,6 +48,13 @@ class _LoginPageState extends State<LoginPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Connexion Google réussie!')),
         );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Connexion Google non aboutie. Vérifiez le navigateur et la configuration OAuth.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
       }
     } catch (error) {
       if (!mounted) return;
