@@ -133,9 +133,10 @@ app.get('/api/products/:id', authMiddleware, async (req, res) => {
 
 app.get('/api/orders', authMiddleware, async (req, res) => {
   try {
-    console.log('📦 Récupération commandes pour user:', req.userId);
-    
-    const orders = await Order.findAll(req.userId);
+    const { ownerId } = req.query;
+    console.log('📦 Récupération commandes pour user:', req.userId, 'ownerId:', ownerId);
+
+    const orders = await Order.findAll(req.userId, ownerId || null);
     res.json(orders);
   } catch (error) {
     console.error('❌ Erreur récupération commandes:', error);
@@ -165,10 +166,11 @@ app.post('/api/orders', authMiddleware, orderAuth, async (req, res) => {
 // 🆕 NOUVELLE ROUTE : Statistiques de numérotation
 app.get('/api/orders/number-stats', authMiddleware, async (req, res) => {
   try {
-    console.log('📊 Récupération stats numérotation pour user:', req.userId);
-    
-    const stats = await Order.getOrderNumberStats(req.userId);
-    
+    const { ownerId } = req.query;
+    console.log('📊 Récupération stats numérotation pour user:', req.userId, 'ownerId:', ownerId);
+
+    const stats = await Order.getOrderNumberStats(req.userId, ownerId || null);
+
     console.log('✅ Stats numérotation:', stats);
     res.json(stats);
   } catch (error) {
@@ -181,14 +183,15 @@ app.get('/api/orders/number-stats', authMiddleware, async (req, res) => {
 app.get('/api/orders/custom/:orderNumber', authMiddleware, async (req, res) => {
   try {
     const { orderNumber } = req.params;
-    console.log('🔍 Recherche commande par numéro personnalisé:', orderNumber, 'pour user:', req.userId);
-    
-    const order = await Order.findByCustomNumber(orderNumber, req.userId);
-    
+    const { ownerId } = req.query;
+    console.log('🔍 Recherche commande par numéro personnalisé:', orderNumber, 'pour user:', req.userId, 'ownerId:', ownerId);
+
+    const order = await Order.findByCustomNumber(orderNumber, req.userId, ownerId || null);
+
     if (!order) {
       return res.status(404).json({ error: 'Commande non trouvée' });
     }
-    
+
     res.json(order);
   } catch (error) {
     console.error('❌ Erreur recherche commande personnalisée:', error);
@@ -215,11 +218,12 @@ app.get('/api/user/orders', authMiddleware, async (req, res) => {
 
 app.get('/api/orders/:id', authMiddleware, async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id, req.userId);
+    const { ownerId } = req.query;
+    const order = await Order.findById(req.params.id, req.userId, ownerId || null);
     if (!order) {
       return res.status(404).json({ error: 'Commande non trouvée ou non autorisée' });
     }
-    
+
     res.json(order);
   } catch (error) {
     res.status(500).json({ error: error.message });

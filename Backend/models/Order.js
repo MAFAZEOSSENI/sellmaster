@@ -39,7 +39,7 @@ const Order = {
     }
   },
 
-  async getVisibleOwnerIds(userId) {
+  async getVisibleOwnerIds(userId, ownerId = null) {
     if (!userId) {
       return [];
     }
@@ -56,7 +56,14 @@ const Order = {
         [userId, userId]
       );
 
-      return [...new Set(rows.map((row) => Number(row.owner_user_id)).filter((id) => Number.isInteger(id) && id > 0))];
+      const visibleOwners = [...new Set(rows.map((row) => Number(row.owner_user_id)).filter((id) => Number.isInteger(id) && id > 0))];
+
+      if (ownerId !== null && ownerId !== undefined) {
+        const numericOwnerId = Number(ownerId);
+        return visibleOwners.includes(numericOwnerId) ? [numericOwnerId] : [];
+      }
+
+      return visibleOwners;
     } finally {
       if (conn) conn.release();
     }
@@ -165,11 +172,11 @@ await conn.query(
   },
 
   // 🆕 MÉTHODE : Récupérer les statistiques de numérotation
-  async getOrderNumberStats(userId) {
+  async getOrderNumberStats(userId, ownerId = null) {
     let conn;
     try {
       conn = await pool.getConnection();
-      const visibleOwnerIds = await this.getVisibleOwnerIds(userId);
+      const visibleOwnerIds = await this.getVisibleOwnerIds(userId, ownerId);
 
       if (!visibleOwnerIds.length) {
         return { total_orders: 0, last_order_number: null, first_order_date: null };
@@ -192,7 +199,7 @@ await conn.query(
   },
 
   // 🆕 MÉTHODE : Trouver une commande par son numéro personnalisé
-  async findByCustomNumber(customOrderNumber, userId = null) {
+  async findByCustomNumber(customOrderNumber, userId = null, ownerId = null) {
     let conn;
     try {
       conn = await pool.getConnection();
@@ -201,7 +208,7 @@ await conn.query(
       let params = [customOrderNumber];
       
       if (userId) {
-        const visibleOwnerIds = await this.getVisibleOwnerIds(userId);
+        const visibleOwnerIds = await this.getVisibleOwnerIds(userId, ownerId);
         if (!visibleOwnerIds.length) {
           return null;
         }
@@ -218,7 +225,7 @@ await conn.query(
   },
 
   // MÉTHODES EXISTANTES AVEC custom_order_number AJOUTÉ
-  async findAll(userId = null) {
+  async findAll(userId = null, ownerId = null) {
     let conn;
     try {
       conn = await pool.getConnection();
@@ -259,7 +266,7 @@ await conn.query(
       
       if (userId && userId !== 'null' && userId !== 'undefined' && userId !== '[object Object]') {
         const numericUserId = Number(userId);
-        const visibleOwnerIds = await this.getVisibleOwnerIds(numericUserId);
+        const visibleOwnerIds = await this.getVisibleOwnerIds(numericUserId, ownerId);
         if (visibleOwnerIds.length === 0) {
           return [];
         }
@@ -289,7 +296,7 @@ await conn.query(
     }
   },
 
-  async findById(id, userId = null) {
+  async findById(id, userId = null, ownerId = null) {
     let conn;
     try {
       conn = await pool.getConnection();
@@ -328,7 +335,7 @@ await conn.query(
       let params = [id];
       
       if (userId) {
-        const visibleOwnerIds = await this.getVisibleOwnerIds(Number(userId));
+        const visibleOwnerIds = await this.getVisibleOwnerIds(Number(userId), ownerId);
         if (!visibleOwnerIds.length) {
           return null;
         }
