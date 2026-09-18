@@ -112,6 +112,28 @@ async function createTables() {
       )
     `);
 
+    await queryWithRetry(conn, `
+      ALTER TABLE app_users
+      ADD COLUMN IF NOT EXISTS full_name VARCHAR(255) NULL AFTER email
+    `);
+
+    await queryWithRetry(conn, `
+      CREATE TABLE IF NOT EXISTS team_memberships (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        owner_user_id INT NOT NULL,
+        member_user_id INT NOT NULL,
+        role_name VARCHAR(50) NOT NULL,
+        status ENUM('pending', 'active', 'rejected') NOT NULL DEFAULT 'pending',
+        invited_by INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        confirmed_at TIMESTAMP NULL,
+        UNIQUE KEY unique_team_membership (owner_user_id, member_user_id, role_name),
+        INDEX idx_team_memberships_owner (owner_user_id),
+        INDEX idx_team_memberships_member (member_user_id),
+        INDEX idx_team_memberships_status (status)
+      )
+    `);
+
     // RBAC: tables séparées pour préserver les utilisateurs et JWT existants.
     await queryWithRetry(conn, `
       CREATE TABLE IF NOT EXISTS roles (

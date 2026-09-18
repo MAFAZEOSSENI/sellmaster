@@ -142,6 +142,21 @@ class MainNavigationPageState extends State<MainNavigationPage> {
     );
   }
 
+  String _roleLabel(String role) {
+    switch (role) {
+      case 'owner':
+        return 'Propriétaire';
+      case 'manager':
+        return 'Manager';
+      case 'closer':
+        return 'Closer';
+      case 'courier':
+        return 'Livreur';
+      default:
+        return 'Utilisateur';
+    }
+  }
+
   PreferredSizeWidget _buildAppBar(AuthProvider authProvider, BuildContext context) {
     return AppBar(
       backgroundColor: Colors.white,
@@ -154,7 +169,7 @@ class MainNavigationPageState extends State<MainNavigationPage> {
           padding: const EdgeInsets.only(top: 12, bottom: 12, right: 8),
           child: Chip(
             label: Text(
-              authProvider.primaryRole,
+              _roleLabel(authProvider.primaryRole),
               style: const TextStyle(fontSize: 11, color: Color(0xFF006064)),
             ),
             backgroundColor: const Color(0xFFE0F7FA),

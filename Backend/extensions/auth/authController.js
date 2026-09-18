@@ -13,16 +13,18 @@ class AuthController {
   try {
     console.log('📝 Tentative d\'inscription:', req.body);
     
-    const { email, password, phone } = req.body;
+    const { email, password, phone, fullName, role } = req.body;
 
-    // Validation
     if (!email || !password) {
       return res.status(400).json({ error: 'Email et mot de passe requis' });
     }
 
+    const normalizedRole = ['owner', 'manager', 'closer', 'courier'].includes(String(role || '').toLowerCase())
+      ? String(role).toLowerCase()
+      : 'owner';
+
     console.log('🔍 Vérification si l\'utilisateur existe...');
     
-    // Vérifier si l'utilisateur existe déjà
     const existingUser = await User.findByEmail(email);
     console.log('✅ Recherche utilisateur terminée:', existingUser);
 
@@ -31,26 +33,24 @@ class AuthController {
     }
 
     console.log('🔐 Hachage du mot de passe...');
-    // Hasher le mot de passe
     const passwordHash = await bcrypt.hash(password, 10);
 
     console.log('👤 Création de l\'utilisateur...');
-    // Créer l'utilisateur
     const user = await User.create({
       email,
       passwordHash,
-      phone: phone || null
+      phone: phone || null,
+      fullName: fullName || null,
+      role: normalizedRole
     });
 
     console.log('✅ Utilisateur créé:', user);
 
-    // ✅ CORRECTION : Convertir BigInt en Number pour JWT
     const userId = Number(user.id);
     console.log('🔢 ID converti:', userId, '(type:', typeof userId, ')');
 
-    // Générer le token JWT
     const token = jwt.sign(
-      { userId: userId, email: user.email }, // ✅ ID en Number
+      { userId: userId, email: user.email },
       process.env.JWT_SECRET || 'votre_secret_jwt',
       { expiresIn: '30d' }
     );
@@ -58,9 +58,12 @@ class AuthController {
     res.status(201).json({
       message: 'Utilisateur créé avec succès',
       user: {
-        id: userId, // ✅ ID en Number pour la réponse aussi
+        id: userId,
         email: user.email,
-        phone: user.phone
+        phone: user.phone,
+        full_name: user.full_name,
+        role: user.role,
+        roles: [user.role]
       },
       token
     });
@@ -110,11 +113,13 @@ class AuthController {
           id: user.id,
           email: user.email,
           phone: user.phone,
+          full_name: user.full_name,
           trial_used: user.trial_used,
           order_count: user.order_count,
           max_orders: user.max_orders,
           license_key: user.license_key,
-          license_expiry: user.license_expiry
+          license_expiry: user.license_expiry,
+          roles: await Rbac.getRolesForUser(user.id)
         },
         token
       });
@@ -198,6 +203,7 @@ class AuthController {
           id: user.id,
           email: user.email,
           phone: user.phone,
+          full_name: user.full_name,
           trial_used: user.trial_used,
           order_count: user.order_count,
           max_orders: user.max_orders,

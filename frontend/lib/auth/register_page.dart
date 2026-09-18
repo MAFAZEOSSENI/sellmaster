@@ -11,10 +11,13 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
+  final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _phoneController = TextEditingController();
+  final List<String> _roles = ['owner', 'manager', 'closer', 'courier'];
+  String _selectedRole = 'owner';
   bool _isLoading = false;
 
   void _register() async {
@@ -27,13 +30,14 @@ class _RegisterPageState extends State<RegisterPage> {
         _emailController.text.trim(),
         _passwordController.text,
         _phoneController.text.trim(),
+        _fullNameController.text.trim(),
+        _selectedRole,
       );
       
-      // Retour à la page de connexion après inscription réussie
       Navigator.of(context).pop();
       
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Inscription réussie! 🎉 Connectez-vous maintenant.')),
+        const SnackBar(content: Text('Inscription réussie! 🎉')),
       );
     } catch (error) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -62,6 +66,21 @@ class _RegisterPageState extends State<RegisterPage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               TextFormField(
+                controller: _fullNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Nom complet',
+                  prefixIcon: Icon(Icons.person),
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Veuillez entrer votre nom';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
                 controller: _emailController,
                 decoration: const InputDecoration(
                   labelText: 'Email',
@@ -88,6 +107,19 @@ class _RegisterPageState extends State<RegisterPage> {
                   border: OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.phone,
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: _selectedRole,
+                decoration: const InputDecoration(
+                  labelText: 'Rôle',
+                  prefixIcon: Icon(Icons.badge),
+                  border: OutlineInputBorder(),
+                ),
+                items: _roles
+                    .map((role) => DropdownMenuItem(value: role, child: Text(role)))
+                    .toList(),
+                onChanged: (value) => setState(() => _selectedRole = value ?? 'owner'),
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -157,6 +189,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   void dispose() {
+    _fullNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();

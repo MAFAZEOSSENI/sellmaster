@@ -22,8 +22,15 @@ class AuthProvider with ChangeNotifier {
   bool get isAuthenticated => _token != null;
   List<String> get roles {
     final value = _user?['roles'];
-    if (value is! List) return const [];
-    return value.whereType<String>().toList();
+    if (value is List) {
+      final normalized = value.whereType<String>().map((item) => item.toLowerCase()).toList();
+      if (normalized.isNotEmpty) return normalized;
+    }
+    final directRole = _user?['role'];
+    if (directRole is String && directRole.trim().isNotEmpty) {
+      return [directRole.trim().toLowerCase()];
+    }
+    return const [];
   }
   String get primaryRole => roles.isNotEmpty ? roles.first : 'owner';
 
@@ -133,7 +140,7 @@ class AuthProvider with ChangeNotifier {
   }
 
   // ✅ CORRIGÉ : Inscription
-  Future<void> register(String email, String password, String phone) async {
+  Future<void> register(String email, String password, String phone, String fullName, String role) async {
     _isLoading = true;
     notifyListeners();
 
@@ -146,6 +153,8 @@ class AuthProvider with ChangeNotifier {
           'email': email,
           'password': password,
           'phone': phone,
+          'fullName': fullName,
+          'role': role,
         }),
       );
 

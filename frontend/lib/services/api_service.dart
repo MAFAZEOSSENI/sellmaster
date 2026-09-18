@@ -300,6 +300,49 @@ class ApiService {
     }
   }
 
+  static Future<List<Map<String, dynamic>>> searchUsers(String query) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/admin/users/search?q=${Uri.encodeQueryComponent(query)}'),
+        headers: await _getHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final users = data['users'];
+        if (users is! List) {
+          return [];
+        }
+        return users.map<Map<String, dynamic>>((user) => Map<String, dynamic>.from(user)).toList();
+      }
+
+      throw Exception('Erreur recherche utilisateur: ${response.statusCode}');
+    } catch (e) {
+      print('❌ Erreur searchUsers: $e');
+      rethrow;
+    }
+  }
+
+  static Future<Map<String, dynamic>> createTeamMember(Map<String, dynamic> payload) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/admin/members/create'),
+        headers: await _getHeaders(),
+        body: json.encode(payload),
+      );
+
+      if (response.statusCode == 201) {
+        return json.decode(response.body);
+      }
+
+      final body = json.decode(response.body);
+      throw Exception(body['error'] ?? 'Erreur création membre');
+    } catch (e) {
+      print('❌ Erreur createTeamMember: $e');
+      rethrow;
+    }
+  }
+
   static Future<Map<String, dynamic>> updateUserRoles(int userId, List<String> roles) async {
     try {
       final response = await http.patch(
