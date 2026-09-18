@@ -1,9 +1,48 @@
 const { pool, queryWithRetry } = require('../config/database');
 
+async function ensureOrderAssignmentColumns(conn) {
+  const [columns] = await conn.query('SHOW COLUMNS FROM orders');
+  const columnNames = new Set(columns.map((column) => column.Field));
+
+  const migrations = [
+    { name: 'user_id', sql: 'ALTER TABLE orders ADD COLUMN user_id INT NULL AFTER notes' },
+    { name: 'assigned_to', sql: 'ALTER TABLE orders ADD COLUMN assigned_to INT NULL AFTER user_id' },
+    { name: 'assigned_by', sql: 'ALTER TABLE orders ADD COLUMN assigned_by INT NULL AFTER assigned_to' },
+    { name: 'assigned_at', sql: 'ALTER TABLE orders ADD COLUMN assigned_at TIMESTAMP NULL AFTER assigned_by' },
+    { name: 'assignment_note', sql: 'ALTER TABLE orders ADD COLUMN assignment_note TEXT AFTER assigned_at' },
+  ];
+
+  for (const migration of migrations) {
+    if (!columnNames.has(migration.name)) {
+      await conn.query(migration.sql);
+    }
+  }
+}
+
 async function createTables() {
   let conn;
   try {
     conn = await pool.getConnection();
+
+    await queryWithRetry(conn, `
+      CREATE TABLE IF NOT EXISTS orders (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        client_name VARCHAR(255) NOT NULL,
+        client_phone VARCHAR(50) NOT NULL,
+        client_address TEXT NOT NULL,
+        status VARCHAR(20) DEFAULT 'dashboard',
+        total_amount DECIMAL(10,2) NOT NULL,
+        notes TEXT,
+        user_id INT NULL,
+        assigned_to INT NULL,
+        assigned_by INT NULL,
+        assigned_at TIMESTAMP NULL,
+        assignment_note TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await ensureOrderAssignmentColumns(conn);
     
     // Table produits
     await queryWithRetry(conn, `

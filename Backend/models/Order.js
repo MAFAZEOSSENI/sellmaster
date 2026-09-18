@@ -1,6 +1,44 @@
 const { pool } = require('../config/database');
 
 const Order = {
+  async ensureAssignmentColumns() {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      const [columns] = await conn.query('SHOW COLUMNS FROM orders');
+      const availableColumns = new Set(columns.map((column) => column.Field));
+      const migrations = [
+        { name: 'user_id', sql: 'ALTER TABLE orders ADD COLUMN user_id INT NULL AFTER notes' },
+        { name: 'assigned_to', sql: 'ALTER TABLE orders ADD COLUMN assigned_to INT NULL AFTER user_id' },
+        { name: 'assigned_by', sql: 'ALTER TABLE orders ADD COLUMN assigned_by INT NULL AFTER assigned_to' },
+        { name: 'assigned_at', sql: 'ALTER TABLE orders ADD COLUMN assigned_at TIMESTAMP NULL AFTER assigned_by' },
+        { name: 'assignment_note', sql: 'ALTER TABLE orders ADD COLUMN assignment_note TEXT AFTER assigned_at' },
+      ];
+
+      for (const migration of migrations) {
+        if (!availableColumns.has(migration.name)) {
+          await conn.query(migration.sql);
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ Migration des colonnes d’assignation non appliquée:', error.message);
+      throw error;
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
+  async getOrderColumnSet() {
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      const [columns] = await conn.query('SHOW COLUMNS FROM orders');
+      return new Set(columns.map((column) => column.Field));
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
   // 🆕 MÉTHODE : Générer le numéro de commande personnalisé
   async generateCustomOrderNumber(userId) {
     let conn;
@@ -150,6 +188,7 @@ await conn.query(
     let conn;
     try {
       conn = await pool.getConnection();
+      const availableColumns = await this.getOrderColumnSet();
       
       let query = `
         SELECT 
@@ -165,10 +204,10 @@ await conn.query(
           source,
           shopify_order_id,
           user_id,
-          assigned_to,
-          assigned_by,
-          assigned_at,
-          assignment_note,
+          ${availableColumns.has('assigned_to') ? 'assigned_to,' : ''}
+          ${availableColumns.has('assigned_by') ? 'assigned_by,' : ''}
+          ${availableColumns.has('assigned_at') ? 'assigned_at,' : ''}
+          ${availableColumns.has('assignment_note') ? 'assignment_note,' : ''}
           custom_order_number,
           CASE 
             WHEN shopify_order_id IS NOT NULL THEN CAST(shopify_order_id AS CHAR)
@@ -177,6 +216,10 @@ await conn.query(
           shopify_data
         FROM orders 
       `;
+
+      query = query.replace(/\n\s*\+\s*/g, '').replace(/\s{2,}/g, ' ').trim();
+      query = query.replace(/,\s*custom_order_number/, ', custom_order_number');
+      query = query.replace(/,\s*CASE/, ', CASE');
       
       let params = [];
       
@@ -211,6 +254,7 @@ await conn.query(
     let conn;
     try {
       conn = await pool.getConnection();
+      const availableColumns = await this.getOrderColumnSet();
       
       let query = `
         SELECT 
@@ -225,10 +269,10 @@ await conn.query(
           updated_at,
           source,
           user_id,
-          assigned_to,
-          assigned_by,
-          assigned_at,
-          assignment_note,
+          ${availableColumns.has('assigned_to') ? 'assigned_to,' : ''}
+          ${availableColumns.has('assigned_by') ? 'assigned_by,' : ''}
+          ${availableColumns.has('assigned_at') ? 'assigned_at,' : ''}
+          ${availableColumns.has('assignment_note') ? 'assignment_note,' : ''}
           custom_order_number,
           CASE 
             WHEN shopify_order_id IS NOT NULL THEN CAST(shopify_order_id AS CHAR)
@@ -237,6 +281,10 @@ await conn.query(
           shopify_data
         FROM orders WHERE id = ?
       `;
+
+      query = query.replace(/\n\s*\+\s*/g, '').replace(/\s{2,}/g, ' ').trim();
+      query = query.replace(/,\s*custom_order_number/, ', custom_order_number');
+      query = query.replace(/,\s*CASE/, ', CASE');
       
       let params = [id];
       
@@ -383,10 +431,15 @@ await conn.query(
     let conn;
     try {
       conn = await pool.getConnection();
+      const availableColumns = await this.getOrderColumnSet();
 
       const [existingOrders] = await conn.query('SELECT * FROM orders WHERE id = ?', [id]);
       if (existingOrders.length === 0) {
         throw new Error('Commande non trouvée');
+      }
+
+      if (!availableColumns.has('assigned_to') || !availableColumns.has('assigned_by') || !availableColumns.has('assigned_at') || !availableColumns.has('assignment_note')) {
+        await this.ensureAssignmentColumns();
       }
 
       const targetUserId = assigneeUserId !== undefined && assigneeUserId !== null ? Number(assigneeUserId) : null;
