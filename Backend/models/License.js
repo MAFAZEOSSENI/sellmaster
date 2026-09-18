@@ -33,7 +33,7 @@ class License {
       console.log('📅 Expiration:', expiresAt);
 
       // 🆕 CORRECTION : Utiliser query() au lieu de execute() pour MariaDB
-      const result = await connection.query(
+      const [result] = await connection.query(
         `INSERT INTO licenses (license_key, user_id, type, price, status, payment_method, moneroo_payment_id, expires_at) 
          VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)`,
         [licenseKey, userId, type, price, paymentMethod, monerooPaymentId, expiresAt]
@@ -43,7 +43,7 @@ class License {
 
       return {
         id: result.insertId,
-        licenseKey: licenseKey, // 🆕 CORRECTION : licenseKey au lieu de license_key
+        licenseKey: licenseKey,
         userId,
         type,
         price,
@@ -64,8 +64,7 @@ class License {
     try {
       console.log('🔑 Activation licence:', licenseKey);
 
-      // 🆕 CORRECTION : Utiliser query()
-      const licenses = await connection.query(
+      const [licenses] = await connection.query(
         'SELECT * FROM licenses WHERE license_key = ?',
         [licenseKey]
       );
@@ -77,13 +76,11 @@ class License {
       const license = licenses[0];
       console.log('📋 Licence trouvée:', license);
 
-      // Activer la licence
       await connection.query(
-        'UPDATE licenses SET status = "activated", activated_at = NOW() WHERE license_key = ?',
-        [licenseKey]
+        'UPDATE licenses SET status = ?, activated_at = NOW() WHERE license_key = ?',
+        ['activated', licenseKey]
       );
 
-      // Activer la licence pour l'utilisateur
       await connection.query(
         'UPDATE app_users SET license_key = ?, license_expiry = ?, max_orders = 100000 WHERE id = ?',
         [licenseKey, license.expires_at, license.user_id]
@@ -104,7 +101,7 @@ class License {
   static async findByKey(licenseKey) {
     const connection = await pool.getConnection();
     try {
-      const licenses = await connection.query(
+      const [licenses] = await connection.query(
         'SELECT * FROM licenses WHERE license_key = ?',
         [licenseKey]
       );
@@ -118,7 +115,7 @@ class License {
   static async findByUserId(userId) {
     const connection = await pool.getConnection();
     try {
-      const licenses = await connection.query(
+      const [licenses] = await connection.query(
         'SELECT * FROM licenses WHERE user_id = ? ORDER BY created_at DESC',
         [userId]
       );
