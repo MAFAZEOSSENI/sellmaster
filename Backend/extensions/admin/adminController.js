@@ -15,11 +15,46 @@ const adminController = {
 
   async getUsers(req, res) {
     try {
-      const users = await Rbac.getUsersWithRoles();
-      res.json({ users });
+      const ownerUserId = Number(req.userId);
+      const conn = await pool.getConnection();
+
+      try {
+        const [rows] = await conn.query(
+          `SELECT DISTINCT member_user_id AS user_id
+           FROM team_memberships
+           WHERE owner_user_id = ? AND status IN ('active', 'pending')
+           UNION
+           SELECT ? AS user_id`,
+          [ownerUserId, ownerUserId]
+        );
+
+        const memberIds = [...new Set(rows.map((row) => Number(row.user_id)).filter((id) => Number.isInteger(id) && id > 0))];
+
+        const users = [];
+        for (const userId of memberIds) {
+          const user = await User.findById(userId);
+          if (!user) continue;
+
+          users.push({
+            id: Number(user.id),
+            email: user.email,
+            phone: user.phone,
+            full_name: user.full_name || (user.email ? user.email.split('@')[0] : null),
+            order_count: Number(user.order_count || 0),
+            max_orders: Number(user.max_orders || 10),
+            license_key: user.license_key,
+            license_expiry: user.license_expiry,
+            roles: await Rbac.getRolesForUser(userId)
+          });
+        }
+
+        res.json({ users });
+      } finally {
+        conn.release();
+      }
     } catch (error) {
       console.error('[ADMIN] Fetch users error:', error);
-      res.status(500).json({ error: 'Erreur lors du chargement des utilisateurs' });
+      res.status(500).json({ error: 'Erreur lors du chargement de votre équipe' });
     }
   },
 
