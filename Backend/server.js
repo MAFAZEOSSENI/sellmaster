@@ -217,11 +217,7 @@ app.get('/api/orders/:id', authMiddleware, async (req, res) => {
   try {
     const order = await Order.findById(req.params.id, req.userId);
     if (!order) {
-      return res.status(404).json({ error: 'Commande non trouvée' });
-    }
-    
-    if (order.user_id !== req.userId) {
-      return res.status(403).json({ error: 'Accès non autorisé à cette commande' });
+      return res.status(404).json({ error: 'Commande non trouvée ou non autorisée' });
     }
     
     res.json(order);

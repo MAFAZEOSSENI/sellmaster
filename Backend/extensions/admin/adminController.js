@@ -4,9 +4,9 @@ const Rbac = require('../../models/Rbac');
 
 const allowedTeamRoles = ['manager', 'closer', 'courier'];
 
-async function ensureExclusiveManagerAssignment(conn, { memberUserId, ownerUserId, roleName }) {
+async function ensureExclusiveOwnerRoleAssignment(conn, { memberUserId, ownerUserId, roleName }) {
   const normalizedRole = String(roleName || '').trim().toLowerCase();
-  if (normalizedRole !== 'manager') {
+  if (!['manager', 'closer'].includes(normalizedRole)) {
     return;
   }
 
@@ -14,7 +14,7 @@ async function ensureExclusiveManagerAssignment(conn, { memberUserId, ownerUserI
     `SELECT id
      FROM team_memberships
      WHERE member_user_id = ?
-       AND role_name = 'manager'
+       AND role_name IN ('manager', 'closer')
        AND status IN ('pending', 'active')
        AND owner_user_id != ?
      LIMIT 1`,
@@ -22,7 +22,7 @@ async function ensureExclusiveManagerAssignment(conn, { memberUserId, ownerUserI
   );
 
   if (rows.length > 0) {
-    throw new Error('Un manager ne peut pas travailler pour plusieurs e-commerçants.');
+    throw new Error('Ce rôle est exclusif à un seul e-commerçant.');
   }
 }
 
@@ -127,7 +127,7 @@ const adminController = {
       const memberUserId = Number(existingUser.id);
       const conn = await pool.getConnection();
       try {
-        await ensureExclusiveManagerAssignment(conn, { memberUserId, ownerUserId, roleName });
+        await ensureExclusiveOwnerRoleAssignment(conn, { memberUserId, ownerUserId, roleName });
 
         await conn.query(
           `INSERT INTO team_memberships (owner_user_id, member_user_id, role_name, status, invited_by)
@@ -213,7 +213,7 @@ const adminController = {
 
       const conn = await pool.getConnection();
       try {
-        await ensureExclusiveManagerAssignment(conn, { memberUserId: Number(memberUserId), ownerUserId: Number(req.userId), roleName });
+        await ensureExclusiveOwnerRoleAssignment(conn, { memberUserId: Number(memberUserId), ownerUserId: Number(req.userId), roleName });
 
         await conn.query(
           `INSERT INTO team_memberships (owner_user_id, member_user_id, role_name, status, invited_by)
@@ -303,12 +303,12 @@ const adminController = {
       const normalizedRoles = [...new Set(roles.map((role) => String(role).trim().toLowerCase()).filter(Boolean))];
       const conn = await pool.getConnection();
       try {
-        if (normalizedRoles.includes('manager')) {
+        if (normalizedRoles.some((role) => ['manager', 'closer'].includes(role))) {
           const [rows] = await conn.query(
             `SELECT id
              FROM team_memberships
              WHERE member_user_id = ?
-               AND role_name = 'manager'
+               AND role_name IN ('manager', 'closer')
                AND status IN ('pending', 'active')
                AND owner_user_id != ?
              LIMIT 1`,
@@ -316,7 +316,7 @@ const adminController = {
           );
 
           if (rows.length > 0) {
-            return res.status(400).json({ error: 'Un manager ne peut pas travailler pour plusieurs e-commerçants.' });
+            return res.status(400).json({ error: 'Ce rôle est exclusif à un seul e-commerçant.' });
           }
         }
       } finally {

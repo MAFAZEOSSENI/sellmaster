@@ -39,6 +39,29 @@ const Order = {
     }
   },
 
+  async getVisibleOwnerIds(userId) {
+    if (!userId) {
+      return [];
+    }
+
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      const [rows] = await conn.query(
+        `SELECT owner_user_id
+         FROM team_memberships
+         WHERE member_user_id = ? AND status = 'active'
+         UNION
+         SELECT ? AS owner_user_id`,
+        [userId, userId]
+      );
+
+      return [...new Set(rows.map((row) => Number(row.owner_user_id)).filter((id) => Number.isInteger(id) && id > 0))];
+    } finally {
+      if (conn) conn.release();
+    }
+  },
+
   // 🆕 MÉTHODE : Générer le numéro de commande personnalisé
   async generateCustomOrderNumber(userId) {
     let conn;
@@ -146,15 +169,21 @@ await conn.query(
     let conn;
     try {
       conn = await pool.getConnection();
-      
+      const visibleOwnerIds = await this.getVisibleOwnerIds(userId);
+
+      if (!visibleOwnerIds.length) {
+        return { total_orders: 0, last_order_number: null, first_order_date: null };
+      }
+
+      const placeholders = visibleOwnerIds.map(() => '?').join(',');
       const [stats] = await conn.query(`
         SELECT 
           COUNT(*) as total_orders,
           MAX(custom_order_number) as last_order_number,
           MIN(created_at) as first_order_date
         FROM orders 
-        WHERE user_id = ?
-      `, [userId]);
+        WHERE user_id IN (${placeholders})
+      `, visibleOwnerIds);
       
       return stats[0];
     } finally {
@@ -172,8 +201,13 @@ await conn.query(
       let params = [customOrderNumber];
       
       if (userId) {
-        query += ` AND user_id = ?`;
-        params.push(userId);
+        const visibleOwnerIds = await this.getVisibleOwnerIds(userId);
+        if (!visibleOwnerIds.length) {
+          return null;
+        }
+        const placeholders = visibleOwnerIds.map(() => '?').join(',');
+        query += ` AND user_id IN (${placeholders})`;
+        params.push(...visibleOwnerIds);
       }
       
       const [orders] = await conn.query(query, params);
@@ -224,9 +258,14 @@ await conn.query(
       let params = [];
       
       if (userId && userId !== 'null' && userId !== 'undefined' && userId !== '[object Object]') {
-        const numericUserId = isNaN(userId) ? userId : parseInt(userId);
-        query += ` WHERE user_id = ? `;
-        params.push(numericUserId);
+        const numericUserId = Number(userId);
+        const visibleOwnerIds = await this.getVisibleOwnerIds(numericUserId);
+        if (visibleOwnerIds.length === 0) {
+          return [];
+        }
+        const placeholders = visibleOwnerIds.map(() => '?').join(',');
+        query += ` WHERE user_id IN (${placeholders}) `;
+        params.push(...visibleOwnerIds);
       }
       
       query += ` ORDER BY created_at DESC `;
@@ -289,8 +328,13 @@ await conn.query(
       let params = [id];
       
       if (userId) {
-        query += ` AND user_id = ?`;
-        params.push(userId);
+        const visibleOwnerIds = await this.getVisibleOwnerIds(Number(userId));
+        if (!visibleOwnerIds.length) {
+          return null;
+        }
+        const placeholders = visibleOwnerIds.map(() => '?').join(',');
+        query += ` AND user_id IN (${placeholders})`;
+        params.push(...visibleOwnerIds);
       }
       
       const [orders] = await conn.query(query, params);

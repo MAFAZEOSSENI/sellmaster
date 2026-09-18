@@ -110,11 +110,11 @@ class User {
         values.push(Number(ownerUserId), Number(ownerUserId));
       }
 
-      if (String(roleName || '').trim().toLowerCase() === 'manager') {
+      if (['manager', 'closer'].includes(String(roleName || '').trim().toLowerCase())) {
         sql += ` AND id NOT IN (
           SELECT member_user_id
           FROM team_memberships
-          WHERE role_name = 'manager'
+          WHERE role_name IN ('manager', 'closer')
             AND status IN ('pending', 'active')
             AND owner_user_id != ?
         )`;
