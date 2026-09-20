@@ -61,10 +61,13 @@ class OrdersPageState extends State<OrdersPage> {
     return orders;
   }
 
-  void _showCreateOrderDialog() {
+  void _showCreateOrderDialog({int? ownerId}) {
     showDialog(
       context: context,
-      builder: (context) => CreateOrderDialog(onOrderCreated: loadOrders),
+      builder: (context) => CreateOrderDialog(
+        ownerId: ownerId,
+        onOrderCreated: loadOrders,
+      ),
     );
   }
 
@@ -730,8 +733,9 @@ class OrderCard extends StatelessWidget {
 
 class CreateOrderDialog extends StatefulWidget {
   final VoidCallback onOrderCreated;
+  final int? ownerId;
 
-  const CreateOrderDialog({Key? key, required this.onOrderCreated}) : super(key: key);
+  const CreateOrderDialog({Key? key, required this.onOrderCreated, this.ownerId}) : super(key: key);
 
   @override
   CreateOrderDialogState createState() => CreateOrderDialogState();
@@ -821,7 +825,7 @@ class CreateOrderDialogState extends State<CreateOrderDialog> {
           'items': selectedProducts,
         };
 
-        await ApiService.createOrder(orderData);
+        await ApiService.createOrder(orderData, ownerId: widget.ownerId);
         
         if (mounted) {
           Navigator.of(context).pop();

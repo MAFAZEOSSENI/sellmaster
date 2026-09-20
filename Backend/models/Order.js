@@ -9,7 +9,8 @@ const Order = {
       const availableColumns = new Set(columns.map((column) => column.Field));
       const migrations = [
         { name: 'user_id', sql: 'ALTER TABLE orders ADD COLUMN user_id INT NULL AFTER notes' },
-        { name: 'assigned_to', sql: 'ALTER TABLE orders ADD COLUMN assigned_to INT NULL AFTER user_id' },
+        { name: 'created_by', sql: 'ALTER TABLE orders ADD COLUMN created_by INT NULL AFTER user_id' },
+        { name: 'assigned_to', sql: 'ALTER TABLE orders ADD COLUMN assigned_to INT NULL AFTER created_by' },
         { name: 'assigned_by', sql: 'ALTER TABLE orders ADD COLUMN assigned_by INT NULL AFTER assigned_to' },
         { name: 'assigned_at', sql: 'ALTER TABLE orders ADD COLUMN assigned_at TIMESTAMP NULL AFTER assigned_by' },
         { name: 'assignment_note', sql: 'ALTER TABLE orders ADD COLUMN assignment_note TEXT AFTER assigned_at' },
@@ -69,24 +70,51 @@ const Order = {
     }
   },
 
+  async getOwnerIdForOrder(orderData, userId) {
+    const currentUserId = Number(userId);
+    const rawOwnerId = orderData && (orderData.ownerId ?? orderData.owner_id ?? orderData.ownerUserId ?? orderData.owner_user_id ?? null);
+    const requestedOwnerId = rawOwnerId !== null && rawOwnerId !== undefined && String(rawOwnerId).trim() !== ''
+      ? Number(rawOwnerId)
+      : currentUserId;
+
+    if (!Number.isInteger(requestedOwnerId) || requestedOwnerId <= 0) {
+      return currentUserId;
+    }
+
+    if (requestedOwnerId === currentUserId) {
+      return requestedOwnerId;
+    }
+
+    const isActiveOwner = await require('./User').isActiveTeamMemberForOwner(currentUserId, requestedOwnerId);
+    if (!isActiveOwner) {
+      const error = new Error('Vous n’êtes pas autorisé à créer une commande pour cet e-commerçant.');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    return requestedOwnerId;
+  },
+
   // 🆕 MÉTHODE : Générer le numéro de commande personnalisé
-  async generateCustomOrderNumber(userId) {
+  async generateCustomOrderNumber(ownerUserId, creatorUserId = null) {
     let conn;
     try {
       conn = await pool.getConnection();
-      
-      // Compter les commandes de cet utilisateur
+      const targetOwnerId = Number(ownerUserId || creatorUserId || 0);
+
+      if (!Number.isInteger(targetOwnerId) || targetOwnerId <= 0) {
+        throw new Error('ownerUserId invalide pour la génération du numéro de commande');
+      }
+
       const [rows] = await conn.query(
         'SELECT COUNT(*) as order_count FROM orders WHERE user_id = ?',
-        [userId]
+        [targetOwnerId]
       );
       
       const orderCount = Number(rows[0].order_count) + 1;
+      const customNumber = `USR${targetOwnerId}-CMD${orderCount}`;
       
-      // Format: USR{user_id}-CMD{numero}
-      const customNumber = `USR${userId}-CMD${orderCount}`;
-      
-      console.log(`🔢 Génération numéro commande: ${customNumber} pour user ${userId}`);
+      console.log(`🔢 Génération numéro commande: ${customNumber} pour owner ${targetOwnerId}`);
       return customNumber;
       
     } finally {
@@ -101,20 +129,19 @@ const Order = {
       conn = await pool.getConnection();
       await conn.beginTransaction();
 
-      console.log('📦 Création commande avec numéro personnalisé pour user:', userId);
+      const ownerId = await this.getOwnerIdForOrder(orderData, userId);
+      const createdBy = Number(userId) === Number(ownerId) ? null : Number(userId);
 
-      // Générer le numéro personnalisé
-      const customOrderNumber = await this.generateCustomOrderNumber(userId);
-      
-      // Gestion sécurisée du shopify_order_id
+      console.log('📦 Création commande avec numéro personnalisé pour owner:', ownerId, 'créée par:', userId);
+
+      const customOrderNumber = await this.generateCustomOrderNumber(ownerId);
       const shopifyOrderId = orderData.shopify_order_id;
       const safeShopifyOrderId = shopifyOrderId ? shopifyOrderId.toString() : null;
 
-      // 🆕 CRÉER LA COMMANDE AVEC LE NUMÉRO PERSONNALISÉ
       const [orderResult] = await conn.query(`
         INSERT INTO orders 
-        (client_name, client_phone, client_address, status, total_amount, notes, source, shopify_order_id, shopify_data, user_id, custom_order_number)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (client_name, client_phone, client_address, status, total_amount, notes, source, shopify_order_id, shopify_data, user_id, created_by, custom_order_number)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         orderData.clientName || orderData.client_name,
         orderData.clientPhone || orderData.client_phone,
@@ -125,17 +152,17 @@ const Order = {
         orderData.source || 'manual',
         safeShopifyOrderId,
         orderData.shopify_data ? JSON.stringify(orderData.shopify_data) : null,
-        userId,
+        ownerId,
+        createdBy,
         customOrderNumber
       ]);
 
       const orderId = orderResult.insertId;
-      // Après avoir créé la commande
-await conn.query(
-  'UPDATE app_users SET order_count = order_count + 1 WHERE id = ?',
-  [userId]
-);
-      console.log(`✅ Commande créée: ${customOrderNumber} (ID: ${orderId}) pour user: ${userId}`);
+      await conn.query(
+        'UPDATE app_users SET order_count = order_count + 1 WHERE id = ?',
+        [ownerId]
+      );
+      console.log(`✅ Commande créée: ${customOrderNumber} (ID: ${orderId}) pour owner: ${ownerId}, créée par: ${createdBy ?? 'owner'}`);
 
       // Ajouter les items si fournis
       if (orderData.items && Array.isArray(orderData.items) && orderData.items.length > 0) {
@@ -245,6 +272,7 @@ await conn.query(
           source,
           shopify_order_id,
           user_id,
+          ${availableColumns.has('created_by') ? 'created_by,' : ''}
           ${availableColumns.has('assigned_to') ? 'assigned_to,' : ''}
           ${availableColumns.has('assigned_by') ? 'assigned_by,' : ''}
           ${availableColumns.has('assigned_at') ? 'assigned_at,' : ''}
@@ -315,6 +343,7 @@ await conn.query(
           updated_at,
           source,
           user_id,
+          ${availableColumns.has('created_by') ? 'created_by,' : ''}
           ${availableColumns.has('assigned_to') ? 'assigned_to,' : ''}
           ${availableColumns.has('assigned_by') ? 'assigned_by,' : ''}
           ${availableColumns.has('assigned_at') ? 'assigned_at,' : ''}

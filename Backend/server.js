@@ -147,19 +147,38 @@ app.get('/api/orders', authMiddleware, async (req, res) => {
 // 🆕 REMPLACER l'ancienne route POST /api/orders
 app.post('/api/orders', authMiddleware, orderAuth, async (req, res) => {
   try {
-    console.log('📦 Création commande avec numéro personnalisé pour user:', req.userId, req.body);
+    const ownerIdFromBody = req.body && req.body.ownerId !== undefined && req.body.ownerId !== null && String(req.body.ownerId).trim() !== ''
+      ? Number(req.body.ownerId)
+      : null;
+
+    const effectiveOwnerId = ownerIdFromBody !== null ? ownerIdFromBody : Number(req.userId);
+
+    if (ownerIdFromBody !== null && Number(req.userId) !== effectiveOwnerId) {
+      const isActiveMembership = await User.isActiveTeamMemberForOwner(Number(req.userId), effectiveOwnerId);
+      if (!isActiveMembership) {
+        return res.status(403).json({
+          error: 'Vous n’êtes pas autorisé à créer une commande pour cet e-commerçant.',
+          details: 'Le propriétaire cible doit être un owner actif dans votre équipe.',
+          code: 'INVALID_OWNER'
+        });
+      }
+    }
+
+    console.log('📦 Création commande avec numéro personnalisé pour user:', req.userId, 'owner:', effectiveOwnerId, req.body);
     
-    const order = await Order.createWithCustomNumber(req.body, req.userId);
+    const order = await Order.createWithCustomNumber({ ...req.body, ownerId: effectiveOwnerId }, req.userId);
     
-    const user = await User.findById(req.userId);
-    await User.updateOrderCount(req.userId, user.order_count + 1);
-    
-    console.log('✅ Commande créée, compteur mis à jour:', user.order_count + 1);
+    const user = await User.findById(effectiveOwnerId);
+    if (user) {
+      await User.updateOrderCount(effectiveOwnerId, Number(user.order_count || 0) + 1);
+      console.log('✅ Commande créée, compteur mis à jour pour owner:', effectiveOwnerId, Number(user.order_count || 0) + 1);
+    }
     
     res.status(201).json(order);
   } catch (error) {
     console.error('❌ Erreur création commande:', error);
-    res.status(400).json({ error: error.message });
+    const statusCode = error && error.statusCode ? error.statusCode : 400;
+    res.status(statusCode).json({ error: error.message });
   }
 });
 

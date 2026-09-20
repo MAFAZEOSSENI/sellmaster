@@ -166,14 +166,19 @@ class ApiService {
     }
   }
 
-  static Future<void> createOrder(Map<String, dynamic> orderData) async {
+  static Future<void> createOrder(Map<String, dynamic> orderData, {int? ownerId}) async {
     try {
       print('📦 Tentative création commande...');
+
+      final payload = Map<String, dynamic>.from(orderData);
+      if (ownerId != null) {
+        payload['ownerId'] = ownerId;
+      }
       
       final response = await http.post(
         Uri.parse('$baseUrl/orders'),
         headers: await _getHeaders(),
-        body: json.encode(orderData),
+        body: json.encode(payload),
       );
 
       if (response.statusCode == 201) {

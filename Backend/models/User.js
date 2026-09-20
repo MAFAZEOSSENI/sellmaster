@@ -167,6 +167,47 @@ class User {
     }
   }
 
+  static async getActiveOwnerIdsForMember(memberUserId) {
+    const connection = await pool.getConnection();
+    try {
+      const [rows] = await connection.query(
+        `SELECT DISTINCT owner_user_id
+         FROM team_memberships
+         WHERE member_user_id = ? AND status = 'active'`,
+        [memberUserId]
+      );
+
+      return rows
+        .map((row) => Number(row.owner_user_id))
+        .filter((id) => Number.isInteger(id) && id > 0);
+    } finally {
+      connection.release();
+    }
+  }
+
+  static async isActiveTeamMemberForOwner(memberUserId, ownerUserId) {
+    if (!memberUserId || !ownerUserId) {
+      return false;
+    }
+
+    const connection = await pool.getConnection();
+    try {
+      const [rows] = await connection.query(
+        `SELECT 1
+         FROM team_memberships
+         WHERE member_user_id = ?
+           AND owner_user_id = ?
+           AND status = 'active'
+         LIMIT 1`,
+        [memberUserId, ownerUserId]
+      );
+
+      return rows.length > 0;
+    } finally {
+      connection.release();
+    }
+  }
+
   static async updateOrderCount(userId, newCount) {
     const connection = await pool.getConnection();
     try {
@@ -211,6 +252,40 @@ class User {
       console.error('❌ Erreur canCreateOrder:', error);
       return false;
     }
+  }
+
+  static async canCreateOrderForOwner(memberUserId, ownerUserId = null) {
+    const effectiveOwnerId = ownerUserId !== null && ownerUserId !== undefined && String(ownerUserId).trim() !== ''
+      ? Number(ownerUserId)
+      : Number(memberUserId);
+
+    if (!Number.isInteger(effectiveOwnerId) || effectiveOwnerId <= 0) {
+      return false;
+    }
+
+    if (Number(memberUserId) === effectiveOwnerId) {
+      return this.canCreateOrder(memberUserId);
+    }
+
+    const isActiveMembership = await this.isActiveTeamMemberForOwner(Number(memberUserId), effectiveOwnerId);
+    if (!isActiveMembership) {
+      return false;
+    }
+
+    const owner = await this.findById(effectiveOwnerId);
+    if (!owner) {
+      return false;
+    }
+
+    if (owner.license_key && owner.license_expiry && new Date(owner.license_expiry) > new Date()) {
+      return true;
+    }
+
+    if (owner.order_count < owner.max_orders) {
+      return true;
+    }
+
+    return false;
   }
 }
 

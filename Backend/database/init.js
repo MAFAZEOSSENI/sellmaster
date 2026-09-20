@@ -15,7 +15,8 @@ async function ensureOrderAssignmentColumns(conn) {
 
   const migrations = [
     { name: 'user_id', sql: 'ADD COLUMN user_id INT NULL AFTER notes' },
-    { name: 'assigned_to', sql: 'ADD COLUMN assigned_to INT NULL AFTER user_id' },
+    { name: 'created_by', sql: 'ADD COLUMN created_by INT NULL AFTER user_id' },
+    { name: 'assigned_to', sql: 'ADD COLUMN assigned_to INT NULL AFTER created_by' },
     { name: 'assigned_by', sql: 'ADD COLUMN assigned_by INT NULL AFTER assigned_to' },
     { name: 'assigned_at', sql: 'ADD COLUMN assigned_at TIMESTAMP NULL AFTER assigned_by' },
     { name: 'assignment_note', sql: 'ADD COLUMN assignment_note TEXT AFTER assigned_at' },
@@ -77,6 +78,7 @@ async function createTables() {
         total_amount DECIMAL(10,2) NOT NULL,
         notes TEXT,
         user_id INT NULL,
+        created_by INT NULL,
         assigned_to INT NULL,
         assigned_by INT NULL,
         assigned_at TIMESTAMP NULL,
@@ -86,7 +88,8 @@ async function createTables() {
     `);
 
     await ensureColumnExists(conn, 'orders', 'user_id', 'ADD COLUMN user_id INT NULL AFTER notes');
-    await ensureColumnExists(conn, 'orders', 'assigned_to', 'ADD COLUMN assigned_to INT NULL AFTER user_id');
+    await ensureColumnExists(conn, 'orders', 'created_by', 'ADD COLUMN created_by INT NULL AFTER user_id');
+    await ensureColumnExists(conn, 'orders', 'assigned_to', 'ADD COLUMN assigned_to INT NULL AFTER created_by');
     await ensureColumnExists(conn, 'orders', 'assigned_by', 'ADD COLUMN assigned_by INT NULL AFTER assigned_to');
     await ensureColumnExists(conn, 'orders', 'assigned_at', 'ADD COLUMN assigned_at TIMESTAMP NULL AFTER assigned_by');
     await ensureColumnExists(conn, 'orders', 'assignment_note', 'ADD COLUMN assignment_note TEXT AFTER assigned_at');
