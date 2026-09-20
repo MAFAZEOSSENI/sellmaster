@@ -1,11 +1,11 @@
 const mysql = require('mysql2/promise');
 
 const pool = mysql.createPool({
-  host: process.env.MYSQLHOST || process.env.MYSQL_ADDON_HOST || 'localhost',
-  port: process.env.MYSQLPORT || process.env.MYSQL_ADDON_PORT || 3306,
-  user: process.env.MYSQLUSER || process.env.MYSQL_ADDON_USER || 'root',
-  password: process.env.MYSQLPASSWORD || process.env.MYSQL_ADDON_PASSWORD || '',
-  database: process.env.MYSQLDATABASE || process.env.MYSQL_ADDON_DB || 'sellmaster',
+  host: process.env.MYSQLHOST || 'bdrqrvna7ivrtqdh3i9q-mysql.services.clever-cloud.com',
+  port: process.env.MYSQLPORT || 3306,
+  user: process.env.MYSQLUSER || 'umuwnzvqek77sduz',
+  password: process.env.MYSQLPASSWORD || 'fLB2baWjtFB5OxK95QcP',
+  database: process.env.MYSQLDATABASE || 'bdrqrvna7ivrtqdh3i9q',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
@@ -48,9 +48,9 @@ async function queryWithRetry(conn, sql, params = [], retries = 2) {
 }
 
 console.log('📊 Database config:', {
-  host: process.env.MYSQLHOST || process.env.MYSQL_ADDON_HOST,
-  database: process.env.MYSQLDATABASE || process.env.MYSQL_ADDON_DB,
-  port: process.env.MYSQLPORT || process.env.MYSQL_ADDON_PORT,
+  host: process.env.MYSQLHOST || 'bdrqrvna7ivrtqdh3i9q-mysql.services.clever-cloud.com',
+  database: process.env.MYSQLDATABASE || 'bdrqrvna7ivrtqdh3i9q',
+  port: process.env.MYSQLPORT || 3306,
   options: 'decimalNumbers: true, supportBigNumbers: true'
 });
 
