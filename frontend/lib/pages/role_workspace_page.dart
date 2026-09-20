@@ -16,19 +16,25 @@ class RoleWorkspacePage extends StatefulWidget {
 class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
   bool _isLoading = true;
   List<Order> _orders = [];
+  List<Map<String, dynamic>> _invitations = [];
+  List<Map<String, dynamic>> _owners = [];
+  int? _selectedOwnerId;
 
   @override
   void initState() {
     super.initState();
     _loadOrders();
+    _loadInvitations();
   }
 
-  Future<void> _loadOrders() async {
+  Future<void> _loadOrders({int? ownerId}) async {
     try {
-      final orders = await ApiService.getOrders();
+      final targetOwnerId = ownerId ?? _selectedOwnerId;
+      final orders = await ApiService.getOrders(ownerId: targetOwnerId);
       if (!mounted) return;
       setState(() {
-        _orders = orders;
+        _orders = _filterOrdersForOwner(orders, targetOwnerId);
+        _selectedOwnerId = targetOwnerId;
         _isLoading = false;
       });
     } catch (e) {
@@ -37,6 +43,83 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Erreur chargement du workspace: $e'),
+          backgroundColor: const Color(0xFFEF5350),
+        ),
+      );
+    }
+  }
+
+  List<Order> _filterOrdersForOwner(List<Order> orders, int? ownerId) {
+    if (ownerId == null) {
+      return orders;
+    }
+
+    return orders.where((order) => order.userId == ownerId).toList();
+  }
+
+  Future<void> _applyOwnerSelection(int? ownerId) async {
+    if (ownerId == null) {
+      return;
+    }
+
+    setState(() {
+      _selectedOwnerId = ownerId;
+    });
+    await _loadOrders(ownerId: ownerId);
+  }
+
+  Future<void> _loadInvitations() async {
+    try {
+      final invitations = await ApiService.getPendingMemberships();
+      if (!mounted) return;
+
+      final activeOwners = invitations
+          .where((item) => (item['status'] ?? 'pending') == 'active')
+          .map((item) {
+            final ownerId = item['owner_user_id'];
+            final ownerName = item['owner_name'] ?? 'Propriétaire';
+            return {
+              'owner_user_id': ownerId,
+              'owner_name': ownerName,
+              'role_name': item['role_name'],
+            };
+          })
+          .toList();
+
+      setState(() {
+        _invitations = invitations;
+        _owners = activeOwners;
+        if (_selectedOwnerId == null && activeOwners.isNotEmpty) {
+          _selectedOwnerId = int.tryParse(activeOwners.first['owner_user_id'].toString());
+        }
+      });
+
+      if (_selectedOwnerId != null) {
+        await _loadOrders(ownerId: _selectedOwnerId);
+      }
+    } catch (e) {
+      if (mounted) {
+        print('Invitation load error: $e');
+      }
+    }
+  }
+
+  Future<void> _acceptInvitation(int membershipId) async {
+    try {
+      await ApiService.confirmMembership(membershipId);
+      await _loadInvitations();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invitation acceptée, vous êtes maintenant actif dans cette équipe.'),
+          backgroundColor: Color(0xFF4CAF50),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Impossible d’accepter l’invitation: $e'),
           backgroundColor: const Color(0xFFEF5350),
         ),
       );
@@ -143,7 +226,7 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
-      onRefresh: _loadOrders,
+      onRefresh: () => _loadOrders(ownerId: _selectedOwnerId),
       child: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -173,6 +256,43 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                     ],
                   ),
                   const SizedBox(height: 16),
+                  if (_owners.isNotEmpty)
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Mes propriétaires',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF1A1A1A),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _owners.map((owner) {
+                              final ownerId = int.tryParse(owner['owner_user_id'].toString());
+                              final isSelected = ownerId != null && ownerId == _selectedOwnerId;
+                              return ChoiceChip(
+                                label: Text(owner['owner_name'] ?? 'Propriétaire'),
+                                selected: isSelected,
+                                onSelected: (_) => _applyOwnerSelection(ownerId),
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ),
+                    ),
                   GridView.count(
                     crossAxisCount: 2,
                     crossAxisSpacing: 12,
@@ -221,6 +341,71 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                     }).toList(),
                   ),
                   const SizedBox(height: 20),
+                  if (_invitations.isNotEmpty)
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 20),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Invitations reçues',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF1A1A1A),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          ..._invitations.map((invitation) {
+                            final ownerName = invitation['owner_name'] ?? 'Propriétaire';
+                            final roleName = invitation['role_name'] ?? 'membre';
+                            final status = invitation['status'] ?? 'pending';
+                            final membershipId = invitation['id'];
+
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Invitation de $ownerName',
+                                          style: const TextStyle(fontWeight: FontWeight.w700),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Rôle: $roleName • Statut: ${status == 'active' ? 'acceptée' : 'en attente'}',
+                                          style: const TextStyle(color: Color(0xFF64748B)),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (status != 'active')
+                                    ElevatedButton(
+                                      onPressed: () => _acceptInvitation(int.tryParse(membershipId.toString()) ?? 0),
+                                      child: const Text('Accepter'),
+                                    ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
                   const Text(
                     'Tâches à traiter',
                     style: TextStyle(

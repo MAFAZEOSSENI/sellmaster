@@ -142,13 +142,18 @@ class ApiService {
 
   // ==================== COMMANDES ====================
 
-  static Future<List<Order>> getOrders() async {
+  static Future<List<Order>> getOrders({int? ownerId}) async {
     try {
+      final queryParams = <String, String>{};
+      if (ownerId != null) {
+        queryParams['ownerId'] = ownerId.toString();
+      }
+
       final response = await http.get(
-        Uri.parse('$baseUrl/orders'),
+        Uri.parse('$baseUrl/orders').replace(queryParameters: queryParams.isEmpty ? null : queryParams),
         headers: await _getHeaders(),
       );
-      
+
       if (response.statusCode == 200) {
         List<dynamic> data = json.decode(response.body);
         return data.map((json) => Order.fromJson(json)).toList();
@@ -339,6 +344,52 @@ class ApiService {
       throw Exception(body['error'] ?? 'Erreur création membre');
     } catch (e) {
       print('❌ Erreur createTeamMember: $e');
+      rethrow;
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> getPendingMemberships() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/admin/members/pending'),
+        headers: await _getHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final memberships = data['memberships'];
+        if (memberships is! List) {
+          return [];
+        }
+        return memberships
+            .map<Map<String, dynamic>>((item) => Map<String, dynamic>.from(item))
+            .toList();
+      }
+
+      final body = json.decode(response.body);
+      throw Exception(body['error'] ?? 'Erreur chargement invitations');
+    } catch (e) {
+      print('❌ Erreur getPendingMemberships: $e');
+      rethrow;
+    }
+  }
+
+  static Future<Map<String, dynamic>> confirmMembership(int membershipId) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/admin/members/confirm'),
+        headers: await _getHeaders(),
+        body: json.encode({'membershipId': membershipId}),
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+
+      final body = json.decode(response.body);
+      throw Exception(body['error'] ?? 'Erreur confirmation invitation');
+    } catch (e) {
+      print('❌ Erreur confirmMembership: $e');
       rethrow;
     }
   }

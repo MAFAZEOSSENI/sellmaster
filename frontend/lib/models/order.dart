@@ -15,6 +15,7 @@ class Order {
   final OrderSource source;
   final String? shopifyOrderId;
   final Map<String, dynamic>? shopifyData;
+  final int userId;
   final int? assignedTo;
   final int? assignedBy;
   final DateTime? assignedAt;
@@ -29,6 +30,7 @@ class Order {
     required this.status,
     required this.totalAmount,
     required this.createdAt,
+    required this.userId,
     this.source = OrderSource.manual,
     this.shopifyOrderId,
     this.shopifyData,
@@ -55,6 +57,7 @@ class Order {
       status: json['status'] as String? ?? 'dashboard',
       totalAmount: _parseDouble(json['total_amount']),
       createdAt: DateTime.parse(json['created_at'] as String),
+      userId: _parseNullableInt(json['user_id']) ?? 0,
       source: sourceString == 'shopify' 
           ? OrderSource.shopify 
           : OrderSource.manual,
