@@ -16,6 +16,7 @@ class ProductsPageState extends State<ProductsPage> {
   List<Product> filteredProducts = [];
   bool isLoading = true;
   String searchQuery = '';
+  int? _selectedOwnerId;
 
   @override
   void initState() {
@@ -23,10 +24,12 @@ class ProductsPageState extends State<ProductsPage> {
     loadProducts();
   }
 
-  Future<void> loadProducts() async {
+  Future<void> loadProducts({int? ownerId}) async {
     try {
-      final productsData = await ApiService.getProducts();
+      final targetOwnerId = ownerId ?? _selectedOwnerId;
+      final productsData = await ApiService.getProducts(ownerId: targetOwnerId);
       setState(() {
+        _selectedOwnerId = targetOwnerId;
         products = productsData;
         filteredProducts = productsData;
         isLoading = false;

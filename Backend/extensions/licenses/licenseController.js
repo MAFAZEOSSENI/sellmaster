@@ -41,7 +41,23 @@ class LicenseController {
   // Vérifier le statut de la licence utilisateur
   static async getLicenseStatus(req, res) {
     try {
-      const user = await User.findById(req.userId);
+      const { ownerId } = req.query;
+      const effectiveOwnerId = ownerId && Number(ownerId) > 0 ? Number(ownerId) : req.userId;
+
+      if (Number(req.userId) !== effectiveOwnerId) {
+        const isActiveMembership = await User.isActiveTeamMemberForOwner(Number(req.userId), effectiveOwnerId);
+        if (!isActiveMembership) {
+          return res.status(403).json({
+            error: 'Vous n’êtes pas autorisé à consulter la licence de cet e-commerçant.',
+            code: 'INVALID_OWNER'
+          });
+        }
+      }
+
+      const user = await User.findById(effectiveOwnerId);
+      if (!user) {
+        return res.status(404).json({ error: 'Propriétaire non trouvé' });
+      }
       
       let licenseStatus = 'none';
       let remainingDays = 0;
@@ -62,6 +78,7 @@ class LicenseController {
       }
 
       res.json({
+        ownerId: effectiveOwnerId,
         licenseStatus,
         remainingDays,
         orderCount: user.order_count,

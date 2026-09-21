@@ -66,10 +66,15 @@ class ApiService {
 
   // ==================== PRODUITS ====================
 
-  static Future<List<Product>> getProducts() async {
+  static Future<List<Product>> getProducts({int? ownerId}) async {
     try {
+      final queryParams = <String, String>{};
+      if (ownerId != null) {
+        queryParams['ownerId'] = ownerId.toString();
+      }
+
       final response = await http.get(
-        Uri.parse('$baseUrl/products'),
+        Uri.parse('$baseUrl/products').replace(queryParameters: queryParams.isEmpty ? null : queryParams),
         headers: await _getHeaders(),
       );
       
@@ -269,10 +274,15 @@ class ApiService {
 
   // ==================== LICENCES ====================
 
-  static Future<Map<String, dynamic>> getLicenseStatus() async {
+  static Future<Map<String, dynamic>> getLicenseStatus({int? ownerId}) async {
     try {
+      final queryParams = <String, String>{};
+      if (ownerId != null) {
+        queryParams['ownerId'] = ownerId.toString();
+      }
+
       final response = await http.get(
-        Uri.parse('$baseUrl/licenses/status'),
+        Uri.parse('$baseUrl/licenses/status').replace(queryParameters: queryParams.isEmpty ? null : queryParams),
         headers: await _getHeaders(),
       );
       

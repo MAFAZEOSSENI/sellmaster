@@ -14,6 +14,7 @@ class DashboardPageState extends State<DashboardPage> {
   List<Order> orders = [];
   List<Product> products = [];
   bool isLoading = true;
+  int? _selectedOwnerId;
 
   @override
   void initState() {
@@ -21,12 +22,20 @@ class DashboardPageState extends State<DashboardPage> {
     loadDashboardData();
   }
 
-  Future<void> loadDashboardData() async {
+  Future<void> loadDashboardData({int? ownerId}) async {
     try {
+      final targetOwnerId = ownerId ?? _selectedOwnerId;
       final results = await Future.wait([
-        ApiService.getOrders(),
-        ApiService.getProducts(),
+        ApiService.getOrders(ownerId: targetOwnerId),
+        ApiService.getProducts(ownerId: targetOwnerId),
       ]);
+
+      setState(() {
+        _selectedOwnerId = targetOwnerId;
+        orders = results[0] as List<Order>;
+        products = results[1] as List<Product>;
+        isLoading = false;
+      });
 
       setState(() {
         orders = results[0] as List<Order>;

@@ -77,21 +77,23 @@ app.use('/api/shopify', shopifyRoutesV2);
 // Routes Produits
 app.get('/api/products', authMiddleware, async (req, res) => {
   try {
-    console.log('🛍️  Récupération produits pour user:', req.userId);
-    
-    const products = await Product.findAll(req.userId);
-    
-    console.log('📦 Produits bruts:', products);
-    console.log('📦 Type:', typeof products);
-    console.log('📦 Est Array?', Array.isArray(products));
-    
-    // FORCER la transformation en JSON
+    const { ownerId } = req.query;
+    const effectiveOwnerId = ownerId && Number(ownerId) > 0 ? Number(ownerId) : null;
+    console.log('🛍️  Récupération produits pour user:', req.userId, 'ownerId:', effectiveOwnerId);
+
+    if (effectiveOwnerId && Number(req.userId) !== effectiveOwnerId) {
+      const isActiveMembership = await User.isActiveTeamMemberForOwner(Number(req.userId), effectiveOwnerId);
+      if (!isActiveMembership) {
+        return res.status(403).json({
+          error: 'Vous n’êtes pas autorisé à consulter les produits de cet e-commerçant.',
+          code: 'INVALID_OWNER'
+        });
+      }
+    }
+
+    const products = await Product.findAll(req.userId, effectiveOwnerId);
     const jsonProducts = JSON.parse(JSON.stringify(products));
-    
-    console.log('✅ Produits transformés:', jsonProducts);
-    
     res.json(jsonProducts);
-    
   } catch (error) {
     console.error('❌ Erreur produits:', error);
     res.status(500).json({ error: error.message });
@@ -100,15 +102,26 @@ app.get('/api/products', authMiddleware, async (req, res) => {
 
 app.post('/api/products', authMiddleware, async (req, res) => {
   try {
-    const { name, description, price, stock } = req.body;
-    
+    const { name, description, price, stock, ownerId } = req.body;
+    const effectiveOwnerId = ownerId && Number(ownerId) > 0 ? Number(ownerId) : req.userId;
+
+    if (Number(req.userId) !== effectiveOwnerId) {
+      const isActiveMembership = await User.isActiveTeamMemberForOwner(Number(req.userId), effectiveOwnerId);
+      if (!isActiveMembership) {
+        return res.status(403).json({
+          error: 'Vous n’êtes pas autorisé à créer un produit pour cet e-commerçant.',
+          code: 'INVALID_OWNER'
+        });
+      }
+    }
+
     const product = await Product.create({
       name,
       description: description || '',
       price: parseFloat(price),
       stock: parseInt(stock),
       image_url: null
-    }, req.userId);
+    }, req.userId, effectiveOwnerId);
 
     res.status(201).json(product);
   } catch (error) {
@@ -119,7 +132,9 @@ app.post('/api/products', authMiddleware, async (req, res) => {
 
 app.get('/api/products/:id', authMiddleware, async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id, req.userId);
+    const { ownerId } = req.query;
+    const effectiveOwnerId = ownerId && Number(ownerId) > 0 ? Number(ownerId) : null;
+    const product = await Product.findById(req.params.id, req.userId, effectiveOwnerId);
     if (!product) {
       return res.status(404).json({ error: 'Produit non trouvé' });
     }

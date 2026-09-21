@@ -26,19 +26,22 @@ const convertRowToPlainObject = (row) => {
 };
 
 const Product = {
-  async findAll(userId = null) {
+  async findAll(userId = null, ownerId = null) {
     let conn;
     try {
       conn = await pool.getConnection();
+      const targetUserId = ownerId !== null && ownerId !== undefined && ownerId !== ''
+        ? Number(ownerId)
+        : userId;
       
-      console.log(`🔍 Product.findAll pour user: ${userId}`);
+      console.log(`🔍 Product.findAll pour user: ${userId}, ownerId: ${ownerId}, targetUserId: ${targetUserId}`);
       
       let query = `SELECT * FROM products `;
       let params = [];
       
-      if (userId) {
+      if (targetUserId) {
         query += ` WHERE user_id = ? `;
-        params.push(userId);
+        params.push(targetUserId);
       }
       
       query += ` ORDER BY created_at DESC `;
@@ -78,17 +81,20 @@ const Product = {
     }
   },
 
-  async findById(id, userId = null) {
+  async findById(id, userId = null, ownerId = null) {
     let conn;
     try {
       conn = await pool.getConnection();
+      const targetUserId = ownerId !== null && ownerId !== undefined && ownerId !== ''
+        ? Number(ownerId)
+        : userId;
       
       let query = `SELECT * FROM products WHERE id = ?`;
       let params = [id];
       
-      if (userId) {
+      if (targetUserId) {
         query += ` AND user_id = ?`;
-        params.push(userId);
+        params.push(targetUserId);
       }
       
       const [rows] = await conn.query(query, params);
@@ -108,17 +114,21 @@ const Product = {
     }
   },
 
-  async create(productData, userId = null) {
+  async create(productData, userId = null, ownerId = null) {
     let conn;
     try {
       conn = await pool.getConnection();
+      const effectiveOwnerId = ownerId !== null && ownerId !== undefined && ownerId !== ''
+        ? Number(ownerId)
+        : userId;
       
       console.log('➕ Product.create appelé');
       console.log('📦 Données:', productData);
       console.log('👤 User ID:', userId);
+      console.log('👑 Owner ID:', effectiveOwnerId);
       
       // Validation
-      if (!userId) {
+      if (!effectiveOwnerId) {
         throw new Error('User ID requis pour créer un produit');
       }
       
@@ -137,7 +147,7 @@ const Product = {
           created_at
         ) VALUES (?, ?, ?, ?, ?, ?, NOW())
       `, [
-        userId,
+        effectiveOwnerId,
         productData.name,
         productData.description || '',
         parseFloat(productData.price),
