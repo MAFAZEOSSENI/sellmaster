@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../auth/auth_provider.dart';
 import '../models/order.dart';
 import '../services/api_service.dart';
+import 'orders_page.dart';
 
 class RoleWorkspacePage extends StatefulWidget {
   final String role;
@@ -169,6 +170,26 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
       'Reportées': reportees,
       'Annulées': annulees,
     };
+  }
+
+  void _showCreateOrderDialog() {
+    if (_selectedOwnerId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sélectionnez un propriétaire avant de créer une commande.'),
+          backgroundColor: Color(0xFFFF9800),
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => CreateOrderDialog(
+        ownerId: _selectedOwnerId,
+        onOrderCreated: () => _loadOrders(ownerId: _selectedOwnerId),
+      ),
+    );
   }
 
   Future<void> _assignToMe(Order order) async {
@@ -406,6 +427,27 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                         ],
                       ),
                     ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _showCreateOrderDialog,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text(
+                        'Créer une commande',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00BCD4),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   const Text(
                     'Tâches à traiter',
                     style: TextStyle(

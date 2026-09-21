@@ -21,17 +21,17 @@ async function ensureUser(email, fullName) {
   }
 }
 
-async function ensureProduct(name) {
+async function ensureProduct(ownerUserId, name) {
   const conn = await pool.getConnection();
   try {
-    const [rows] = await conn.query('SELECT id FROM products WHERE name = ?', [name]);
+    const [rows] = await conn.query('SELECT id FROM products WHERE name = ? AND user_id = ?', [name, ownerUserId]);
     if (rows.length) {
       return Number(rows[0].id);
     }
 
     const [result] = await conn.query(
-      'INSERT INTO products (name, description, price, stock) VALUES (?, ?, ?, ?)',
-      [name, 'Produit de test', 42.5, 100]
+      'INSERT INTO products (name, description, price, stock, user_id) VALUES (?, ?, ?, ?, ?)',
+      [name, 'Produit de test', 42.5, 100, ownerUserId]
     );
     return Number(result.insertId);
   } finally {
@@ -42,7 +42,7 @@ async function ensureProduct(name) {
 async function main() {
   const ownerId = await ensureUser('owner-a@test.local', 'Owner A');
   const courierId = await ensureUser('courier-b@test.local', 'Courier B');
-  const productId = await ensureProduct('Produit test owner visibility');
+  const productId = await ensureProduct(ownerId, 'Produit test owner visibility');
 
   const conn = await pool.getConnection();
   try {

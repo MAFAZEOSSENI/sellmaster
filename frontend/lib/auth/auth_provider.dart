@@ -1,11 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:js' as js;
-import 'dart:js_util' as js_util;
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'google_auth.dart';
 
 const googleWebClientId =
   '679713157139-e8r3ahd7milpcuvng9vfiruiijcghm12.apps.googleusercontent.com';
@@ -253,8 +252,7 @@ class AuthProvider with ChangeNotifier {
       String idToken;
 
       if (kIsWeb) {
-        final dynamic promise = js_util.callMethod(js.context, 'googleWebSignIn', []);
-        idToken = await js_util.promiseToFuture<String>(promise);
+        idToken = await GoogleAuth.signIn();
       } else {
         final googleUser = await GoogleSignIn(
           clientId: googleWebClientId,
