@@ -179,6 +179,106 @@ const adminController = {
     }
   },
 
+  async getMyTeams(req, res) {
+    try {
+      const conn = await pool.getConnection();
+      try {
+        const [rows] = await conn.query(`
+          SELECT tm.id,
+                 tm.owner_user_id,
+                 tm.member_user_id,
+                 tm.role_name,
+                 tm.status,
+                 tm.nickname,
+                 tm.is_working,
+                 tm.created_at,
+                 tm.confirmed_at,
+                 owner.email AS owner_email,
+                 owner.full_name AS owner_name,
+                 owner.phone AS owner_phone,
+                 member.email AS member_email,
+                 member.full_name AS member_full_name
+          FROM team_memberships tm
+          JOIN app_users owner ON owner.id = tm.owner_user_id
+          JOIN app_users member ON member.id = tm.member_user_id
+          WHERE tm.member_user_id = ?
+          ORDER BY tm.created_at DESC`, [req.userId]);
+
+        res.json({ memberships: rows.map((row) => ({
+          ...row,
+          is_working: Boolean(row.is_working),
+          owner_name: row.owner_name || row.owner_email || 'Propriétaire',
+          nickname: row.nickname || row.owner_name || row.owner_email || null,
+        })) });
+      } finally {
+        conn.release();
+      }
+    } catch (error) {
+      console.error('[ADMIN] Get my teams error:', error);
+      res.status(500).json({ error: 'Erreur chargement de mes équipes' });
+    }
+  },
+
+  async updateMyTeam(req, res) {
+    try {
+      const membershipId = Number(req.params.membershipId);
+      const { nickname, is_working } = req.body;
+
+      if (!membershipId) {
+        return res.status(400).json({ error: 'Identifiant de membership invalide' });
+      }
+
+      const conn = await pool.getConnection();
+      try {
+        const [rows] = await conn.query(
+          `SELECT * FROM team_memberships WHERE id = ? AND member_user_id = ?`,
+          [membershipId, req.userId]
+        );
+
+        if (!rows.length) {
+          return res.status(404).json({ error: 'Équipe introuvable' });
+        }
+
+        const nextNickname = nickname !== undefined ? String(nickname).trim() : rows[0].nickname;
+        const nextIsWorking = is_working !== undefined ? Boolean(is_working) : Boolean(rows[0].is_working);
+
+        await conn.query(
+          `UPDATE team_memberships
+           SET nickname = ?, is_working = ?
+           WHERE id = ? AND member_user_id = ?`,
+          [nextNickname || null, nextIsWorking, membershipId, req.userId]
+        );
+
+        const [updatedRows] = await conn.query(
+          `SELECT tm.*, owner.full_name AS owner_name
+           FROM team_memberships tm
+           JOIN app_users owner ON owner.id = tm.owner_user_id
+           WHERE tm.id = ? AND tm.member_user_id = ?`,
+          [membershipId, req.userId]
+        );
+
+        const membership = updatedRows[0];
+        if (!membership) {
+          return res.status(404).json({ error: 'Équipe mise à jour introuvable' });
+        }
+
+        res.json({
+          message: 'Équipe mise à jour',
+          membership: {
+            ...membership,
+            nickname: membership.nickname || membership.owner_name || null,
+            is_working: Boolean(membership.is_working),
+          }
+        });
+      } finally {
+        conn.release();
+      }
+    } catch (error) {
+      console.error('[ADMIN] Update my team error:', error);
+      res.status(500).json({ error: 'Erreur mise à jour équipe' });
+    }
+  },
+
   async getPendingMemberships(req, res) {
     try {
       const conn = await pool.getConnection();

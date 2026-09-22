@@ -19,22 +19,26 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
   List<Order> _orders = [];
   List<Map<String, dynamic>> _invitations = [];
   List<Map<String, dynamic>> _owners = [];
+  List<Map<String, dynamic>> _myTeams = [];
   int? _selectedOwnerId;
 
   @override
   void initState() {
     super.initState();
-    _loadOrders();
-    _loadInvitations();
+    _loadMyTeams();
   }
 
-  Future<void> _loadOrders({int? ownerId}) async {
+  Future<void> _loadOrders({int? ownerId, Set<int>? ownerIds}) async {
     try {
       final targetOwnerId = ownerId ?? _selectedOwnerId;
-      final orders = await ApiService.getOrders(ownerId: targetOwnerId);
+      final orders = targetOwnerId == null
+          ? await ApiService.getOrders()
+          : await ApiService.getOrders(ownerId: targetOwnerId);
       if (!mounted) return;
+
+      final effectiveOwnerIds = ownerIds ?? (targetOwnerId != null ? {targetOwnerId} : <int>{});
       setState(() {
-        _orders = _filterOrdersForOwner(orders, targetOwnerId);
+        _orders = _filterOrdersForOwner(orders, effectiveOwnerIds.isNotEmpty ? effectiveOwnerIds : null);
         _selectedOwnerId = targetOwnerId;
         _isLoading = false;
       });
@@ -50,12 +54,12 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
     }
   }
 
-  List<Order> _filterOrdersForOwner(List<Order> orders, int? ownerId) {
-    if (ownerId == null) {
+  List<Order> _filterOrdersForOwner(List<Order> orders, Set<int>? ownerIds) {
+    if (ownerIds == null || ownerIds.isEmpty) {
       return orders;
     }
 
-    return orders.where((order) => order.userId == ownerId).toList();
+    return orders.where((order) => ownerIds.contains(order.userId)).toList();
   }
 
   Future<void> _applyOwnerSelection(int? ownerId) async {
@@ -69,46 +73,105 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
     await _loadOrders(ownerId: ownerId);
   }
 
-  Future<void> _loadInvitations() async {
+  Future<void> _loadMyTeams() async {
     try {
-      final invitations = await ApiService.getPendingMemberships();
+      final teams = await ApiService.getMyTeams();
       if (!mounted) return;
 
-      final activeOwners = invitations
-          .where((item) => (item['status'] ?? 'pending') == 'active')
+      final activeOwners = teams
+          .where((item) {
+            final status = (item['status'] ?? 'pending').toString();
+            final isWorking = item['is_working'] == true || item['is_working'] == 1 || item['is_working'] == '1';
+            return status == 'active' || status == 'pending';
+          })
           .map((item) {
-            final ownerId = item['owner_user_id'];
-            final ownerName = item['owner_name'] ?? 'Propriétaire';
+            final ownerId = int.tryParse(item['owner_user_id'].toString());
+            final ownerName = (item['nickname'] ?? item['owner_name'] ?? 'Propriétaire').toString();
+            final isWorking = item['is_working'] == true || item['is_working'] == 1 || item['is_working'] == '1';
             return {
+              'id': item['id'],
               'owner_user_id': ownerId,
               'owner_name': ownerName,
+              'nickname': item['nickname'] ?? ownerName,
               'role_name': item['role_name'],
+              'status': item['status'],
+              'is_working': isWorking,
             };
           })
           .toList();
 
+      final workingOwnerIds = activeOwners
+          .where((owner) => owner['is_working'] == true)
+          .map((owner) => int.tryParse(owner['owner_user_id'].toString()))
+          .whereType<int>()
+          .toSet();
+
       setState(() {
-        _invitations = invitations;
+        _myTeams = teams;
+        _invitations = teams.where((item) => (item['status'] ?? 'pending').toString() != 'rejected').toList();
         _owners = activeOwners;
-        if (_selectedOwnerId == null && activeOwners.isNotEmpty) {
-          _selectedOwnerId = int.tryParse(activeOwners.first['owner_user_id'].toString());
-        }
+        _selectedOwnerId = workingOwnerIds.isNotEmpty ? workingOwnerIds.first : (activeOwners.isNotEmpty ? int.tryParse(activeOwners.first['owner_user_id'].toString()) : null);
       });
 
-      if (_selectedOwnerId != null) {
+      if (workingOwnerIds.isNotEmpty) {
+        await _loadOrders(ownerIds: workingOwnerIds);
+      } else if (_selectedOwnerId != null) {
         await _loadOrders(ownerId: _selectedOwnerId);
+      } else {
+        setState(() => _orders = []);
       }
     } catch (e) {
       if (mounted) {
-        print('Invitation load error: $e');
+        print('My teams load error: $e');
       }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _saveTeamState(int membershipId, {String? nickname, bool? isWorking}) async {
+    try {
+      final updated = await ApiService.updateMyTeam(membershipId, nickname: nickname, isWorking: isWorking);
+      if (!mounted) return;
+
+      final updatedOwnerName = (updated['nickname'] ?? updated['owner_name'] ?? 'Propriétaire').toString();
+      setState(() {
+        _myTeams = _myTeams.map((team) {
+          if (team['id'] == membershipId) {
+            return {
+              ...team,
+              'nickname': updated['nickname'] ?? team['nickname'] ?? updatedOwnerName,
+              'is_working': updated['is_working'] ?? team['is_working'] ?? false,
+            };
+          }
+          return team;
+        }).toList();
+      });
+
+      await _loadMyTeams();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Paramètres de l’équipe mis à jour.'),
+          backgroundColor: Color(0xFF4CAF50),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Impossible de mettre à jour l’équipe: $e'),
+          backgroundColor: const Color(0xFFEF5350),
+        ),
+      );
     }
   }
 
   Future<void> _acceptInvitation(int membershipId) async {
     try {
       await ApiService.confirmMembership(membershipId);
-      await _loadInvitations();
+      await _loadMyTeams();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -125,6 +188,10 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
         ),
       );
     }
+  }
+
+  Future<void> _loadInvitations() async {
+    await _loadMyTeams();
   }
 
   String get title => widget.role == 'closer' ? 'Espace Closeur' : 'Espace Livreur';
@@ -290,7 +357,7 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Mes propriétaires',
+                            'Mes équipes actives',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
@@ -304,13 +371,58 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                             children: _owners.map((owner) {
                               final ownerId = int.tryParse(owner['owner_user_id'].toString());
                               final isSelected = ownerId != null && ownerId == _selectedOwnerId;
+                              final isWorking = owner['is_working'] == true;
                               return ChoiceChip(
-                                label: Text(owner['owner_name'] ?? 'Propriétaire'),
+                                label: Text((owner['nickname'] ?? owner['owner_name'] ?? 'Propriétaire').toString()),
                                 selected: isSelected,
+                                avatar: isWorking ? const Icon(Icons.check_circle, size: 16) : const Icon(Icons.pause_circle, size: 16),
                                 onSelected: (_) => _applyOwnerSelection(ownerId),
                               );
                             }).toList(),
                           ),
+                          const SizedBox(height: 12),
+                          ..._owners.map((team) {
+                            final ownerId = int.tryParse(team['owner_user_id'].toString());
+                            final membershipId = team['id'];
+                            final nickname = team['nickname'] ?? team['owner_name'] ?? 'Propriétaire';
+                            final isWorking = team['is_working'] == true;
+                            if (ownerId == null || membershipId == null) {
+                              return const SizedBox.shrink();
+                            }
+
+                            return Container(
+                              margin: const EdgeInsets.only(top: 8),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          nickname,
+                                          style: const TextStyle(fontWeight: FontWeight.w700),
+                                        ),
+                                        Text(
+                                          (team['status'] ?? 'active') == 'pending' ? 'Invitation en attente' : 'Equipe active',
+                                          style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Switch(
+                                    value: isWorking,
+                                    activeColor: const Color(0xFF00BCD4),
+                                    onChanged: (value) => _saveTeamState(int.parse(membershipId.toString()), isWorking: value),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
                         ],
                       ),
                     ),

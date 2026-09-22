@@ -119,6 +119,8 @@ async function createTables() {
         role_name VARCHAR(50) NOT NULL,
         status ENUM('pending', 'active', 'rejected') NOT NULL DEFAULT 'pending',
         invited_by INT NULL,
+        nickname VARCHAR(100) NULL,
+        is_working BOOLEAN NOT NULL DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         confirmed_at TIMESTAMP NULL,
         UNIQUE KEY unique_team_membership (owner_user_id, member_user_id, role_name),
@@ -127,6 +129,9 @@ async function createTables() {
         INDEX idx_team_memberships_status (status)
       )
     `);
+
+    await ensureColumnExists(conn, 'team_memberships', 'nickname', 'ADD COLUMN nickname VARCHAR(100) NULL AFTER invited_by');
+    await ensureColumnExists(conn, 'team_memberships', 'is_working', 'ADD COLUMN is_working BOOLEAN NOT NULL DEFAULT FALSE AFTER nickname');
 
     // RBAC: tables séparées pour préserver les utilisateurs et JWT existants.
     await queryWithRetry(conn, `

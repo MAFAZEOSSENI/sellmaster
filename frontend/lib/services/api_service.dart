@@ -363,6 +363,32 @@ class ApiService {
     }
   }
 
+  static Future<List<Map<String, dynamic>>> getMyTeams() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/admin/my-teams'),
+        headers: await _getHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final memberships = data['memberships'];
+        if (memberships is! List) {
+          return [];
+        }
+        return memberships
+            .map<Map<String, dynamic>>((item) => Map<String, dynamic>.from(item))
+            .toList();
+      }
+
+      final body = json.decode(response.body);
+      throw Exception(body['error'] ?? 'Erreur chargement de mes équipes');
+    } catch (e) {
+      print('❌ Erreur getMyTeams: $e');
+      rethrow;
+    }
+  }
+
   static Future<List<Map<String, dynamic>>> getPendingMemberships() async {
     try {
       final response = await http.get(
@@ -385,6 +411,35 @@ class ApiService {
       throw Exception(body['error'] ?? 'Erreur chargement invitations');
     } catch (e) {
       print('❌ Erreur getPendingMemberships: $e');
+      rethrow;
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateMyTeam(int membershipId, {String? nickname, bool? isWorking}) async {
+    try {
+      final payload = <String, dynamic>{};
+      if (nickname != null) {
+        payload['nickname'] = nickname;
+      }
+      if (isWorking != null) {
+        payload['is_working'] = isWorking;
+      }
+
+      final response = await http.patch(
+        Uri.parse('$baseUrl/admin/my-teams/$membershipId'),
+        headers: await _getHeaders(),
+        body: json.encode(payload),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['membership'] ?? data;
+      }
+
+      final body = json.decode(response.body);
+      throw Exception(body['error'] ?? 'Erreur mise à jour équipe');
+    } catch (e) {
+      print('❌ Erreur updateMyTeam: $e');
       rethrow;
     }
   }
