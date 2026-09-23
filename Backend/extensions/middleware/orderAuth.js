@@ -10,7 +10,7 @@ const orderAuth = async (req, res, next) => {
       ? Number(req.body.ownerId)
       : Number(req.userId);
 
-    const canCreate = await User.canCreateOrderForOwner(req.userId, requestedOwnerId);
+    const canCreate = await User.canCreateOrder(req.userId, requestedOwnerId);
     if (!canCreate) {
       const validMembership = requestedOwnerId !== Number(req.userId)
         ? await User.isActiveTeamMemberForOwner(req.userId, requestedOwnerId)

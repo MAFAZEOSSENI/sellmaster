@@ -1,5 +1,6 @@
 const { pool } = require('../config/database');
 const Order = require('../models/Order');
+const User = require('../models/User');
 
 async function ensureUser(email, fullName) {
   const conn = await pool.getConnection();
@@ -47,14 +48,31 @@ async function main() {
   const conn = await pool.getConnection();
   try {
     await conn.query(
-      `INSERT INTO team_memberships (owner_user_id, member_user_id, role_name, status, invited_by)
-       VALUES (?, ?, 'courier', 'active', ?)
-       ON DUPLICATE KEY UPDATE status = VALUES(status)`,
+      `INSERT INTO team_memberships (owner_user_id, member_user_id, role_name, status, invited_by, is_working)
+       VALUES (?, ?, 'courier', 'active', ?, TRUE)
+       ON DUPLICATE KEY UPDATE status = VALUES(status), is_working = VALUES(is_working)`,
       [ownerId, courierId, ownerId]
+    );
+
+    await conn.query(
+      `UPDATE app_users
+       SET license_key = 'manual-test-license',
+           license_expiry = DATE_ADD(NOW(), INTERVAL 365 DAY),
+           order_count = 50,
+           max_orders = 10
+       WHERE id = ?`,
+      [ownerId]
     );
   } finally {
     conn.release();
   }
+
+  const canCreateAsMember = await User.canCreateOrderForOwner(courierId, ownerId);
+  if (!canCreateAsMember) {
+    throw new Error('❌ Test échoué: un membre d’équipe avec licence owner active ne doit pas être bloqué par son propre compteur');
+  }
+
+  console.log('✅ Test OK: owner avec licence active + 50 commandes déjà faites ne bloque pas un membre actif de son équipe');
 
   const orderData = {
     clientName: 'Client Test',

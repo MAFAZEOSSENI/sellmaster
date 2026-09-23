@@ -258,20 +258,40 @@ class User {
     }
   }
 
-  static async canCreateOrder(userId) {
+  static async canCreateOrder(userId, ownerUserId = null) {
     try {
-      const user = await this.findById(userId);
-      if (!user) return false;
+      const effectiveOwnerId = ownerUserId !== null && ownerUserId !== undefined && String(ownerUserId).trim() !== ''
+        ? Number(ownerUserId)
+        : Number(userId);
 
-      if (user.license_key && user.license_expiry && new Date(user.license_expiry) > new Date()) {
+      if (!Number.isInteger(effectiveOwnerId) || effectiveOwnerId <= 0) {
+        return false;
+      }
+
+      const owner = await this.findById(effectiveOwnerId);
+      if (!owner) {
+        return false;
+      }
+
+      const isOwnerSelf = Number(effectiveOwnerId) === Number(userId);
+
+      if (isOwnerSelf) {
+        if (owner.license_key && owner.license_expiry && new Date(owner.license_expiry) > new Date()) {
+          return true;
+        }
+        return Number(owner.order_count || 0) < Number(owner.max_orders || 10);
+      }
+
+      const hasActiveMembership = await this.isActiveTeamMemberForOwner(Number(userId), effectiveOwnerId);
+      if (!hasActiveMembership) {
+        return false;
+      }
+
+      if (owner.license_key && owner.license_expiry && new Date(owner.license_expiry) > new Date()) {
         return true;
       }
 
-      if (user.order_count < user.max_orders) {
-        return true;
-      }
-
-      return false;
+      return Number(owner.order_count || 0) < Number(owner.max_orders || 10);
     } catch (error) {
       console.error('❌ Erreur canCreateOrder:', error);
       return false;
@@ -287,29 +307,7 @@ class User {
       return false;
     }
 
-    if (Number(memberUserId) === effectiveOwnerId) {
-      return this.canCreateOrder(memberUserId);
-    }
-
-    const isActiveMembership = await this.isActiveTeamMemberForOwner(Number(memberUserId), effectiveOwnerId);
-    if (!isActiveMembership) {
-      return false;
-    }
-
-    const owner = await this.findById(effectiveOwnerId);
-    if (!owner) {
-      return false;
-    }
-
-    if (owner.license_key && owner.license_expiry && new Date(owner.license_expiry) > new Date()) {
-      return true;
-    }
-
-    if (owner.order_count < owner.max_orders) {
-      return true;
-    }
-
-    return false;
+    return this.canCreateOrder(memberUserId, effectiveOwnerId);
   }
 }
 
