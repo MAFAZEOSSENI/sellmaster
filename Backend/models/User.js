@@ -208,6 +208,30 @@ class User {
     }
   }
 
+  static async isActiveWorkingTeamMemberForOwner(memberUserId, ownerUserId) {
+    if (!memberUserId || !ownerUserId) {
+      return false;
+    }
+
+    const connection = await pool.getConnection();
+    try {
+      const [rows] = await connection.query(
+        `SELECT 1
+         FROM team_memberships
+         WHERE member_user_id = ?
+           AND owner_user_id = ?
+           AND status = 'active'
+           AND is_working = TRUE
+         LIMIT 1`,
+        [memberUserId, ownerUserId]
+      );
+
+      return rows.length > 0;
+    } finally {
+      connection.release();
+    }
+  }
+
   static async updateOrderCount(userId, newCount) {
     const connection = await pool.getConnection();
     try {

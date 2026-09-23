@@ -51,7 +51,9 @@ const Order = {
       const [rows] = await conn.query(
         `SELECT owner_user_id
          FROM team_memberships
-         WHERE member_user_id = ? AND status = 'active'
+         WHERE member_user_id = ?
+           AND status = 'active'
+           AND is_working = TRUE
          UNION
          SELECT ? AS owner_user_id`,
         [userId, userId]
@@ -68,6 +70,10 @@ const Order = {
     } finally {
       if (conn) conn.release();
     }
+  },
+
+  async getWorkingOwnerIds(userId, ownerId = null) {
+    return this.getVisibleOwnerIds(userId, ownerId);
   },
 
   async getOwnerIdForOrder(orderData, userId) {

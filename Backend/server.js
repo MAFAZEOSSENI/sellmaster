@@ -2,6 +2,7 @@ require('dotenv').config();
 const authMiddleware = require('./middleware/authMiddleware');
 const orderAuth = require('./extensions/middleware/orderAuth');
 const User = require('./models/User');
+const Rbac = require('./models/Rbac');
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -285,16 +286,47 @@ app.patch('/api/orders/:id/status', authMiddleware, async (req, res) => {
 app.patch('/api/orders/:id/assign', authMiddleware, async (req, res) => {
   try {
     const { user_id, assignment_note } = req.body;
-    const assigneeUserId = user_id !== undefined && user_id !== null ? user_id : req.userId;
+    const assignedToUserId = user_id !== undefined && user_id !== null ? Number(user_id) : Number(req.userId);
+    const currentUserId = Number(req.userId);
 
     const order = await Order.findById(req.params.id, req.userId);
     if (!order) {
       return res.status(404).json({ error: 'Commande non trouvée ou non autorisée' });
     }
 
+    const ownerUserId = Number(order.user_id);
+    const hasActiveMembership = await User.isActiveTeamMemberForOwner(currentUserId, ownerUserId);
+    const hasWorkingMembership = await User.isActiveWorkingTeamMemberForOwner(currentUserId, ownerUserId);
+
+    if (!hasActiveMembership || !hasWorkingMembership) {
+      return res.status(403).json({
+        error: 'Vous ne pouvez pas modifier cette commande car cette équipe n’est pas active et travaillée.',
+        code: 'INVALID_OWNER'
+      });
+    }
+
+    const isSelfAssign = assignedToUserId === currentUserId;
+    if (!isSelfAssign) {
+      const canAssignOthers = await Rbac.hasRole(currentUserId, ['owner', 'manager']);
+      if (!canAssignOthers) {
+        return res.status(403).json({
+          error: 'Seul un owner ou un manager peut assigner la commande à un tiers.',
+          code: 'INSUFFICIENT_ROLE'
+        });
+      }
+
+      const targetMemberIsAllowed = await User.isActiveWorkingTeamMemberForOwner(assignedToUserId, ownerUserId);
+      if (!targetMemberIsAllowed) {
+        return res.status(403).json({
+          error: 'Le destinataire n’a pas une équipe active et active en travail pour ce propriétaire.',
+          code: 'INVALID_ASSIGNEE'
+        });
+      }
+    }
+
     const updatedOrder = await Order.assignToOrder(
       req.params.id,
-      assigneeUserId,
+      assignedToUserId,
       req.userId,
       assignment_note || `Assignée par ${req.userId}`
     );
