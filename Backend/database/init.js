@@ -9,51 +9,11 @@ async function ensureColumnExists(conn, tableName, columnName, columnSql) {
   }
 }
 
-async function ensureOrderAssignmentColumns(conn) {
-  const columns = await conn.query('SHOW COLUMNS FROM orders');
-  const columnNames = new Set(columns[0].map((column) => column.Field));
-
-  const migrations = [
-    { name: 'user_id', sql: 'ADD COLUMN user_id INT NULL AFTER notes' },
-    { name: 'created_by', sql: 'ADD COLUMN created_by INT NULL AFTER user_id' },
-    { name: 'assigned_to', sql: 'ADD COLUMN assigned_to INT NULL AFTER created_by' },
-    { name: 'assigned_by', sql: 'ADD COLUMN assigned_by INT NULL AFTER assigned_to' },
-    { name: 'assigned_at', sql: 'ADD COLUMN assigned_at TIMESTAMP NULL AFTER assigned_by' },
-    { name: 'assignment_note', sql: 'ADD COLUMN assignment_note TEXT AFTER assigned_at' },
-  ];
-
-  for (const migration of migrations) {
-    if (!columnNames.has(migration.name)) {
-      await conn.query(`ALTER TABLE orders ${migration.sql}`);
-    }
-  }
-}
-
 async function createTables() {
   let conn;
   try {
     conn = await pool.getConnection();
 
-    await queryWithRetry(conn, `
-      CREATE TABLE IF NOT EXISTS orders (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        client_name VARCHAR(255) NOT NULL,
-        client_phone VARCHAR(50) NOT NULL,
-        client_address TEXT NOT NULL,
-        status VARCHAR(20) DEFAULT 'dashboard',
-        total_amount DECIMAL(10,2) NOT NULL,
-        notes TEXT,
-        user_id INT NULL,
-        assigned_to INT NULL,
-        assigned_by INT NULL,
-        assigned_at TIMESTAMP NULL,
-        assignment_note TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    await ensureOrderAssignmentColumns(conn);
-    
     // Table produits
     await queryWithRetry(conn, `
       CREATE TABLE IF NOT EXISTS products (

@@ -6,8 +6,25 @@ import '../models/order.dart';
 import 'auth_service.dart';
 
 class ApiService {
-  static const String baseUrl = 'https://sellmaster-1.onrender.com/api';
-  
+  static const String prodBaseUrl = 'https://sellmaster-1.onrender.com/api';
+  static const String localBaseUrl = 'http://localhost:3000/api';
+  static String _baseUrl = const String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: prodBaseUrl,
+  );
+
+  static String get baseUrl => _baseUrl;
+
+  static void setEnvironment({bool useLocal = false}) {
+    _baseUrl = useLocal ? localBaseUrl : prodBaseUrl;
+  }
+
+  static void setBaseUrl(String url) {
+    if (url.trim().isNotEmpty) {
+      _baseUrl = url.trim();
+    }
+  }
+
   // 🆕 TOKEN STATIQUE ACCESSIBLE PARTOUT
   static String? _authToken;
 

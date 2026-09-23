@@ -13,8 +13,11 @@ import 'license/activation_page.dart';
 import 'admin/admin_dashboard.dart';
 import 'support/support_page.dart';
 import 'auth/auth_provider.dart';
+import 'services/api_service.dart';
 
 void main() {
+  const bool useLocalApi = bool.fromEnvironment('USE_LOCAL_API', defaultValue: false);
+  ApiService.setEnvironment(useLocal: useLocalApi);
   runApp(const MyApp());
 }
 
