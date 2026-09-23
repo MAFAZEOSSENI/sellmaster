@@ -508,26 +508,6 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> updateUserRoles(int userId, List<String> roles) async {
-    try {
-      final response = await http.patch(
-        Uri.parse('$baseUrl/admin/users/$userId/roles'),
-        headers: await _getHeaders(),
-        body: json.encode({'roles': roles}),
-      );
-
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      }
-
-      final body = json.decode(response.body);
-      throw Exception(body['error'] ?? 'Erreur mise à jour rôles');
-    } catch (e) {
-      print('❌ Erreur updateUserRoles: $e');
-      rethrow;
-    }
-  }
-
   static Future<Map<String, dynamic>> generateTestLicense(String type) async {
     try {
       final response = await http.post(

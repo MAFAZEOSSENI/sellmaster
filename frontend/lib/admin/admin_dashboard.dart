@@ -159,35 +159,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     }
   }
 
-  Future<void> _toggleRole(int userId, String role, bool selected) async {
-    final currentMember = _members.firstWhere((member) => member['id'] == userId, orElse: () => {});
-    final updatedRoles = List<String>.from((currentMember['roles'] as List?)?.map((item) => item.toString()) ?? <String>[]);
-
-    if (selected) {
-      if (!updatedRoles.contains(role)) {
-        updatedRoles.add(role);
-      }
-    } else {
-      updatedRoles.remove(role);
-    }
-
-    try {
-      await ApiService.updateUserRoles(userId, updatedRoles);
-      await _loadMembers();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Rôles mis à jour avec succès')),
-        );
-      }
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: ${error.toString()}')),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -223,18 +194,6 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                       const SizedBox(height: 18),
                       _buildSummaryCards(),
                       const SizedBox(height: 18),
-                      if (!isOwner)
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text(
-                            'Vous pouvez consulter les rôles, mais seule la personne propriétaire peut les modifier.',
-                            style: TextStyle(color: Colors.orange),
-                          ),
-                        ),
                       const SizedBox(height: 12),
                       ..._members.map(_buildMemberCard),
                     ],
@@ -459,15 +418,10 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: _availableRoles.map((role) {
-                final selected = roles.contains(role);
-                return FilterChip(
+              children: roles.map((role) {
+                return Chip(
                   label: Text(_roleLabel(role)),
-                  selected: selected,
-                  onSelected: Provider.of<AuthProvider>(context).primaryRole == 'owner'
-                      ? (value) => _toggleRole(userId, role, value)
-                      : null,
-                  selectedColor: role == 'owner'
+                  backgroundColor: role == 'owner'
                       ? Colors.purple.shade100
                       : role == 'manager'
                           ? Colors.blue.shade100

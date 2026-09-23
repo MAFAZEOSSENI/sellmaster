@@ -15,6 +15,5 @@ router.post('/members/create', authMiddleware, requireRole('owner', 'manager'), 
 router.post('/members/invite', authMiddleware, requireRole('owner', 'manager'), adminController.inviteMember);
 router.patch('/members/:id/approve', authMiddleware, requireRole('owner', 'manager'), adminController.approveMember);
 router.patch('/members/confirm', authMiddleware, adminController.confirmMember);
-router.patch('/users/:id/roles', authMiddleware, requireRole('owner'), adminController.updateUserRoles);
 
 module.exports = router;

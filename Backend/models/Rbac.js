@@ -64,34 +64,6 @@ const Rbac = {
     }
   },
 
-  async setRolesForUser(userId, roleNames) {
-    const conn = await pool.getConnection();
-    try {
-      const normalized = [...new Set((roleNames || []).map((role) => String(role).trim().toLowerCase()).filter(Boolean))];
-
-      await conn.query('DELETE FROM user_roles WHERE user_id = ?', [userId]);
-
-      if (normalized.length === 0) {
-        return [];
-      }
-
-      const placeholders = normalized.map(() => '?').join(',');
-      const [roleRows] = await conn.query(`SELECT id, name FROM roles WHERE name IN (${placeholders})`, normalized);
-      const roleIds = roleRows.map((row) => row.id);
-
-      if (roleIds.length === 0) {
-        return [];
-      }
-
-      const values = roleIds.map((roleId) => [userId, roleId]);
-      await conn.query('INSERT INTO user_roles (user_id, role_id) VALUES ?', [values]);
-
-      return normalized;
-    } finally {
-      conn.release();
-    }
-  },
-
   async hasRole(userId, roleNames) {
     const roles = await this.getRolesForUser(userId);
     return roleNames.some(role => roles.includes(role));

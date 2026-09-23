@@ -421,52 +421,6 @@ const adminController = {
       console.error('[ADMIN] Confirm member error:', error);
       res.status(500).json({ error: 'Erreur de confirmation' });
     }
-  },
-
-  async updateUserRoles(req, res) {
-    try {
-      const { id } = req.params;
-      const { roles } = req.body;
-
-      if (!Array.isArray(roles)) {
-        return res.status(400).json({ error: 'Le champ roles doit être un tableau' });
-      }
-
-      const normalizedRoles = [...new Set(roles.map((role) => String(role).trim().toLowerCase()).filter(Boolean))];
-      const conn = await pool.getConnection();
-      try {
-        if (normalizedRoles.some((role) => ['manager', 'closer'].includes(role))) {
-          const [rows] = await conn.query(
-            `SELECT id
-             FROM team_memberships
-             WHERE member_user_id = ?
-               AND role_name IN ('manager', 'closer')
-               AND status IN ('pending', 'active')
-               AND owner_user_id != ?
-             LIMIT 1`,
-            [Number(id), Number(req.userId)]
-          );
-
-          if (rows.length > 0) {
-            return res.status(400).json({ error: 'Ce rôle est exclusif à un seul e-commerçant.' });
-          }
-        }
-      } finally {
-        conn.release();
-      }
-
-      await Rbac.setRolesForUser(Number(id), normalizedRoles);
-
-      const updatedUser = (await Rbac.getUsersWithRoles()).find((user) => Number(user.id) === Number(id));
-
-      res.json({
-        message: 'Rôles mis à jour',
-        user: updatedUser || { id: Number(id), roles: normalizedRoles }
-      });
-    } catch (error) {
-      console.error('[ADMIN] Update roles error:', error);
-      res.status(500).json({ error: 'Erreur lors de la mise à jour des rôles' });
-    }
   }
 };
 
