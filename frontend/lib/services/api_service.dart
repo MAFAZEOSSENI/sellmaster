@@ -406,6 +406,33 @@ class ApiService {
     }
   }
 
+  static Future<List<Map<String, dynamic>>> getActiveTeamMembers({required int ownerId}) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/admin/team?ownerId=$ownerId'),
+        headers: await _getHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final members = data['members'];
+        if (members is! List) {
+          return [];
+        }
+        return members
+            .where((member) => (member['role_name'] ?? '').toString().toLowerCase() == 'courier')
+            .map<Map<String, dynamic>>((member) => Map<String, dynamic>.from(member))
+            .toList();
+      }
+
+      final body = json.decode(response.body);
+      throw Exception(body['error'] ?? 'Erreur chargement des livreurs');
+    } catch (e) {
+      print('❌ Erreur getActiveTeamMembers: $e');
+      rethrow;
+    }
+  }
+
   static Future<List<Map<String, dynamic>>> getPendingMemberships() async {
     try {
       final response = await http.get(

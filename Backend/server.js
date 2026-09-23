@@ -69,6 +69,38 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 const Product = require('./models/Product');
 const Order = require('./models/Order');
 
+async function ensureOwnerMemberAccess(req, res, effectiveOwnerId, resourceLabel = 'cette ressource') {
+  if (!effectiveOwnerId || Number(req.userId) === Number(effectiveOwnerId)) {
+    return null;
+  }
+
+  const fixedRole = await User.getFixedRole(req.userId);
+
+  if (fixedRole === 'courier') {
+    return res.status(403).json({
+      error: "Les livreurs n'ont pas accès au catalogue produits.",
+      code: 'COURIER_FORBIDDEN'
+    });
+  }
+
+  if (!['manager', 'closer'].includes(fixedRole)) {
+    return res.status(403).json({
+      error: `Vous n’êtes pas autorisé à ${resourceLabel} pour cet e-commerçant.`,
+      code: 'INVALID_MEMBER_ROLE'
+    });
+  }
+
+  const isActiveMembership = await User.isActiveTeamMemberForOwner(Number(req.userId), effectiveOwnerId);
+  if (!isActiveMembership) {
+    return res.status(403).json({
+      error: 'Vous n’êtes pas autorisé à accéder à cet e-commerçant.',
+      code: 'INVALID_OWNER'
+    });
+  }
+
+  return null;
+}
+
 // Import des routes Shopify
 const shopifyRoutesV2 = require('./routes/shopify.routes'); // Nouveau fichier
 app.use('/api/shopify', shopifyRoutesV2);
@@ -83,12 +115,9 @@ app.get('/api/products', authMiddleware, async (req, res) => {
     console.log('🛍️  Récupération produits pour user:', req.userId, 'ownerId:', effectiveOwnerId);
 
     if (effectiveOwnerId && Number(req.userId) !== effectiveOwnerId) {
-      const isActiveMembership = await User.isActiveTeamMemberForOwner(Number(req.userId), effectiveOwnerId);
-      if (!isActiveMembership) {
-        return res.status(403).json({
-          error: 'Vous n’êtes pas autorisé à consulter les produits de cet e-commerçant.',
-          code: 'INVALID_OWNER'
-        });
+      const denied = await ensureOwnerMemberAccess(req, res, effectiveOwnerId, 'consulter les produits');
+      if (denied) {
+        return denied;
       }
     }
 
@@ -107,12 +136,9 @@ app.post('/api/products', authMiddleware, async (req, res) => {
     const effectiveOwnerId = ownerId && Number(ownerId) > 0 ? Number(ownerId) : req.userId;
 
     if (Number(req.userId) !== effectiveOwnerId) {
-      const isActiveMembership = await User.isActiveTeamMemberForOwner(Number(req.userId), effectiveOwnerId);
-      if (!isActiveMembership) {
-        return res.status(403).json({
-          error: 'Vous n’êtes pas autorisé à créer un produit pour cet e-commerçant.',
-          code: 'INVALID_OWNER'
-        });
+      const denied = await ensureOwnerMemberAccess(req, res, effectiveOwnerId, 'créer un produit');
+      if (denied) {
+        return denied;
       }
     }
 
@@ -135,6 +161,14 @@ app.get('/api/products/:id', authMiddleware, async (req, res) => {
   try {
     const { ownerId } = req.query;
     const effectiveOwnerId = ownerId && Number(ownerId) > 0 ? Number(ownerId) : null;
+
+    if (effectiveOwnerId && Number(req.userId) !== effectiveOwnerId) {
+      const denied = await ensureOwnerMemberAccess(req, res, effectiveOwnerId, 'consulter ce produit');
+      if (denied) {
+        return denied;
+      }
+    }
+
     const product = await Product.findById(req.params.id, req.userId, effectiveOwnerId);
     if (!product) {
       return res.status(404).json({ error: 'Produit non trouvé' });
@@ -170,13 +204,9 @@ app.post('/api/orders', authMiddleware, orderAuth, async (req, res) => {
     const effectiveOwnerId = ownerIdFromBody !== null ? ownerIdFromBody : Number(req.userId);
 
     if (ownerIdFromBody !== null && Number(req.userId) !== effectiveOwnerId) {
-      const isActiveMembership = await User.isActiveTeamMemberForOwner(Number(req.userId), effectiveOwnerId);
-      if (!isActiveMembership) {
-        return res.status(403).json({
-          error: 'Vous n’êtes pas autorisé à créer une commande pour cet e-commerçant.',
-          details: 'Le propriétaire cible doit être un owner actif dans votre équipe.',
-          code: 'INVALID_OWNER'
-        });
+      const denied = await ensureOwnerMemberAccess(req, res, effectiveOwnerId, 'créer une commande');
+      if (denied) {
+        return denied;
       }
     }
 
@@ -286,8 +316,17 @@ app.patch('/api/orders/:id/status', authMiddleware, async (req, res) => {
 app.patch('/api/orders/:id/assign', authMiddleware, async (req, res) => {
   try {
     const { user_id, assignment_note } = req.body;
-    const assignedToUserId = user_id !== undefined && user_id !== null ? Number(user_id) : Number(req.userId);
     const currentUserId = Number(req.userId);
+    const assignedToUserId = user_id !== undefined && user_id !== null ? Number(user_id) : currentUserId;
+
+    const currentRole = await User.getFixedRole(currentUserId);
+    const allowedAssignerRoles = ['owner', 'manager', 'closer'];
+    if (!allowedAssignerRoles.includes(currentRole)) {
+      return res.status(403).json({
+        error: 'Seuls les rôles owner, manager ou closer peuvent assigner des commandes.',
+        code: 'INSUFFICIENT_ROLE'
+      });
+    }
 
     const order = await Order.findById(req.params.id, req.userId);
     if (!order) {
@@ -305,23 +344,20 @@ app.patch('/api/orders/:id/assign', authMiddleware, async (req, res) => {
       });
     }
 
-    const isSelfAssign = assignedToUserId === currentUserId;
-    if (!isSelfAssign) {
-      const canAssignOthers = await Rbac.hasRole(currentUserId, ['owner', 'manager']);
-      if (!canAssignOthers) {
-        return res.status(403).json({
-          error: 'Seul un owner ou un manager peut assigner la commande à un tiers.',
-          code: 'INSUFFICIENT_ROLE'
-        });
-      }
+    const targetRole = await User.getFixedRole(assignedToUserId);
+    if (targetRole !== 'courier') {
+      return res.status(403).json({
+        error: 'La commande ne peut être assignée qu’à un utilisateur avec le rôle fixe courier.',
+        code: 'INVALID_ASSIGNEE_ROLE'
+      });
+    }
 
-      const targetMemberIsAllowed = await User.isActiveWorkingTeamMemberForOwner(assignedToUserId, ownerUserId);
-      if (!targetMemberIsAllowed) {
-        return res.status(403).json({
-          error: 'Le destinataire n’a pas une équipe active et active en travail pour ce propriétaire.',
-          code: 'INVALID_ASSIGNEE'
-        });
-      }
+    const targetMemberIsAllowed = await User.isActiveWorkingTeamMemberForOwner(assignedToUserId, ownerUserId);
+    if (!targetMemberIsAllowed) {
+      return res.status(403).json({
+        error: 'Le destinataire n’est pas un courier actif et travaillant pour cet e-commerçant.',
+        code: 'INVALID_ASSIGNEE'
+      });
     }
 
     const updatedOrder = await Order.assignToOrder(

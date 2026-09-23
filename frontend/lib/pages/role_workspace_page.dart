@@ -20,7 +20,9 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
   List<Map<String, dynamic>> _invitations = [];
   List<Map<String, dynamic>> _owners = [];
   List<Map<String, dynamic>> _myTeams = [];
+  List<Map<String, dynamic>> _teamCouriers = [];
   int? _selectedOwnerId;
+  int? _selectedCourierIdForOrder;
 
   @override
   void initState() {
@@ -69,8 +71,26 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
 
     setState(() {
       _selectedOwnerId = ownerId;
+      _selectedCourierIdForOrder = null;
     });
+    await _loadCouriersForOwner(ownerId);
     await _loadOrders(ownerId: ownerId);
+  }
+
+  Future<void> _loadCouriersForOwner(int ownerId) async {
+    try {
+      if (widget.role == 'courier') {
+        setState(() => _teamCouriers = []);
+        return;
+      }
+
+      final couriers = await ApiService.getActiveTeamMembers(ownerId: ownerId);
+      if (!mounted) return;
+      setState(() => _teamCouriers = couriers);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _teamCouriers = []);
+    }
   }
 
   Future<void> _loadMyTeams() async {
@@ -114,8 +134,12 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
       });
 
       if (workingOwnerIds.isNotEmpty) {
+        final firstOwnerId = workingOwnerIds.first;
+        setState(() => _selectedOwnerId = firstOwnerId);
+        await _loadCouriersForOwner(firstOwnerId);
         await _loadOrders(ownerIds: workingOwnerIds);
       } else if (_selectedOwnerId != null) {
+        await _loadCouriersForOwner(_selectedOwnerId!);
         await _loadOrders(ownerId: _selectedOwnerId);
       } else {
         setState(() => _orders = []);
@@ -259,22 +283,18 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
     );
   }
 
-  Future<void> _assignToMe(Order order) async {
-    final userId = currentUserId;
-    if (userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Impossible d’identifier l’utilisateur connecté')),
-      );
-      return;
-    }
-
+  Future<void> _assignToCourier(Order order, int courierUserId) async {
     try {
-      await ApiService.assignOrder(order.id.toString(), userId: userId, note: 'Assignée via l’espace ${widget.role}');
-      await _loadOrders();
+      await ApiService.assignOrder(
+        order.id.toString(),
+        userId: courierUserId,
+        note: 'Assignée via l’espace ${widget.role}',
+      );
+      await _loadOrders(ownerId: _selectedOwnerId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Commande ${order.customOrderNumber} assignée à votre queue'),
+          content: Text('Commande ${order.customOrderNumber} assignée au livreur sélectionné'),
           backgroundColor: const Color(0xFF4CAF50),
         ),
       );
@@ -666,28 +686,66 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                                 ],
                               ),
                               const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      order.assignedTo == null
-                                          ? 'Non assignée'
-                                          : 'Assignée à #${order.assignedTo}',
-                                      style: const TextStyle(
+                              if (widget.role != 'courier')
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Attribuer à un livreur',
+                                      style: TextStyle(
                                         color: Color(0xFF64748B),
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: DropdownButtonFormField<int>(
+                                            value: _teamCouriers.any((courier) => courier['member_user_id'] == order.assignedTo)
+                                                ? order.assignedTo
+                                                : (_teamCouriers.isNotEmpty ? int.tryParse(_teamCouriers.first['member_user_id'].toString()) : null),
+                                            decoration: InputDecoration(
+                                              filled: true,
+                                              fillColor: const Color(0xFFF8FAFC),
+                                              border: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(10),
+                                                borderSide: BorderSide.none,
+                                              ),
+                                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                            ),
+                                            items: _teamCouriers
+                                                .map((courier) => DropdownMenuItem<int>(
+                                                      value: int.tryParse(courier['member_user_id'].toString()),
+                                                      child: Text(
+                                                        (courier['full_name'] ?? courier['email'] ?? 'Livreur').toString(),
+                                                      ),
+                                                    ))
+                                                .whereType<DropdownMenuItem<int>>()
+                                                .toList(),
+                                            onChanged: (courierId) {
+                                              if (courierId == null) return;
+                                              _assignToCourier(order, courierId);
+                                            },
+                                            hint: const Text('Choisir un livreur'),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                )
+                              else
+                                Text(
+                                  order.assignedTo == null
+                                      ? 'Non assignée'
+                                      : 'Assignée à #${order.assignedTo}',
+                                  style: const TextStyle(
+                                    color: Color(0xFF64748B),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
                                   ),
-                                  if (order.assignedTo != currentUserId)
-                                    TextButton.icon(
-                                      onPressed: () => _assignToMe(order),
-                                      icon: const Icon(Icons.assignment_ind_outlined, size: 16),
-                                      label: const Text('Me l’assigner'),
-                                    )
-                                ],
-                              ),
+                                ),
                               const SizedBox(height: 12),
                               Wrap(
                                 spacing: 8,

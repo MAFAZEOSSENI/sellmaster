@@ -1,4 +1,4 @@
-const Rbac = require('../models/Rbac');
+const User = require('../models/User');
 
 function requireRole(...allowedRoles) {
   return async (req, res, next) => {
@@ -6,7 +6,10 @@ function requireRole(...allowedRoles) {
       if (!req.userId) {
         return res.status(401).json({ error: 'Authentification requise' });
       }
-      const allowed = await Rbac.hasRole(req.userId, allowedRoles);
+
+      const fixedRole = await User.getFixedRole(req.userId);
+      const allowed = Array.isArray(allowedRoles) && allowedRoles.includes(fixedRole);
+
       if (!allowed) {
         return res.status(403).json({ error: 'Rôle insuffisant' });
       }

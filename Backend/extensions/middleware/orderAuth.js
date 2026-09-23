@@ -12,9 +12,17 @@ const orderAuth = async (req, res, next) => {
 
     const canCreate = await User.canCreateOrder(req.userId, requestedOwnerId);
     if (!canCreate) {
+      const fixedRole = await User.getFixedRole(req.userId);
       const validMembership = requestedOwnerId !== Number(req.userId)
         ? await User.isActiveTeamMemberForOwner(req.userId, requestedOwnerId)
         : true;
+
+      if (requestedOwnerId !== Number(req.userId) && fixedRole === 'courier') {
+        return res.status(403).json({
+          error: "Les livreurs n'ont pas accès au catalogue produits.",
+          code: 'COURIER_FORBIDDEN'
+        });
+      }
 
       return res.status(403).json({
         error: validMembership

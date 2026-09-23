@@ -109,6 +109,7 @@ const adminController = {
 
       let existingUser = await User.findByEmail(normalizedEmail);
       if (!existingUser) {
+        // TODO: future iteration - validate the fixed role during registration for unregistered email/phone invitations.
         if (!password) {
           return res.status(400).json({ error: 'Mot de passe requis pour créer un nouveau compte' });
         }
@@ -125,6 +126,16 @@ const adminController = {
 
       const ownerUserId = Number(req.userId);
       const memberUserId = Number(existingUser.id);
+
+      if (existingUser && memberUserId > 0) {
+        const fixedRole = await User.getFixedRole(memberUserId);
+        if (fixedRole && fixedRole !== roleName) {
+          return res.status(400).json({
+            error: `Cet utilisateur est inscrit en tant que ${fixedRole} et ne peut pas rejoindre une équipe avec le rôle ${roleName}.`
+          });
+        }
+      }
+
       const conn = await pool.getConnection();
       try {
         await ensureExclusiveOwnerRoleAssignment(conn, { memberUserId, ownerUserId, roleName });
@@ -138,8 +149,6 @@ const adminController = {
       } finally {
         conn.release();
       }
-
-      await Rbac.assignRole(memberUserId, roleName);
 
       res.status(201).json({
         message: 'Membre ajouté à l’équipe',
@@ -159,15 +168,29 @@ const adminController = {
 
   async getTeamMembers(req, res) {
     try {
+      const requestedOwnerId = Number(req.query.ownerId || req.userId);
+      const currentUserId = Number(req.userId);
+      const fixedRole = await User.getFixedRole(currentUserId);
+
+      const targetIsCurrentOwner = requestedOwnerId === currentUserId;
+      const isActiveTeamMember = await User.isActiveWorkingTeamMemberForOwner(currentUserId, requestedOwnerId);
+
+      if (!targetIsCurrentOwner && !(['owner', 'manager', 'closer'].includes(fixedRole) && isActiveTeamMember)) {
+        return res.status(403).json({ error: 'Vous n’êtes pas autorisé à voir les membres de cette équipe.' });
+      }
+
       const conn = await pool.getConnection();
       try {
         const [rows] = await conn.query(`
-          SELECT tm.id, tm.owner_user_id, tm.member_user_id, tm.role_name, tm.status, tm.created_at,
-                 u.email, u.full_name, u.phone
+          SELECT tm.id, tm.owner_user_id, tm.member_user_id, tm.role_name, tm.status, tm.created_at, tm.is_working,
+                 u.email, u.full_name, u.phone,
+                 CASE WHEN u.id = ? THEN 'self' ELSE 'member' END AS relation_type
           FROM team_memberships tm
           JOIN app_users u ON u.id = tm.member_user_id
           WHERE tm.owner_user_id = ?
-          ORDER BY tm.created_at DESC`, [req.userId]);
+            AND tm.status = 'active'
+            AND tm.is_working = TRUE
+          ORDER BY tm.created_at DESC`, [currentUserId, requestedOwnerId]);
 
         res.json({ members: rows });
       } finally {
@@ -311,15 +334,27 @@ const adminController = {
         return res.status(400).json({ error: 'Rôle invalide' });
       }
 
+      const memberId = Number(memberUserId);
+      if (memberId > 0) {
+        const fixedRole = await User.getFixedRole(memberId);
+        if (fixedRole && fixedRole !== roleName) {
+          return res.status(400).json({
+            error: `Cet utilisateur est inscrit en tant que ${fixedRole} et ne peut pas rejoindre une équipe avec le rôle ${roleName}.`
+          });
+        }
+      } else {
+        // TODO: future iteration - validate the fixed role for invited email/phone before creating a memberships entry.
+      }
+
       const conn = await pool.getConnection();
       try {
-        await ensureExclusiveOwnerRoleAssignment(conn, { memberUserId: Number(memberUserId), ownerUserId: Number(req.userId), roleName });
+        await ensureExclusiveOwnerRoleAssignment(conn, { memberUserId: memberId, ownerUserId: Number(req.userId), roleName });
 
         await conn.query(
           `INSERT INTO team_memberships (owner_user_id, member_user_id, role_name, status, invited_by)
            VALUES (?, ?, ?, 'pending', ?)
            ON DUPLICATE KEY UPDATE role_name = VALUES(role_name), status = VALUES(status), invited_by = VALUES(invited_by)`,
-          [req.userId, Number(memberUserId), roleName, req.userId]
+          [req.userId, memberId, roleName, req.userId]
         );
       } finally {
         conn.release();
@@ -377,9 +412,6 @@ const adminController = {
           [membershipId]
         );
 
-        if (['manager', 'closer', 'courier'].includes(String(membership.role_name).toLowerCase())) {
-          await Rbac.assignRole(req.userId, String(membership.role_name).toLowerCase());
-        }
       } finally {
         conn.release();
       }

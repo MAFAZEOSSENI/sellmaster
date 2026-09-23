@@ -7,7 +7,7 @@ const router = express.Router();
 router.get('/', authMiddleware, requireRole('owner', 'manager'), adminController.get);
 router.get('/users', authMiddleware, requireRole('owner', 'manager'), adminController.getUsers);
 router.get('/users/search', authMiddleware, requireRole('owner', 'manager'), adminController.searchUsers);
-router.get('/team', authMiddleware, requireRole('owner', 'manager'), adminController.getTeamMembers);
+router.get('/team', authMiddleware, requireRole('owner', 'manager', 'closer'), adminController.getTeamMembers);
 router.get('/my-teams', authMiddleware, adminController.getMyTeams);
 router.patch('/my-teams/:membershipId', authMiddleware, adminController.updateMyTeam);
 router.get('/members/pending', authMiddleware, adminController.getPendingMemberships);

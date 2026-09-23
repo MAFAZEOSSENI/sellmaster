@@ -43,6 +43,25 @@ class User {
     }
   }
 
+  static async getFixedRole(userId) {
+    const connection = await pool.getConnection();
+    try {
+      const [rows] = await connection.query(
+        `SELECT r.name
+         FROM user_roles ur
+         JOIN roles r ON r.id = ur.role_id
+         WHERE ur.user_id = ?
+         ORDER BY ur.created_at ASC, r.name ASC
+         LIMIT 1`,
+        [userId]
+      );
+
+      return rows.length > 0 ? String(rows[0].name).toLowerCase() : null;
+    } finally {
+      connection.release();
+    }
+  }
+
   static async findByEmail(email) {
     const connection = await pool.getConnection();
     try {
@@ -274,12 +293,20 @@ class User {
       }
 
       const isOwnerSelf = Number(effectiveOwnerId) === Number(userId);
-
       if (isOwnerSelf) {
         if (owner.license_key && owner.license_expiry && new Date(owner.license_expiry) > new Date()) {
           return true;
         }
         return Number(owner.order_count || 0) < Number(owner.max_orders || 10);
+      }
+
+      const fixedRole = await this.getFixedRole(userId);
+      if (fixedRole === 'courier') {
+        return false;
+      }
+
+      if (!['manager', 'closer'].includes(fixedRole)) {
+        return false;
       }
 
       const hasActiveMembership = await this.isActiveTeamMemberForOwner(Number(userId), effectiveOwnerId);
