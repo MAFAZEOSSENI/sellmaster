@@ -76,6 +76,7 @@ async function createTables() {
         shopify_data JSONB NULL,
         user_id INT NULL,
         created_by INT NULL,
+        assigned_closer_id INT NULL,
         assigned_to INT NULL,
         assigned_by INT NULL,
         assigned_at TIMESTAMP NULL,
@@ -95,6 +96,7 @@ async function createTables() {
     await ensureColumnExists(conn, 'orders', 'shopify_data', "ADD COLUMN \"shopify_data\" JSONB NULL");
     await ensureColumnExists(conn, 'orders', 'user_id', "ADD COLUMN \"user_id\" INT NULL");
     await ensureColumnExists(conn, 'orders', 'created_by', "ADD COLUMN \"created_by\" INT NULL");
+    await ensureColumnExists(conn, 'orders', 'assigned_closer_id', "ADD COLUMN \"assigned_closer_id\" INT NULL");
     await ensureColumnExists(conn, 'orders', 'assigned_to', "ADD COLUMN \"assigned_to\" INT NULL");
     await ensureColumnExists(conn, 'orders', 'assigned_by', "ADD COLUMN \"assigned_by\" INT NULL");
     await ensureColumnExists(conn, 'orders', 'assigned_at', "ADD COLUMN \"assigned_at\" TIMESTAMP NULL");

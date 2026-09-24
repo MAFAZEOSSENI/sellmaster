@@ -632,7 +632,8 @@ app.patch('/api/orders/:id/assign', authMiddleware, async (req, res) => {
       req.params.id,
       assignedToUserId,
       req.userId,
-      assignment_note || `Assignée par ${req.userId}`
+      assignment_note || `Assignée par ${req.userId}`,
+      currentRole === 'closer' ? currentUserId : null
     );
 
     res.json(updatedOrder);

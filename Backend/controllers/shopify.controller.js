@@ -162,10 +162,21 @@ class ShopifyController {
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
-  
+
   console.log('🎯 [ShopifyController] syncOrders FIN');
   console.log('='.repeat(60) + '\n');
 }
+
+  static async syncProducts(req, res) {
+    try {
+      const result = await new ShopifyService(req.userId).syncProducts(req.params.storeId);
+      return res.json(result);
+    } catch (error) {
+      console.error('[ShopifyController] syncProducts error:', error);
+      return res.status(500).json({ success: false, message: 'Erreur synchronisation produits Shopify', error: error.message });
+    }
+  }
+
   // Obtenir les statistiques de synchronisation
 static async getSyncStats(req, res) {
   try {

@@ -180,6 +180,23 @@ class ShopifyService {
     }
   }
 
+  static Future<Map<String, dynamic>> syncStoreProducts(String storeId) async {
+    try {
+      final response = await _authenticatedRequest(
+        method: 'GET',
+        endpoint: 'shopify/stores/$storeId/products/sync',
+      );
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+      final errorData = json.decode(response.body);
+      throw Exception(errorData['message'] ?? 'Erreur ${response.statusCode}');
+    } catch (e) {
+      print('❌ Erreur syncStoreProducts: $e');
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
   // ============================================
   // 5. Supprimer un store
   // ============================================

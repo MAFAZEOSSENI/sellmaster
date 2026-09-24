@@ -60,6 +60,19 @@ class ShopifyStoresPageState extends State<ShopifyStoresPage> {
   } catch (e) {
     _showError('Erreur de synchronisation: $e');
   }
+  }
+
+  Future<void> _syncProducts(ShopifyConfig config) async {
+    try {
+      final result = await ShopifyService.syncStoreProducts(config.id.toString());
+      if (result['success'] == true) {
+        _showSuccess(result['message'] ?? 'Produits Shopify synchronisés');
+      } else {
+        _showError(result['message'] ?? 'Erreur synchronisation produits');
+      }
+    } catch (e) {
+      _showError('Erreur synchronisation produits: $e');
+    }
 }
 
   void _showDeleteConfirmation(ShopifyConfig config) {
@@ -532,6 +545,19 @@ class ShopifyStoresPageState extends State<ShopifyStoresPage> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
+                      side: const BorderSide(color: Color(0xFF00BCD4)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _syncProducts(config),
+                    icon: const Icon(Icons.inventory_2_outlined, size: 16),
+                    label: const Text('Produits'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       side: const BorderSide(color: Color(0xFF00BCD4)),
                     ),
                   ),

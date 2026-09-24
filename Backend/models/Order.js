@@ -544,7 +544,7 @@ const Order = {
     }
   },
 
-  async assignToOrder(id, assigneeUserId, assignedByUserId = null, assignmentNote = null) {
+  async assignToOrder(id, assigneeUserId, assignedByUserId = null, assignmentNote = null, assignedCloserId = null) {
     let conn;
     try {
       conn = await getConnection();
@@ -561,12 +561,16 @@ const Order = {
 
       const targetUserId = assigneeUserId !== undefined && assigneeUserId !== null ? Number(assigneeUserId) : null;
       const byUserId = assignedByUserId !== undefined && assignedByUserId !== null ? Number(assignedByUserId) : null;
+      const closerUserId = assignedCloserId !== undefined && assignedCloserId !== null ? Number(assignedCloserId) : null;
+      const assignmentColumns = availableColumns.has('assigned_closer_id') ? ', assigned_closer_id = ?' : '';
 
       await conn.query(`
         UPDATE orders
-        SET assigned_to = ?, assigned_by = ?, assigned_at = NOW(), assignment_note = ?
+        SET assigned_to = ?, assigned_by = ?, assigned_at = NOW(), assignment_note = ?${assignmentColumns}
         WHERE id = ?
-      `, [targetUserId, byUserId, assignmentNote ?? null, id]);
+      `, assignmentColumns
+        ? [targetUserId, byUserId, assignmentNote ?? null, closerUserId, id]
+        : [targetUserId, byUserId, assignmentNote ?? null, id]);
 
       return await this.findById(id);
     } finally {
@@ -749,6 +753,32 @@ await conn.query(
       [result.insertId]
     );
     const newOrder = orders[0];
+
+    const importedProducts = typeof orderData.products === 'string'
+      ? JSON.parse(orderData.products || '[]')
+      : (orderData.products || []);
+    for (const item of importedProducts) {
+      const [productRows] = await conn.query(
+        'SELECT id FROM products WHERE user_id = ? AND name = ? LIMIT 1',
+        [userId, item.name || 'Produit Shopify']
+      );
+      let productId = productRows[0]?.id;
+      if (!productId) {
+        const [productResult] = await conn.query(
+          `INSERT INTO products (user_id, name, description, price, cost_price, stock, created_at)
+           VALUES (?, ?, ?, ?, ?, 0, NOW()) RETURNING id`,
+          [userId, item.name || 'Produit Shopify', `Shopify SKU: ${item.sku || 'N/A'}`, Number(item.price || 0), item.cost_price]
+        );
+        productId = productResult.insertId;
+      } else if (item.cost_price !== null && item.cost_price !== undefined) {
+        await conn.query('UPDATE products SET cost_price = ?, price = ? WHERE id = ?', [item.cost_price, Number(item.price || 0), productId]);
+      }
+      await conn.query(
+        `INSERT INTO order_items (order_id, product_id, product_name, unit_price, unit_cost, quantity)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [result.insertId, productId, item.name || 'Produit Shopify', Number(item.price || 0), item.cost_price, Number(item.quantity || 1)]
+      );
+    }
     
     console.log(`✅ Commande Shopify créée: ${customOrderNumber} (ID: ${result.insertId})`);
     console.log(`   Client: ${newOrder.client_name}`);
@@ -815,6 +845,33 @@ async updateFromShopify(orderId, orderData, userId) {
       orderData.shopify_data || '{}',          // shopify_data
       orderId                                  // WHERE id = ?
     ]);
+
+    const importedProducts = typeof orderData.products === 'string'
+      ? JSON.parse(orderData.products || '[]')
+      : (orderData.products || []);
+    await conn.query('DELETE FROM order_items WHERE order_id = ?', [orderId]);
+    for (const item of importedProducts) {
+      const [productRows] = await conn.query(
+        'SELECT id FROM products WHERE user_id = ? AND name = ? LIMIT 1',
+        [userId, item.name || 'Produit Shopify']
+      );
+      let productId = productRows[0]?.id;
+      if (!productId) {
+        const [productResult] = await conn.query(
+          `INSERT INTO products (user_id, name, description, price, cost_price, stock, created_at)
+           VALUES (?, ?, ?, ?, ?, 0, NOW()) RETURNING id`,
+          [userId, item.name || 'Produit Shopify', `Shopify SKU: ${item.sku || 'N/A'}`, Number(item.price || 0), item.cost_price]
+        );
+        productId = productResult.insertId;
+      } else if (item.cost_price !== null && item.cost_price !== undefined) {
+        await conn.query('UPDATE products SET cost_price = ?, price = ? WHERE id = ?', [item.cost_price, Number(item.price || 0), productId]);
+      }
+      await conn.query(
+        `INSERT INTO order_items (order_id, product_id, product_name, unit_price, unit_cost, quantity)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [orderId, productId, item.name || 'Produit Shopify', Number(item.price || 0), item.cost_price, Number(item.quantity || 1)]
+      );
+    }
     
     // Récupérer la commande mise à jour
     const [updatedOrders] = await conn.query(

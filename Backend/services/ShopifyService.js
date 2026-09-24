@@ -157,6 +157,45 @@ class ShopifyService {
     }
   }
 
+  async syncProducts(storeId) {
+    const config = await ShopifyConfig.findById(storeId, this.userId);
+    if (!config) throw new Error('Store non trouvé ou non autorisé');
+
+    const shopDomain = config.shop_name.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const response = await axios.get(
+      `https://${shopDomain}/admin/api/${SHOPIFY_API_VERSION}/products.json?limit=250&status=active`,
+      { headers: { 'X-Shopify-Access-Token': config.access_token, 'Content-Type': 'application/json' }, timeout: 20000 }
+    );
+    const shopifyProducts = response.data.products || [];
+    const variants = shopifyProducts.flatMap(product => (product.variants || []).map(variant => ({
+      name: (product.title || 'Produit Shopify') + (variant.title && variant.title !== 'Default Title' ? ` - ${variant.title}` : ''),
+      price: Number(variant.price || 0),
+      variantId: variant.id,
+      sku: variant.sku || null,
+    })));
+    const costs = variants.length ? await this.getVariantCosts(config, variants.map(item => `gid://shopify/ProductVariant/${item.variantId}`)) : [];
+    const costByVariant = new Map(costs.map(item => [String(item.id).split('/').pop(), item.inventoryItem?.unitCost == null ? null : Number(item.inventoryItem.unitCost)]));
+    const conn = await require('../config/database').getConnection();
+    let created = 0;
+    let updated = 0;
+    try {
+      for (const item of variants) {
+        const cost = costByVariant.get(String(item.variantId));
+        const [existing] = await conn.query('SELECT id FROM products WHERE user_id = ? AND name = ? LIMIT 1', [this.userId, item.name]);
+        if (existing.length) {
+          await conn.query('UPDATE products SET price = ?, cost_price = ? WHERE id = ?', [item.price, cost, existing[0].id]);
+          updated++;
+        } else {
+          await conn.query(`INSERT INTO products (user_id, name, description, price, cost_price, stock, created_at) VALUES (?, ?, ?, ?, ?, 0, NOW())`, [this.userId, item.name, `Shopify SKU: ${item.sku || 'N/A'}`, item.price, cost]);
+          created++;
+        }
+      }
+    } finally {
+      conn.release();
+    }
+    return { success: true, count: variants.length, created, updated, message: `${variants.length} variantes Shopify synchronisées` };
+  }
+
   // Sauvegarder une commande Shopify dans la base de données
   async saveOrderToDatabase(shopifyOrder, storeId) {
     // Extraire les données client
@@ -166,7 +205,7 @@ class ShopifyService {
     const customerEmail = this.extractCustomerEmail(shopifyOrder);
     
     // Extraire les données produit
-    const products = this.extractProducts(shopifyOrder);
+    const products = await this.extractProducts(shopifyOrder, storeId);
     
     // Préparer les données de la commande
     const orderData = {
@@ -249,16 +288,6 @@ class ShopifyService {
   }
 
   extractCustomerAddress(shopifyOrder) {
-    // Chercher dans note_attributes
-    if (shopifyOrder.note_attributes && Array.isArray(shopifyOrder.note_attributes)) {
-      const addressAttr = shopifyOrder.note_attributes.find(attr => 
-        attr.name && attr.name.toLowerCase().includes('address')
-      );
-      if (addressAttr && addressAttr.value) {
-        return addressAttr.value;
-      }
-    }
-    
     // Construire depuis shipping_address
     if (shopifyOrder.shipping_address) {
       const addr = shopifyOrder.shipping_address;
@@ -270,10 +299,21 @@ class ShopifyService {
       if (addr.country) parts.push(addr.country);
       if (addr.zip) parts.push(addr.zip);
       
-      return parts.join(', ');
+      const address = parts.join(', ').trim();
+      if (address && !/^\d{1,3}(?:\.\d{1,3}){3}$/.test(address)) return address;
+    }
+
+    // Ne jamais utiliser browser_ip ou un attribut IP comme adresse de livraison.
+    if (shopifyOrder.note_attributes && Array.isArray(shopifyOrder.note_attributes)) {
+      const addressAttr = shopifyOrder.note_attributes.find(attr => {
+        const name = String(attr.name || '').toLowerCase();
+        const value = String(attr.value || '').trim();
+        return name.includes('address') && !name.includes('ip') && !/^\d{1,3}(?:\.\d{1,3}){3}$/.test(value);
+      });
+      if (addressAttr?.value) return String(addressAttr.value).trim();
     }
     
-    return null;
+    return 'Adresse de livraison non renseignée';
   }
 
   extractCustomerEmail(shopifyOrder) {
@@ -288,20 +328,71 @@ class ShopifyService {
     return null;
   }
 
-  extractProducts(shopifyOrder) {
+  async extractProducts(shopifyOrder, storeId) {
     if (!shopifyOrder.line_items || !Array.isArray(shopifyOrder.line_items)) {
       return [];
     }
-    
+
+    const config = await ShopifyConfig.findById(storeId, this.userId);
+    const variantIds = shopifyOrder.line_items
+      .map(item => item.variant_id)
+      .filter(Boolean)
+      .map(id => `gid://shopify/ProductVariant/${id}`);
+    const costsByVariantId = new Map();
+
+    if (config && variantIds.length > 0) {
+      try {
+        const data = await this.getVariantCosts(config, variantIds);
+        for (const node of data) {
+          const numericId = String(node.id || '').split('/').pop();
+          const cost = node.inventoryItem?.unitCost;
+          if (numericId && cost !== null && cost !== undefined) {
+            costsByVariantId.set(numericId, Number(cost));
+          }
+        }
+      } catch (error) {
+        console.warn('[Shopify] Coûts d’achat indisponibles, import poursuivi:', error.message);
+      }
+    }
+
     return shopifyOrder.line_items.map(item => ({
       name: item.title || item.name || 'Produit',
       quantity: item.quantity || 1,
       price: parseFloat(item.price) || 0,
       total: parseFloat(item.price) * (item.quantity || 1),
+      cost_price: costsByVariantId.get(String(item.variant_id)) ?? null,
       variant_id: item.variant_id,
       product_id: item.product_id,
       sku: item.sku
     }));
+  }
+
+  async getVariantCosts(config, variantIds) {
+    const data = await axios.post(
+      `https://${config.shop_name}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`,
+      {
+        query: `query VariantCosts($ids: [ID!]!) {
+          nodes(ids: $ids) {
+            ... on ProductVariant {
+              id
+              inventoryItem { unitCost }
+            }
+          }
+        }`,
+        variables: { ids: variantIds }
+      },
+      {
+        headers: {
+          'X-Shopify-Access-Token': config.access_token,
+          'Content-Type': 'application/json'
+        },
+        timeout: 20000
+      }
+    );
+    if (data.data.errors?.length) {
+      throw new Error(data.data.errors.map(error => error.message).join('; '));
+    }
+    return (data.data.data?.nodes || []).filter(Boolean);
   }
 
   mapShopifyStatus(shopifyStatus) {

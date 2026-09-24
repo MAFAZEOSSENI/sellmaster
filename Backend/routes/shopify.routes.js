@@ -100,6 +100,12 @@ router.get('/stores/:storeId/orders/sync',
   ShopifyController.syncOrders
 );
 
+router.get('/stores/:storeId/products/sync',
+  authMiddleware,
+  shopifyMiddleware.validateStoreOwnership,
+  ShopifyController.syncProducts
+);
+
 router.get('/stores/:storeId/stats', 
   authMiddleware, 
   shopifyMiddleware.validateStoreOwnership,
