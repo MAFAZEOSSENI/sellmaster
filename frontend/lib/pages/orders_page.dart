@@ -760,7 +760,8 @@ class CreateOrderDialogState extends State<CreateOrderDialog> {
 
   Future<void> loadProducts() async {
     try {
-      final productsData = await ApiService.getProducts();
+      final productsData = await ApiService.getProducts(ownerId: widget.ownerId);
+      if (!mounted) return;
       setState(() {
         products = productsData;
       });
