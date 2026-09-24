@@ -4,6 +4,7 @@ import '../auth/auth_provider.dart';
 import '../models/order.dart';
 import '../services/api_service.dart';
 import 'orders_page.dart';
+import 'products_page.dart';
 
 class RoleWorkspacePage extends StatefulWidget {
   final String role;
@@ -446,6 +447,25 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                         ],
                       ),
                     ),
+                  if (widget.role == 'closer') ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _selectedOwnerId == null
+                            ? null
+                            : () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => ProductsPage(ownerId: _selectedOwnerId),
+                                  ),
+                                );
+                              },
+                        icon: const Icon(Icons.inventory_2_outlined),
+                        label: const Text('Consulter le catalogue produits'),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   GridView.count(
                     crossAxisCount: 2,
                     crossAxisSpacing: 12,

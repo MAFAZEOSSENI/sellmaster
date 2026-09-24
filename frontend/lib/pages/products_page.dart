@@ -5,7 +5,9 @@ import '../services/api_service.dart';
 import '../models/product.dart';
 
 class ProductsPage extends StatefulWidget {
-  const ProductsPage({Key? key}) : super(key: key);
+  final int? ownerId;
+
+  const ProductsPage({Key? key, this.ownerId}) : super(key: key);
 
   @override
   ProductsPageState createState() => ProductsPageState();
@@ -21,7 +23,17 @@ class ProductsPageState extends State<ProductsPage> {
   @override
   void initState() {
     super.initState();
-    loadProducts();
+    _selectedOwnerId = widget.ownerId;
+    loadProducts(ownerId: widget.ownerId);
+  }
+
+  @override
+  void didUpdateWidget(covariant ProductsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.ownerId != widget.ownerId) {
+      _selectedOwnerId = widget.ownerId;
+      loadProducts(ownerId: widget.ownerId);
+    }
   }
 
   Future<void> loadProducts({int? ownerId}) async {
