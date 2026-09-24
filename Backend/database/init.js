@@ -157,6 +157,11 @@ async function createTables() {
       )
     `);
 
+    await conn.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "team_memberships_owner_member_idx"
+      ON "team_memberships" (owner_user_id, member_user_id)
+    `);
+
     await ensureColumnExists(conn, 'team_memberships', 'nickname', 'ADD COLUMN "nickname" VARCHAR(100) NULL');
     await ensureColumnExists(conn, 'team_memberships', 'is_working', 'ADD COLUMN "is_working" BOOLEAN NOT NULL DEFAULT FALSE');
 

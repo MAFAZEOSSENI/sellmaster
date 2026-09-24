@@ -25,6 +25,11 @@ app.use(cors({
 // Pour les webhooks Shopify, il faut traiter le body brut (signature HMAC)
 app.use('/api/shopify/webhook', express.raw({ type: 'application/json', limit: '10mb' }));
 app.use(express.json({ limit: '10mb' }));
+app.use(express.text({ type: '*/*', limit: '10mb' }));
+app.use((req, res, next) => {
+  console.log('[SERVER] incoming', req.method, req.originalUrl, 'content-type=', req.headers['content-type'], 'body=', req.body ? JSON.stringify(req.body).slice(0, 400) : '<empty>');
+  next();
+});
 // Middleware pour set les headers CORS explicitement
 app.use((req, res, next) => {
   // Set headers CORS

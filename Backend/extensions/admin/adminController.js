@@ -1,8 +1,33 @@
-const { pool } = require('../../config/database');
+const { getConnection } = require('../../config/database');
 const User = require('../../models/User');
 const Rbac = require('../../models/Rbac');
 
 const allowedTeamRoles = ['manager', 'closer', 'courier'];
+
+function readRequestBody(req) {
+  if (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) {
+    return req.body;
+  }
+
+  if (typeof req.body === 'string') {
+    const trimmed = req.body.trim();
+    if (!trimmed) return {};
+
+    try {
+      return JSON.parse(trimmed);
+    } catch (error) {
+      const parsedPairs = {};
+      for (const part of trimmed.split('&')) {
+        const [key, ...rest] = part.split('=');
+        if (!key) continue;
+        parsedPairs[decodeURIComponent(key)] = decodeURIComponent(rest.join('=') || '');
+      }
+      return Object.keys(parsedPairs).length ? parsedPairs : { raw: trimmed };
+    }
+  }
+
+  return {};
+}
 
 async function ensureExclusiveOwnerRoleAssignment(conn, { memberUserId, ownerUserId, roleName }) {
   const normalizedRole = String(roleName || '').trim().toLowerCase();
@@ -13,10 +38,10 @@ async function ensureExclusiveOwnerRoleAssignment(conn, { memberUserId, ownerUse
   const [rows] = await conn.query(
     `SELECT id
      FROM team_memberships
-     WHERE member_user_id = ?
+     WHERE member_user_id = $1
        AND role_name IN ('manager', 'closer')
        AND status IN ('pending', 'active')
-       AND owner_user_id != ?
+       AND owner_user_id != $2
      LIMIT 1`,
     [memberUserId, ownerUserId]
   );
@@ -38,15 +63,15 @@ const adminController = {
   async getUsers(req, res) {
     try {
       const ownerUserId = Number(req.userId);
-      const conn = await pool.getConnection();
+      const conn = await getConnection();
 
       try {
         const [rows] = await conn.query(
           `SELECT DISTINCT member_user_id AS user_id
            FROM team_memberships
-           WHERE owner_user_id = ? AND status IN ('active', 'pending')
+           WHERE owner_user_id = $1 AND status IN ('active', 'pending')
            UNION
-           SELECT ? AS user_id`,
+           SELECT $2 AS user_id`,
           [ownerUserId, ownerUserId]
         );
 
@@ -136,14 +161,17 @@ const adminController = {
         }
       }
 
-      const conn = await pool.getConnection();
+      const conn = await getConnection();
       try {
         await ensureExclusiveOwnerRoleAssignment(conn, { memberUserId, ownerUserId, roleName });
 
         await conn.query(
           `INSERT INTO team_memberships (owner_user_id, member_user_id, role_name, status, invited_by)
-           VALUES (?, ?, ?, 'pending', ?)
-           ON DUPLICATE KEY UPDATE role_name = VALUES(role_name), status = VALUES(status), invited_by = VALUES(invited_by)`,
+           VALUES ($1, $2, $3, 'pending', $4)
+           ON CONFLICT (owner_user_id, member_user_id)
+           DO UPDATE SET role_name = EXCLUDED.role_name,
+                         status = EXCLUDED.status,
+                         invited_by = EXCLUDED.invited_by`,
           [ownerUserId, memberUserId, roleName, ownerUserId]
         );
       } finally {
@@ -179,15 +207,15 @@ const adminController = {
         return res.status(403).json({ error: 'Vous n’êtes pas autorisé à voir les membres de cette équipe.' });
       }
 
-      const conn = await pool.getConnection();
+      const conn = await getConnection();
       try {
         const [rows] = await conn.query(`
           SELECT tm.id, tm.owner_user_id, tm.member_user_id, tm.role_name, tm.status, tm.created_at, tm.is_working,
                  u.email, u.full_name, u.phone,
-                 CASE WHEN u.id = ? THEN 'self' ELSE 'member' END AS relation_type
+                 CASE WHEN u.id = $1 THEN 'self' ELSE 'member' END AS relation_type
           FROM team_memberships tm
           JOIN app_users u ON u.id = tm.member_user_id
-          WHERE tm.owner_user_id = ?
+          WHERE tm.owner_user_id = $2
             AND tm.status = 'active'
             AND tm.is_working = TRUE
           ORDER BY tm.created_at DESC`, [currentUserId, requestedOwnerId]);
@@ -204,7 +232,7 @@ const adminController = {
 
   async getMyTeams(req, res) {
     try {
-      const conn = await pool.getConnection();
+      const conn = await getConnection();
       try {
         const [rows] = await conn.query(`
           SELECT tm.id,
@@ -224,7 +252,7 @@ const adminController = {
           FROM team_memberships tm
           JOIN app_users owner ON owner.id = tm.owner_user_id
           JOIN app_users member ON member.id = tm.member_user_id
-          WHERE tm.member_user_id = ?
+          WHERE tm.member_user_id = $1
           ORDER BY tm.created_at DESC`, [req.userId]);
 
         res.json({ memberships: rows.map((row) => ({
@@ -251,10 +279,10 @@ const adminController = {
         return res.status(400).json({ error: 'Identifiant de membership invalide' });
       }
 
-      const conn = await pool.getConnection();
+      const conn = await getConnection();
       try {
         const [rows] = await conn.query(
-          `SELECT * FROM team_memberships WHERE id = ? AND member_user_id = ?`,
+          `SELECT * FROM team_memberships WHERE id = $1 AND member_user_id = $2`,
           [membershipId, req.userId]
         );
 
@@ -267,8 +295,8 @@ const adminController = {
 
         await conn.query(
           `UPDATE team_memberships
-           SET nickname = ?, is_working = ?
-           WHERE id = ? AND member_user_id = ?`,
+           SET nickname = $1, is_working = $2
+           WHERE id = $3 AND member_user_id = $4`,
           [nextNickname || null, nextIsWorking, membershipId, req.userId]
         );
 
@@ -276,7 +304,7 @@ const adminController = {
           `SELECT tm.*, owner.full_name AS owner_name
            FROM team_memberships tm
            JOIN app_users owner ON owner.id = tm.owner_user_id
-           WHERE tm.id = ? AND tm.member_user_id = ?`,
+           WHERE tm.id = $1 AND tm.member_user_id = $2`,
           [membershipId, req.userId]
         );
 
@@ -304,7 +332,7 @@ const adminController = {
 
   async getPendingMemberships(req, res) {
     try {
-      const conn = await pool.getConnection();
+      const conn = await getConnection();
       try {
         const [rows] = await conn.query(`
           SELECT tm.id, tm.owner_user_id, tm.member_user_id, tm.role_name, tm.status, tm.created_at,
@@ -313,7 +341,7 @@ const adminController = {
           FROM team_memberships tm
           JOIN app_users u ON u.id = tm.member_user_id
           JOIN app_users owner ON owner.id = tm.owner_user_id
-          WHERE tm.member_user_id = ?
+          WHERE tm.member_user_id = $1
           ORDER BY tm.created_at DESC`, [req.userId]);
 
         res.json({ memberships: rows });
@@ -328,10 +356,15 @@ const adminController = {
 
   async inviteMember(req, res) {
     try {
-      const { memberUserId, role } = req.body;
+      const body = readRequestBody(req);
+      const memberUserId = body.memberUserId ?? body.member_id ?? body.memberId ?? body.userId ?? body.user_id ?? body.member ?? body.user ?? body.raw;
+      const role = body.role;
       const roleName = String(role || 'closer').toLowerCase();
       if (!allowedTeamRoles.includes(roleName)) {
         return res.status(400).json({ error: 'Rôle invalide' });
+      }
+      if (memberUserId === undefined || memberUserId === null || memberUserId === '') {
+        return res.status(400).json({ error: 'memberUserId requis' });
       }
 
       const memberId = Number(memberUserId);
@@ -346,14 +379,17 @@ const adminController = {
         // TODO: future iteration - validate the fixed role for invited email/phone before creating a memberships entry.
       }
 
-      const conn = await pool.getConnection();
+      const conn = await getConnection();
       try {
         await ensureExclusiveOwnerRoleAssignment(conn, { memberUserId: memberId, ownerUserId: Number(req.userId), roleName });
 
         await conn.query(
           `INSERT INTO team_memberships (owner_user_id, member_user_id, role_name, status, invited_by)
-           VALUES (?, ?, ?, 'pending', ?)
-           ON DUPLICATE KEY UPDATE role_name = VALUES(role_name), status = VALUES(status), invited_by = VALUES(invited_by)`,
+           VALUES ($1, $2, $3, 'pending', $4)
+           ON CONFLICT (owner_user_id, member_user_id)
+           DO UPDATE SET role_name = EXCLUDED.role_name,
+                         status = EXCLUDED.status,
+                         invited_by = EXCLUDED.invited_by`,
           [req.userId, memberId, roleName, req.userId]
         );
       } finally {
@@ -373,12 +409,12 @@ const adminController = {
       const { status } = req.body;
       const finalStatus = status === 'rejected' ? 'rejected' : 'active';
 
-      const conn = await pool.getConnection();
+      const conn = await getConnection();
       try {
         await conn.query(
           `UPDATE team_memberships
-           SET status = ?, confirmed_at = NOW()
-           WHERE id = ? AND owner_user_id = ?`,
+           SET status = $1, confirmed_at = NOW()
+           WHERE id = $2 AND owner_user_id = $3`,
           [finalStatus, id, req.userId]
         );
       } finally {
@@ -394,11 +430,13 @@ const adminController = {
 
   async confirmMember(req, res) {
     try {
-      const { membershipId } = req.body;
-      const conn = await pool.getConnection();
+      const rawBody = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+      const body = rawBody && typeof rawBody === 'object' ? rawBody : {};
+      const membershipId = body.membershipId ?? body.membership_id ?? body.id;
+      const conn = await getConnection();
       try {
         const [rows] = await conn.query(
-          `SELECT * FROM team_memberships WHERE id = ? AND member_user_id = ?`,
+          `SELECT * FROM team_memberships WHERE id = $1 AND member_user_id = $2`,
           [membershipId, req.userId]
         );
 
@@ -408,7 +446,7 @@ const adminController = {
 
         const membership = rows[0];
         await conn.query(
-          `UPDATE team_memberships SET status = 'active', confirmed_at = NOW() WHERE id = ?`,
+          `UPDATE team_memberships SET status = 'active', confirmed_at = NOW() WHERE id = $1`,
           [membershipId]
         );
 
