@@ -246,7 +246,7 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
             (order.status == 'dashboard' ||
                 order.status == 'reportee' ||
                 order.status == 'livree') &&
-            (order.assignedTo == null || order.assignedTo == currentUserIdValue))
+        order.assignedTo == currentUserIdValue)
         .toList();
   }
 
