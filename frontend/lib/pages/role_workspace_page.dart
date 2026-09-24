@@ -719,40 +719,53 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                                       ),
                                     ),
                                     const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: DropdownButtonFormField<int>(
-                                            value: _teamCouriers.any((courier) => courier['member_user_id'] == order.assignedTo)
-                                                ? order.assignedTo
-                                                : (_teamCouriers.isNotEmpty ? int.tryParse(_teamCouriers.first['member_user_id'].toString()) : null),
-                                            decoration: InputDecoration(
-                                              filled: true,
-                                              fillColor: const Color(0xFFF8FAFC),
-                                              border: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(10),
-                                                borderSide: BorderSide.none,
+                                    if (_teamCouriers.isEmpty)
+                                      const Text(
+                                        'Aucun livreur actif et disponible dans cette équipe.',
+                                        style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                                      )
+                                    else
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: DropdownButtonFormField<int>(
+                                              value: _teamCouriers
+                                                  .map((courier) => int.tryParse(courier['member_user_id'].toString()))
+                                                  .whereType<int>()
+                                                  .contains(order.assignedTo)
+                                                  ? order.assignedTo
+                                                  : null,
+                                              decoration: InputDecoration(
+                                                filled: true,
+                                                fillColor: const Color(0xFFF8FAFC),
+                                                border: OutlineInputBorder(
+                                                  borderRadius: BorderRadius.circular(10),
+                                                  borderSide: BorderSide.none,
+                                                ),
+                                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                               ),
-                                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                            ),
-                                            items: _teamCouriers
-                                                .map((courier) => DropdownMenuItem<int>(
-                                                      value: int.tryParse(courier['member_user_id'].toString()),
+                                              items: _teamCouriers
+                                                  .map((courier) {
+                                                    final courierId = int.tryParse(courier['member_user_id'].toString());
+                                                    if (courierId == null) return null;
+                                                    return DropdownMenuItem<int>(
+                                                      value: courierId,
                                                       child: Text(
                                                         (courier['full_name'] ?? courier['email'] ?? 'Livreur').toString(),
                                                       ),
-                                                    ))
-                                                .whereType<DropdownMenuItem<int>>()
-                                                .toList(),
-                                            onChanged: (courierId) {
-                                              if (courierId == null) return;
-                                              _assignToCourier(order, courierId);
-                                            },
-                                            hint: const Text('Choisir un livreur'),
+                                                    );
+                                                  })
+                                                  .whereType<DropdownMenuItem<int>>()
+                                                  .toList(),
+                                              onChanged: (courierId) {
+                                                if (courierId == null) return;
+                                                _assignToCourier(order, courierId);
+                                              },
+                                              hint: const Text('Choisir un livreur'),
+                                            ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
+                                        ],
+                                      ),
                                   ],
                                 )
                               else
