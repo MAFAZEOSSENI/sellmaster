@@ -1,4 +1,4 @@
-const { pool } = require('../config/database');
+const { getConnection } = require('../config/database');
 const crypto = require('crypto');
 
 class License {
@@ -20,7 +20,7 @@ class License {
 
   // 🆕 CORRECTION : CRÉER UNE NOUVELLE LICENCE
   static async create(licenseData) {
-    const connection = await pool.getConnection();
+    const connection = await getConnection();
     try {
       console.log('📝 Création licence avec données:', licenseData);
       
@@ -35,7 +35,8 @@ class License {
       // 🆕 CORRECTION : Utiliser query() au lieu de execute() pour MariaDB
       const [result] = await connection.query(
         `INSERT INTO licenses (license_key, user_id, type, price, status, payment_method, moneroo_payment_id, expires_at) 
-         VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)
+         RETURNING id`,
         [licenseKey, userId, type, price, paymentMethod, monerooPaymentId, expiresAt]
       );
 
@@ -60,7 +61,7 @@ class License {
 
   // Activer une licence après paiement réussi
   static async activate(licenseKey) {
-    const connection = await pool.getConnection();
+    const connection = await getConnection();
     try {
       console.log('🔑 Activation licence:', licenseKey);
 
@@ -99,7 +100,7 @@ class License {
 
   // Trouver une licence par clé
   static async findByKey(licenseKey) {
-    const connection = await pool.getConnection();
+    const connection = await getConnection();
     try {
       const [licenses] = await connection.query(
         'SELECT * FROM licenses WHERE license_key = ?',
@@ -113,7 +114,7 @@ class License {
 
   // Trouver les licences d'un utilisateur
   static async findByUserId(userId) {
-    const connection = await pool.getConnection();
+    const connection = await getConnection();
     try {
       const [licenses] = await connection.query(
         'SELECT * FROM licenses WHERE user_id = ? ORDER BY created_at DESC',

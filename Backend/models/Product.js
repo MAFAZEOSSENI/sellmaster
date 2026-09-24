@@ -1,5 +1,5 @@
 // models/Product.js - VERSION FINALE CORRIGÉE
-const { pool } = require('../config/database');
+const { getConnection } = require('../config/database');
 
 // Fonction utilitaire pour convertir les résultats MariaDB
 const convertRowToPlainObject = (row) => {
@@ -29,7 +29,7 @@ const Product = {
   async findAll(userId = null, ownerId = null) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       const targetUserId = ownerId !== null && ownerId !== undefined && ownerId !== ''
         ? Number(ownerId)
         : userId;
@@ -84,7 +84,7 @@ const Product = {
   async findById(id, userId = null, ownerId = null) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       const targetUserId = ownerId !== null && ownerId !== undefined && ownerId !== ''
         ? Number(ownerId)
         : userId;
@@ -117,7 +117,7 @@ const Product = {
   async create(productData, userId = null, ownerId = null) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       const effectiveOwnerId = ownerId !== null && ownerId !== undefined && ownerId !== ''
         ? Number(ownerId)
         : userId;
@@ -146,6 +146,7 @@ const Product = {
           image_url,
           created_at
         ) VALUES (?, ?, ?, ?, ?, ?, NOW())
+        RETURNING id
       `, [
         effectiveOwnerId,
         productData.name,
@@ -188,7 +189,7 @@ const Product = {
   async update(id, productData, userId = null) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       
       let query = `
         UPDATE products 
@@ -229,7 +230,7 @@ const Product = {
   async delete(id, userId = null) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       
       let query = `DELETE FROM products WHERE id = ?`;
       let params = [id];
@@ -256,7 +257,7 @@ const Product = {
   async findByUserId(userId) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       
       console.log(`🔍 Recherche produits pour user ${userId}`);
       

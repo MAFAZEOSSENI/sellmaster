@@ -1,7 +1,7 @@
-const { pool } = require('../config/database');
+const { getConnection } = require('../config/database');
 
 async function ensureColumnExists(conn, tableName, columnName, columnSql) {
-  const { rows } = await conn.query(`
+  const [rows] = await conn.query(`
     SELECT column_name
     FROM information_schema.columns
     WHERE table_schema = current_schema()
@@ -17,11 +17,35 @@ async function ensureColumnExists(conn, tableName, columnName, columnSql) {
 async function createTables() {
   let conn;
   try {
-    conn = await pool.connect();
+    conn = await getConnection();
+
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS "app_users" (
+        id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        phone VARCHAR(50) NULL,
+        full_name VARCHAR(255) NULL,
+        trial_used BOOLEAN NOT NULL DEFAULT FALSE,
+        order_count INT NOT NULL DEFAULT 0,
+        max_orders INT NOT NULL DEFAULT 10,
+        license_key VARCHAR(255) NULL,
+        license_expiry TIMESTAMP NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await ensureColumnExists(conn, 'app_users', 'full_name', 'ADD COLUMN "full_name" VARCHAR(255) NULL');
+    await ensureColumnExists(conn, 'app_users', 'license_key', 'ADD COLUMN "license_key" VARCHAR(255) NULL');
+    await ensureColumnExists(conn, 'app_users', 'license_expiry', 'ADD COLUMN "license_expiry" TIMESTAMP NULL');
+    await ensureColumnExists(conn, 'app_users', 'trial_used', 'ADD COLUMN "trial_used" BOOLEAN NOT NULL DEFAULT FALSE');
+    await ensureColumnExists(conn, 'app_users', 'order_count', 'ADD COLUMN "order_count" INT NOT NULL DEFAULT 0');
+    await ensureColumnExists(conn, 'app_users', 'max_orders', 'ADD COLUMN "max_orders" INT NOT NULL DEFAULT 10');
 
     await conn.query(`
       CREATE TABLE IF NOT EXISTS "products" (
-        id SERIAL PRIMARY KEY,
+        id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         description TEXT,
         price DECIMAL(10,2) NOT NULL,
@@ -33,33 +57,47 @@ async function createTables() {
 
     await conn.query(`
       CREATE TABLE IF NOT EXISTS "orders" (
-        id SERIAL PRIMARY KEY,
+        id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         client_name VARCHAR(255) NOT NULL,
         client_phone VARCHAR(50) NOT NULL,
         client_address TEXT NOT NULL,
         status VARCHAR(20) DEFAULT 'dashboard',
         total_amount DECIMAL(10,2) NOT NULL,
         notes TEXT,
+        products JSONB DEFAULT '[]',
+        source VARCHAR(50) NOT NULL DEFAULT 'manual',
+        shopify_order_id VARCHAR(255) NULL,
+        shopify_store_id VARCHAR(255) NULL,
+        shopify_data JSONB NULL,
         user_id INT NULL,
         created_by INT NULL,
         assigned_to INT NULL,
         assigned_by INT NULL,
         assigned_at TIMESTAMP NULL,
         assignment_note TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        custom_order_number VARCHAR(100) NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
-    await ensureColumnExists(conn, 'orders', 'user_id', 'ADD COLUMN "user_id" INT NULL');
-    await ensureColumnExists(conn, 'orders', 'created_by', 'ADD COLUMN "created_by" INT NULL');
-    await ensureColumnExists(conn, 'orders', 'assigned_to', 'ADD COLUMN "assigned_to" INT NULL');
-    await ensureColumnExists(conn, 'orders', 'assigned_by', 'ADD COLUMN "assigned_by" INT NULL');
-    await ensureColumnExists(conn, 'orders', 'assigned_at', 'ADD COLUMN "assigned_at" TIMESTAMP NULL');
-    await ensureColumnExists(conn, 'orders', 'assignment_note', 'ADD COLUMN "assignment_note" TEXT');
+    await ensureColumnExists(conn, 'orders', 'products', "ADD COLUMN \"products\" JSONB DEFAULT '[]'");
+    await ensureColumnExists(conn, 'orders', 'source', "ADD COLUMN \"source\" VARCHAR(50) NOT NULL DEFAULT 'manual'");
+    await ensureColumnExists(conn, 'orders', 'shopify_order_id', "ADD COLUMN \"shopify_order_id\" VARCHAR(255) NULL");
+    await ensureColumnExists(conn, 'orders', 'shopify_store_id', "ADD COLUMN \"shopify_store_id\" VARCHAR(255) NULL");
+    await ensureColumnExists(conn, 'orders', 'shopify_data', "ADD COLUMN \"shopify_data\" JSONB NULL");
+    await ensureColumnExists(conn, 'orders', 'user_id', "ADD COLUMN \"user_id\" INT NULL");
+    await ensureColumnExists(conn, 'orders', 'created_by', "ADD COLUMN \"created_by\" INT NULL");
+    await ensureColumnExists(conn, 'orders', 'assigned_to', "ADD COLUMN \"assigned_to\" INT NULL");
+    await ensureColumnExists(conn, 'orders', 'assigned_by', "ADD COLUMN \"assigned_by\" INT NULL");
+    await ensureColumnExists(conn, 'orders', 'assigned_at', "ADD COLUMN \"assigned_at\" TIMESTAMP NULL");
+    await ensureColumnExists(conn, 'orders', 'assignment_note', "ADD COLUMN \"assignment_note\" TEXT");
+    await ensureColumnExists(conn, 'orders', 'custom_order_number', "ADD COLUMN \"custom_order_number\" VARCHAR(100) NULL");
+    await ensureColumnExists(conn, 'orders', 'updated_at', "ADD COLUMN \"updated_at\" TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
 
     await conn.query(`
       CREATE TABLE IF NOT EXISTS "order_items" (
-        id SERIAL PRIMARY KEY,
+        id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         order_id INT NOT NULL,
         product_id INT NOT NULL,
         product_name VARCHAR(255) NOT NULL,
@@ -71,11 +109,41 @@ async function createTables() {
       )
     `);
 
-    await ensureColumnExists(conn, 'app_users', 'full_name', 'ADD COLUMN "full_name" VARCHAR(255) NULL');
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS "licenses" (
+        id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        license_key VARCHAR(255) NOT NULL UNIQUE,
+        user_id INT NOT NULL,
+        type VARCHAR(50) NOT NULL,
+        price DECIMAL(10,2) NOT NULL DEFAULT 0,
+        status VARCHAR(50) NOT NULL DEFAULT 'pending',
+        payment_method VARCHAR(100) NULL,
+        moneroo_payment_id VARCHAR(255) NULL,
+        expires_at TIMESTAMP NULL,
+        activated_at TIMESTAMP NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS "shopify_configs" (
+        id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        user_id INT NOT NULL,
+        shop_name VARCHAR(255) NOT NULL,
+        api_key VARCHAR(255) NULL,
+        access_token TEXT NULL,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        connected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_sync TIMESTAMP NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
     await conn.query(`
       CREATE TABLE IF NOT EXISTS "team_memberships" (
-        id SERIAL PRIMARY KEY,
+        id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         owner_user_id INT NOT NULL,
         member_user_id INT NOT NULL,
         role_name VARCHAR(50) NOT NULL,
@@ -94,7 +162,7 @@ async function createTables() {
 
     await conn.query(`
       CREATE TABLE IF NOT EXISTS "roles" (
-        id SERIAL PRIMARY KEY,
+        id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         name VARCHAR(50) NOT NULL UNIQUE,
         description VARCHAR(255) NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -103,7 +171,7 @@ async function createTables() {
 
     await conn.query(`
       CREATE TABLE IF NOT EXISTS "permissions" (
-        id SERIAL PRIMARY KEY,
+        id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         name VARCHAR(100) NOT NULL UNIQUE,
         description VARCHAR(255) NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

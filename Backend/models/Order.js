@@ -1,10 +1,10 @@
-const { pool } = require('../config/database');
+const { getConnection } = require('../config/database');
 
 const Order = {
   async ensureAssignmentColumns() {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       const [columns] = await conn.query('SHOW COLUMNS FROM orders');
       const availableColumns = new Set(columns.map((column) => column.Field));
       const migrations = [
@@ -32,7 +32,7 @@ const Order = {
   async getOrderColumnSet() {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       const [columns] = await conn.query('SHOW COLUMNS FROM orders');
       return new Set(columns.map((column) => column.Field));
     } finally {
@@ -47,7 +47,7 @@ const Order = {
 
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       const [rows] = await conn.query(
         `SELECT owner_user_id
          FROM team_memberships
@@ -105,7 +105,7 @@ const Order = {
   async generateCustomOrderNumber(ownerUserId, creatorUserId = null) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       const targetOwnerId = Number(ownerUserId || creatorUserId || 0);
 
       if (!Number.isInteger(targetOwnerId) || targetOwnerId <= 0) {
@@ -132,32 +132,46 @@ const Order = {
   async createWithCustomNumber(orderData, userId) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       await conn.beginTransaction();
 
-      const ownerId = await this.getOwnerIdForOrder(orderData, userId);
+      const normalizedOrderData = {
+        ...orderData,
+        client_name: orderData.client_name ?? orderData.clientName ?? '',
+        client_phone: orderData.client_phone ?? orderData.clientPhone ?? '',
+        client_address: orderData.client_address ?? orderData.clientAddress ?? '',
+        total_amount: orderData.total_amount ?? orderData.totalAmount ?? 0,
+        status: orderData.status ?? orderData.order_status ?? 'dashboard',
+        notes: orderData.notes ?? '',
+        source: orderData.source ?? 'manual',
+        shopify_order_id: orderData.shopify_order_id ?? orderData.shopifyOrderId ?? null,
+        shopify_data: orderData.shopify_data ?? null,
+      };
+
+      const ownerId = await this.getOwnerIdForOrder(normalizedOrderData, userId);
       const createdBy = Number(userId) === Number(ownerId) ? null : Number(userId);
 
       console.log('📦 Création commande avec numéro personnalisé pour owner:', ownerId, 'créée par:', userId);
 
       const customOrderNumber = await this.generateCustomOrderNumber(ownerId);
-      const shopifyOrderId = orderData.shopify_order_id;
+      const shopifyOrderId = normalizedOrderData.shopify_order_id;
       const safeShopifyOrderId = shopifyOrderId ? shopifyOrderId.toString() : null;
 
       const [orderResult] = await conn.query(`
         INSERT INTO orders 
         (client_name, client_phone, client_address, status, total_amount, notes, source, shopify_order_id, shopify_data, user_id, created_by, custom_order_number)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        RETURNING id
       `, [
-        orderData.clientName || orderData.client_name,
-        orderData.clientPhone || orderData.client_phone,
-        orderData.clientAddress || orderData.client_address,
-        orderData.status || 'dashboard',
-        orderData.totalAmount || orderData.total_amount,
-        orderData.notes || '',
-        orderData.source || 'manual',
+        normalizedOrderData.client_name,
+        normalizedOrderData.client_phone,
+        normalizedOrderData.client_address,
+        normalizedOrderData.status,
+        normalizedOrderData.total_amount,
+        normalizedOrderData.notes,
+        normalizedOrderData.source,
         safeShopifyOrderId,
-        orderData.shopify_data ? JSON.stringify(orderData.shopify_data) : null,
+        normalizedOrderData.shopify_data ? JSON.stringify(normalizedOrderData.shopify_data) : null,
         ownerId,
         createdBy,
         customOrderNumber
@@ -178,6 +192,7 @@ const Order = {
           await conn.query(`
             INSERT INTO order_items (order_id, product_id, product_name, unit_price, quantity)
             VALUES (?, ?, ?, ?, ?)
+            RETURNING id
           `, [orderId, item.productId, item.productName, item.unitPrice, item.quantity]);
 
           // Mettre à jour le stock
@@ -208,7 +223,7 @@ const Order = {
   async getOrderNumberStats(userId, ownerId = null) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       const visibleOwnerIds = await this.getVisibleOwnerIds(userId, ownerId);
 
       if (!visibleOwnerIds.length) {
@@ -235,7 +250,7 @@ const Order = {
   async findByCustomNumber(customOrderNumber, userId = null, ownerId = null) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       
       let query = `SELECT * FROM orders WHERE custom_order_number = ?`;
       let params = [customOrderNumber];
@@ -261,7 +276,7 @@ const Order = {
   async findAll(userId = null, ownerId = null) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       const availableColumns = await this.getOrderColumnSet();
       
       let query = `
@@ -333,7 +348,7 @@ const Order = {
   async findById(id, userId = null, ownerId = null) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       const availableColumns = await this.getOrderColumnSet();
       
       let query = `
@@ -410,7 +425,7 @@ const Order = {
   async create(orderData) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       await conn.beginTransaction();
 
       console.log('Données reçues:', orderData);
@@ -423,9 +438,10 @@ const Order = {
         await this.generateCustomOrderNumber(orderData.user_id) : 
         `CMD-${Date.now()}`;
 
-      const orderResult = await conn.query(`
+      const [orderResult] = await conn.query(`
         INSERT INTO orders (client_name, client_phone, client_address, status, total_amount, notes, source, shopify_order_id, shopify_data, user_id, custom_order_number)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        RETURNING id
       `, [
         orderData.clientName,
         orderData.clientPhone,
@@ -453,6 +469,7 @@ const Order = {
         await conn.query(`
           INSERT INTO order_items (order_id, product_id, product_name, unit_price, quantity)
           VALUES (?, ?, ?, ?, ?)
+          RETURNING id
         `, [
           orderId,
           item.productId,
@@ -492,7 +509,7 @@ const Order = {
   async updateStatus(id, status) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       
       const [existingOrders] = await conn.query('SELECT * FROM orders WHERE id = ?', [id]);
       if (existingOrders.length === 0) {
@@ -516,7 +533,7 @@ const Order = {
   async assignToOrder(id, assigneeUserId, assignedByUserId = null, assignmentNote = null) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       const availableColumns = await this.getOrderColumnSet();
 
       const [existingOrders] = await conn.query('SELECT * FROM orders WHERE id = ?', [id]);
@@ -546,7 +563,7 @@ const Order = {
   async getDashboardStats(userId = null) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       
       const today = new Date().toISOString().split('T')[0];
       
@@ -588,7 +605,7 @@ const Order = {
   async findByUserId(userId) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       const [orders] = await conn.query(
         'SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC',
         [userId]
@@ -603,7 +620,7 @@ const Order = {
   async countByUserId(userId) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       const [rows] = await conn.query(
         'SELECT COUNT(*) as count FROM orders WHERE user_id = ?',
         [userId]
@@ -618,7 +635,7 @@ const Order = {
   async findByShopifyOrderId(shopifyOrderId) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       const [orders] = await conn.query(
         'SELECT * FROM orders WHERE shopify_order_id = ?',
         [shopifyOrderId]
@@ -633,7 +650,7 @@ const Order = {
   async findByShopifyStoreId(shopifyStoreId, userId = null) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       let query = 'SELECT * FROM orders WHERE shopify_store_id = ?';
       let params = [shopifyStoreId];
       
@@ -644,7 +661,7 @@ const Order = {
       
       query += ' ORDER BY order_date DESC';
       
-      const orders = await conn.query(query, params);
+      const [orders] = await conn.query(query, params);
       return orders;
     } finally {
       if (conn) conn.release();
@@ -656,7 +673,7 @@ const Order = {
 async createFromShopify(orderData, userId) {
   let conn;
   try {
-    conn = await pool.getConnection();
+    conn = await getConnection();
     
     console.log('📦 [Order.createFromShopify] Données reçues:', {
       userId,
@@ -682,7 +699,7 @@ async createFromShopify(orderData, userId) {
     //  STRUCTURE RÉELLE DE TABLE - CORRECTE
     // Colonnes: user_id, client_name, client_phone, client_address, total_amount, status, notes, 
     // products, shopify_order_id, shopify_store_id, shopify_data, custom_order_number, created_at
-    const result = await conn.query(`
+    const [result] = await conn.query(`
       INSERT INTO orders (
         user_id, client_name, client_phone, 
         client_address, total_amount, 
@@ -690,6 +707,7 @@ async createFromShopify(orderData, userId) {
         products, shopify_order_id, shopify_store_id, shopify_data,
         custom_order_number, created_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      RETURNING id
     `, [
       userId,                                  // user_id
       orderData.customer_name || '',           // client_name
@@ -712,10 +730,11 @@ await conn.query(
 );
     
     // Récupérer la commande créée
-    const [newOrder] = await conn.query(
+    const [orders] = await conn.query(
       'SELECT * FROM orders WHERE id = ?',
       [result.insertId]
     );
+    const newOrder = orders[0];
     
     console.log(`✅ Commande Shopify créée: ${customOrderNumber} (ID: ${result.insertId})`);
     console.log(`   Client: ${newOrder.client_name}`);
@@ -737,7 +756,7 @@ await conn.query(
 async updateFromShopify(orderId, orderData, userId) {
   let conn;
   try {
-    conn = await pool.getConnection();
+    conn = await getConnection();
     
     console.log(`🔄 [Order.updateFromShopify] Mise à jour commande ${orderId}`);
     
@@ -747,7 +766,7 @@ async updateFromShopify(orderId, orderData, userId) {
       [orderId, userId]
     );
     
-    if (!existingOrder) {
+    if (existingOrder.length === 0) {
       throw new Error('Commande non trouvée ou non autorisée');
     }
     
@@ -784,10 +803,11 @@ async updateFromShopify(orderId, orderData, userId) {
     ]);
     
     // Récupérer la commande mise à jour
-    const [updatedOrder] = await conn.query(
+    const [updatedOrders] = await conn.query(
       'SELECT * FROM orders WHERE id = ?',
       [orderId]
     );
+    const updatedOrder = updatedOrders[0];
     
     console.log(`✅ Commande Shopify mise à jour: ${updatedOrder.custom_order_number}`);
     

@@ -1,11 +1,11 @@
-const { pool } = require('../config/database');
+const { getConnection } = require('../config/database');
 const Rbac = require('./Rbac');
 
 class User {
   static async create(userData) {
     const { email, passwordHash, phone, fullName, role } = userData;
 
-    const connection = await pool.getConnection();
+    const connection = await getConnection();
     try {
       const assignedRole = ['owner', 'manager', 'closer', 'courier'].includes(role) ? role : 'owner';
       const [columns] = await connection.query('SHOW COLUMNS FROM app_users');
@@ -14,12 +14,14 @@ class User {
       const [result] = hasFullName
         ? await connection.query(
             `INSERT INTO app_users (email, password_hash, phone, full_name, trial_used, order_count, max_orders)
-             VALUES (?, ?, ?, ?, FALSE, 0, 10)`,
+             VALUES (?, ?, ?, ?, FALSE, 0, 10)
+             RETURNING id`,
             [email, passwordHash, phone || null, fullName || null]
           )
         : await connection.query(
             `INSERT INTO app_users (email, password_hash, phone, trial_used, order_count, max_orders)
-             VALUES (?, ?, ?, FALSE, 0, 10)`,
+             VALUES (?, ?, ?, FALSE, 0, 10)
+             RETURNING id`,
             [email, passwordHash, phone || null]
           );
 
@@ -44,7 +46,7 @@ class User {
   }
 
   static async getFixedRole(userId) {
-    const connection = await pool.getConnection();
+    const connection = await getConnection();
     try {
       const [rows] = await connection.query(
         `SELECT r.name
@@ -63,7 +65,7 @@ class User {
   }
 
   static async findByEmail(email) {
-    const connection = await pool.getConnection();
+    const connection = await getConnection();
     try {
       const [rows] = await connection.query(
         'SELECT * FROM app_users WHERE email = ?',
@@ -97,7 +99,7 @@ class User {
   }
 
   static async searchUsers(query, ownerUserId = null, roleName = null) {
-    const connection = await pool.getConnection();
+    const connection = await getConnection();
     try {
       const trimmedQuery = String(query || '').trim();
       const q = `%${trimmedQuery}%`;
@@ -161,7 +163,7 @@ class User {
   }
 
   static async findById(id) {
-    const connection = await pool.getConnection();
+    const connection = await getConnection();
     try {
       const [columns] = await connection.query('SHOW COLUMNS FROM app_users');
       const hasFullName = columns.some((column) => column.Field === 'full_name');
@@ -187,7 +189,7 @@ class User {
   }
 
   static async getActiveOwnerIdsForMember(memberUserId) {
-    const connection = await pool.getConnection();
+    const connection = await getConnection();
     try {
       const [rows] = await connection.query(
         `SELECT DISTINCT owner_user_id
@@ -209,7 +211,7 @@ class User {
       return false;
     }
 
-    const connection = await pool.getConnection();
+    const connection = await getConnection();
     try {
       const [rows] = await connection.query(
         `SELECT 1
@@ -232,7 +234,7 @@ class User {
       return false;
     }
 
-    const connection = await pool.getConnection();
+    const connection = await getConnection();
     try {
       const [rows] = await connection.query(
         `SELECT 1
@@ -252,7 +254,7 @@ class User {
   }
 
   static async updateOrderCount(userId, newCount) {
-    const connection = await pool.getConnection();
+    const connection = await getConnection();
     try {
       await connection.query(
         'UPDATE app_users SET order_count = ? WHERE id = ?',
@@ -265,7 +267,7 @@ class User {
   }
 
   static async activateLicense(userId, licenseKey, expiryDate) {
-    const connection = await pool.getConnection();
+    const connection = await getConnection();
     try {
       await connection.query(
         'UPDATE app_users SET license_key = ?, license_expiry = ?, max_orders = 100000 WHERE id = ?',

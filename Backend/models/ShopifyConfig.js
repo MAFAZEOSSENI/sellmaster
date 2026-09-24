@@ -1,11 +1,11 @@
-const { pool } = require('../config/database');
+const { getConnection } = require('../config/database');
 
 class ShopifyConfig {
   // Trouver par ID de store
   static async findById(id, userId = null) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       let query = `SELECT * FROM shopify_configs WHERE id = ?`;
       let params = [id];
       
@@ -25,7 +25,7 @@ class ShopifyConfig {
   static async findByUserId(userId) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       const [configs] = await conn.query(
         `SELECT id, shop_name, api_key, is_active, connected_at, last_sync 
          FROM shopify_configs 
@@ -43,7 +43,7 @@ class ShopifyConfig {
   static async findByShopName(shopName) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       const normalizedShopName = shopName
         .replace(/^https?:\/\//i, '')
         .replace(/\.myshopify\.com.*$/i, '')
@@ -64,12 +64,13 @@ class ShopifyConfig {
   static async create(storeData, userId) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       
       const [result] = await conn.query(`
         INSERT INTO shopify_configs 
         (shop_name, api_key, access_token, user_id, is_active, connected_at)
         VALUES (?, ?, ?, ?, 1, NOW())
+        RETURNING id
       `, [
         storeData.shopName,
         storeData.apiKey,
@@ -92,7 +93,7 @@ class ShopifyConfig {
   static async upsertOAuthStore(storeData, userId) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       const [existing] = await conn.query(
         `SELECT id FROM shopify_configs WHERE shop_name = ? AND user_id = ? LIMIT 1`,
         [storeData.shopName, userId]
@@ -112,6 +113,7 @@ class ShopifyConfig {
         INSERT INTO shopify_configs
         (shop_name, api_key, access_token, user_id, is_active, connected_at)
         VALUES (?, ?, ?, ?, 1, NOW())
+        RETURNING id
       `, [storeData.shopName, storeData.apiKey, storeData.accessToken, userId]);
 
       return { id: result.insertId, shop_name: storeData.shopName, user_id: userId };
@@ -124,7 +126,7 @@ class ShopifyConfig {
   static async updateLastSync(id, userId) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       await conn.query(
         `UPDATE shopify_configs SET last_sync = NOW() WHERE id = ? AND user_id = ?`,
         [id, userId]
@@ -139,7 +141,7 @@ class ShopifyConfig {
   static async delete(id, userId) {
     let conn;
     try {
-      conn = await pool.getConnection();
+      conn = await getConnection();
       const [result] = await conn.query(
         `DELETE FROM shopify_configs WHERE id = ? AND user_id = ?`,
         [id, userId]
@@ -154,12 +156,12 @@ class ShopifyConfig {
   static async getAccessToken(id, userId) {
     let conn;
     try {
-      conn = await pool.getConnection();
-      const [config] = await conn.query(
+      conn = await getConnection();
+      const [configs] = await conn.query(
         `SELECT access_token FROM shopify_configs WHERE id = ? AND user_id = ?`,
         [id, userId]
       );
-      return config ? config.access_token : null;
+      return configs[0] ? configs[0].access_token : null;
     } finally {
       if (conn) conn.release();
     }

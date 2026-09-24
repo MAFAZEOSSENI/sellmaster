@@ -1,12 +1,14 @@
-const { pool } = require('../config/database');
+const { getConnection } = require('../config/database');
 
 const Rbac = {
   async assignRole(userId, roleName) {
-    const conn = await pool.getConnection();
+    const conn = await getConnection();
     try {
       await conn.query(`
-        INSERT IGNORE INTO user_roles (user_id, role_id)
-        SELECT ?, id FROM roles WHERE name = ?
+        INSERT INTO user_roles (user_id, role_id)
+        SELECT $1, id FROM roles WHERE name = $2
+        ON CONFLICT (user_id, role_id) DO NOTHING
+        RETURNING user_id, role_id
       `, [userId, roleName]);
     } finally {
       conn.release();
@@ -14,7 +16,7 @@ const Rbac = {
   },
 
   async getRolesForUser(userId) {
-    const conn = await pool.getConnection();
+    const conn = await getConnection();
     try {
       const [rows] = await conn.query(`
         SELECT r.name
@@ -30,7 +32,7 @@ const Rbac = {
   },
 
   async getUsersWithRoles() {
-    const conn = await pool.getConnection();
+    const conn = await getConnection();
     try {
       const [rows] = await conn.query(`
         SELECT
@@ -70,7 +72,7 @@ const Rbac = {
   },
 
   async hasPermission(userId, permissionName) {
-    const conn = await pool.getConnection();
+    const conn = await getConnection();
     try {
       const [rows] = await conn.query(`
         SELECT 1
