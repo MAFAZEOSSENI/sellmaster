@@ -46,6 +46,7 @@ async function createTables() {
     await conn.query(`
       CREATE TABLE IF NOT EXISTS "products" (
         id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        user_id INT NULL,
         name VARCHAR(255) NOT NULL,
         description TEXT,
         price DECIMAL(10,2) NOT NULL,
@@ -54,6 +55,8 @@ async function createTables() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    await ensureColumnExists(conn, 'products', 'user_id', 'ADD COLUMN "user_id" INT NULL');
 
     await conn.query(`
       CREATE TABLE IF NOT EXISTS "orders" (
