@@ -116,6 +116,7 @@ class ApiService {
           'name': product.name,
           'description': product.description ?? '',
           'price': product.price,
+          'cost_price': product.costPrice,
           'stock': product.stock,
         }),
       );
@@ -266,11 +267,20 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> getProductProfitability({int? ownerId}) async {
+  static Future<Map<String, dynamic>> getProductProfitability({
+    int? ownerId,
+    DateTime? startDate,
+    DateTime? endDate,
+    double? advertisingCost,
+  }) async {
     try {
-      final query = ownerId == null ? '' : '?ownerId=$ownerId';
+      final params = <String, String>{};
+      if (ownerId != null) params['ownerId'] = ownerId.toString();
+      if (startDate != null) params['startDate'] = startDate.toIso8601String().substring(0, 10);
+      if (endDate != null) params['endDate'] = endDate.toIso8601String().substring(0, 10);
+      if (advertisingCost != null) params['advertisingCost'] = advertisingCost.toString();
       final response = await http.get(
-        Uri.parse('$baseUrl/products/profitability$query'),
+        Uri.parse('$baseUrl/products/profitability').replace(queryParameters: params.isEmpty ? null : params),
         headers: await _getHeaders(),
       );
       final body = json.decode(response.body);

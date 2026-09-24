@@ -168,6 +168,23 @@ app.post('/api/products', authMiddleware, async (req, res) => {
 
 app.get('/api/products/profitability', authMiddleware, getProductProfitability);
 
+app.put('/api/products/:id', authMiddleware, async (req, res) => {
+  try {
+    const { name, description, price, cost_price, stock } = req.body;
+    const product = await Product.update(req.params.id, {
+      name,
+      description,
+      price,
+      cost_price,
+      stock,
+    }, req.userId);
+    res.json(product);
+  } catch (error) {
+    console.error('❌ Erreur mise à jour produit:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
 app.get('/api/products/:id', authMiddleware, async (req, res) => {
   try {
     const { ownerId } = req.query;
@@ -385,6 +402,21 @@ async function getProductProfitability(req, res) {
       return res.status(403).json({ error: 'Vous n’êtes pas autorisé à voir cet owner' });
     }
 
+    const startDate = req.query.startDate ? String(req.query.startDate) : null;
+    const endDate = req.query.endDate ? String(req.query.endDate) : null;
+    const advertisingCost = req.query.advertisingCost === undefined ? 0 : Number(req.query.advertisingCost);
+    if (!Number.isFinite(advertisingCost) || advertisingCost < 0) {
+      return res.status(400).json({ error: 'Coût publicitaire invalide' });
+    }
+    if ((startDate && Number.isNaN(Date.parse(startDate))) || (endDate && Number.isNaN(Date.parse(endDate)))) {
+      return res.status(400).json({ error: 'Plage de dates invalide' });
+    }
+    if (startDate && endDate && startDate > endDate) {
+      return res.status(400).json({ error: 'La date de début doit précéder la date de fin' });
+    }
+    const dateFilter = `o.created_at >= COALESCE($2::date, o.created_at::date)
+                        AND o.created_at < COALESCE(($3::date + INTERVAL '1 day'), o.created_at + INTERVAL '1 second')`;
+
     const conn = await getConnection();
     try {
       const [productRows] = await conn.query(
@@ -397,10 +429,10 @@ async function getProductProfitability(req, res) {
          FROM order_items oi
          JOIN orders o ON o.id = oi.order_id
          LEFT JOIN products p ON p.id = oi.product_id
-         WHERE o.user_id = $1 AND o.status = 'livree'
+         WHERE o.user_id = $1 AND o.status = 'livree' AND ${dateFilter}
          GROUP BY oi.product_id, COALESCE(p.name, oi.product_name)
          ORDER BY gross_margin DESC`,
-        [requestedOwnerId]
+        [requestedOwnerId, startDate, endDate]
       );
 
       const [globalRows] = await conn.query(
@@ -411,22 +443,26 @@ async function getProductProfitability(req, res) {
                  FROM order_items oi
                  JOIN orders item_orders ON item_orders.id = oi.order_id
                  WHERE item_orders.user_id = $1 AND item_orders.status = 'livree'
+                   AND item_orders.created_at >= COALESCE($2::date, item_orders.created_at::date)
+                   AND item_orders.created_at < COALESCE(($3::date + INTERVAL '1 day'), item_orders.created_at + INTERVAL '1 second')
                ), 0)
              - COALESCE(SUM(o.closer_commission_amount), 0)
-             - COALESCE(SUM(o.delivery_fee), 0) AS net_profit,
+             - COALESCE(SUM(o.delivery_fee), 0) - $4 AS net_profit,
            COALESCE(SUM(o.total_amount), 0) AS revenue,
            COALESCE((
              SELECT SUM(COALESCE(oi.unit_cost, 0) * oi.quantity)
              FROM order_items oi
              JOIN orders cost_orders ON cost_orders.id = oi.order_id
-             WHERE cost_orders.user_id = $1 AND cost_orders.status = 'livree'
+                 WHERE cost_orders.user_id = $1 AND cost_orders.status = 'livree'
+                   AND cost_orders.created_at >= COALESCE($2::date, cost_orders.created_at::date)
+                   AND cost_orders.created_at < COALESCE(($3::date + INTERVAL '1 day'), cost_orders.created_at + INTERVAL '1 second')
            ), 0) AS product_cost,
            COALESCE(SUM(o.closer_commission_amount), 0) AS closer_commissions,
            COALESCE(SUM(o.delivery_fee), 0) AS delivery_fees,
            COUNT(*) AS delivered_orders
          FROM orders o
-         WHERE o.user_id = $1 AND o.status = 'livree'`,
-        [requestedOwnerId]
+         WHERE o.user_id = $1 AND o.status = 'livree' AND ${dateFilter}`,
+        [requestedOwnerId, startDate, endDate, advertisingCost]
       );
 
       const [estimatedRows] = await conn.query(
@@ -443,10 +479,10 @@ async function getProductProfitability(req, res) {
          FROM order_items oi
          JOIN orders o ON o.id = oi.order_id
          LEFT JOIN products p ON p.id = oi.product_id
-         WHERE o.user_id = $1 AND o.status = 'livree'
+         WHERE o.user_id = $1 AND o.status = 'livree' AND ${dateFilter}
          GROUP BY oi.product_id, COALESCE(p.name, oi.product_name)
          ORDER BY estimated_net_profit DESC`,
-        [requestedOwnerId]
+        [requestedOwnerId, startDate, endDate]
       );
 
       const numberize = (row, fields) => Object.fromEntries(
@@ -454,7 +490,11 @@ async function getProductProfitability(req, res) {
       );
       return res.json({
         owner_id: requestedOwnerId,
-        global: numberize(globalRows[0] || {}, ['net_profit', 'revenue', 'product_cost', 'closer_commissions', 'delivery_fees', 'delivered_orders']),
+        global: {
+          ...numberize(globalRows[0] || {}, ['net_profit', 'revenue', 'product_cost', 'closer_commissions', 'delivery_fees', 'delivered_orders']),
+          advertising_cost: advertisingCost,
+        },
+        period: { start_date: startDate, end_date: endDate },
         products: productRows.map((row) => numberize(row, ['product_id', 'gross_margin', 'revenue', 'product_cost', 'quantity'])),
         estimated_products: estimatedRows.map((row) => numberize(row, ['product_id', 'estimated_net_profit', 'quantity'])),
       });

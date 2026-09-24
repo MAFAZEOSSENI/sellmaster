@@ -3,6 +3,7 @@ class Product {
   final String name;
   final String? description;
   final double price;
+  final double? costPrice;
   final int stock;
   final String? imageUrl;
   final DateTime createdAt;
@@ -12,6 +13,7 @@ class Product {
     required this.name,
     this.description,
     required this.price,
+    this.costPrice,
     required this.stock,
     this.imageUrl,
     required this.createdAt,
@@ -23,6 +25,7 @@ class Product {
       name: json['name'],
       description: json['description'],
       price: double.parse(json['price'].toString()),
+      costPrice: json['cost_price'] == null ? null : double.tryParse(json['cost_price'].toString()),
       stock: json['stock'],
       imageUrl: json['image_url'],
       createdAt: DateTime.parse(json['created_at']),

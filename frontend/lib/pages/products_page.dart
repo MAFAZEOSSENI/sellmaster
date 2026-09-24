@@ -574,6 +574,7 @@ class EditProductDialogState extends State<EditProductDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _priceController = TextEditingController();
+  final _costPriceController = TextEditingController();
   final _stockController = TextEditingController();
   final _descriptionController = TextEditingController();
   bool _isLoading = false;
@@ -583,6 +584,7 @@ class EditProductDialogState extends State<EditProductDialog> {
     super.initState();
     _nameController.text = widget.product.name;
     _priceController.text = widget.product.price.toString();
+    _costPriceController.text = widget.product.costPrice?.toString() ?? '';
     _stockController.text = widget.product.stock.toString();
     _descriptionController.text = widget.product.description ?? '';
   }
@@ -594,6 +596,15 @@ class EditProductDialogState extends State<EditProductDialog> {
       });
 
       try {
+        await ApiService.updateProduct(widget.product.id.toString(), {
+          'name': _nameController.text.trim(),
+          'description': _descriptionController.text.trim(),
+          'price': double.parse(_priceController.text.replaceAll(',', '.')),
+          'cost_price': _costPriceController.text.trim().isEmpty
+              ? null
+              : double.parse(_costPriceController.text.replaceAll(',', '.')),
+          'stock': int.parse(_stockController.text),
+        });
         widget.onProductUpdated();
         
         if (mounted) {
@@ -721,6 +732,15 @@ class EditProductDialogState extends State<EditProductDialog> {
                   },
                 ),
                 const SizedBox(height: 16),
+                TextFormField(
+                  controller: _costPriceController,
+                  decoration: const InputDecoration(labelText: 'Prix d’achat (FCFA)'),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  validator: (value) => value != null && value.isNotEmpty && double.tryParse(value.replaceAll(',', '.')) == null
+                      ? 'Prix d’achat invalide'
+                      : null,
+                ),
+                const SizedBox(height: 16),
                 
                 TextFormField(
                   controller: _stockController,
@@ -831,6 +851,7 @@ class EditProductDialogState extends State<EditProductDialog> {
   void dispose() {
     _nameController.dispose();
     _priceController.dispose();
+    _costPriceController.dispose();
     _stockController.dispose();
     _descriptionController.dispose();
     super.dispose();
@@ -851,6 +872,7 @@ class AddProductDialogState extends State<AddProductDialog> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _priceController = TextEditingController();
+  final _costPriceController = TextEditingController();
   final _stockController = TextEditingController();
   final _descriptionController = TextEditingController();
   
@@ -883,6 +905,9 @@ class AddProductDialogState extends State<AddProductDialog> {
           name: _nameController.text,
           description: _descriptionController.text,
           price: double.parse(_priceController.text),
+            costPrice: _costPriceController.text.trim().isEmpty
+              ? null
+              : double.parse(_costPriceController.text.replaceAll(',', '.')),
           stock: int.parse(_stockController.text),
           imageUrl: null,
           createdAt: DateTime.now(),
@@ -1072,6 +1097,15 @@ class AddProductDialogState extends State<AddProductDialog> {
                 const SizedBox(height: 16),
                 
                 TextFormField(
+                  controller: _costPriceController,
+                  decoration: const InputDecoration(labelText: 'Prix d’achat (FCFA)'),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  validator: (value) => value != null && value.isNotEmpty && double.tryParse(value.replaceAll(',', '.')) == null
+                      ? 'Prix d’achat invalide'
+                      : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
                   controller: _stockController,
                   decoration: const InputDecoration(
                     labelText: 'Stock initial *',
@@ -1181,6 +1215,7 @@ class AddProductDialogState extends State<AddProductDialog> {
   void dispose() {
     _nameController.dispose();
     _priceController.dispose();
+    _costPriceController.dispose();
     _stockController.dispose();
     _descriptionController.dispose();
     super.dispose();

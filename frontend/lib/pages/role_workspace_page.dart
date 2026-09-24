@@ -377,7 +377,7 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: const InputDecoration(
             labelText: 'Montant',
-            suffixText: '€',
+            suffixText: 'FCFA',
           ),
         ),
         actions: [
@@ -766,7 +766,7 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      '${order.totalAmount.toStringAsFixed(0)} €',
+                                      '${order.totalAmount.toStringAsFixed(0)} FCFA',
                                       style: const TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w700,
@@ -895,7 +895,7 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
               Expanded(
                 child: Text(label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
               ),
-              Text('${_earningsTotal.toStringAsFixed(2)} €', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              Text('${_earningsTotal.toStringAsFixed(2)} FCFA', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
             ],
           ),
           if (_earnings.isNotEmpty) ...[
@@ -905,7 +905,7 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                   child: Row(
                     children: [
                       Expanded(child: Text((earning['owner_name'] ?? 'Propriétaire').toString())),
-                      Text('${(double.tryParse(earning['total_amount'].toString()) ?? 0).toStringAsFixed(2)} €'),
+                      Text('${(double.tryParse(earning['total_amount'].toString()) ?? 0).toStringAsFixed(2)} FCFA'),
                     ],
                   ),
                 )),

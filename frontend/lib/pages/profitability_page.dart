@@ -14,6 +14,9 @@ class _ProfitabilityPageState extends State<ProfitabilityPage> {
   bool _loading = true;
   String? _error;
   Map<String, dynamic> _data = {};
+  DateTime? _startDate;
+  DateTime? _endDate;
+  final _advertisingCostController = TextEditingController(text: '0');
 
   @override
   void initState() {
@@ -27,7 +30,12 @@ class _ProfitabilityPageState extends State<ProfitabilityPage> {
       _error = null;
     });
     try {
-      final data = await ApiService.getProductProfitability(ownerId: widget.ownerId);
+      final data = await ApiService.getProductProfitability(
+        ownerId: widget.ownerId,
+        startDate: _startDate,
+        endDate: _endDate,
+        advertisingCost: double.tryParse(_advertisingCostController.text.replaceAll(',', '.')) ?? 0,
+      );
       if (!mounted) return;
       setState(() {
         _data = data;
@@ -41,6 +49,32 @@ class _ProfitabilityPageState extends State<ProfitabilityPage> {
       });
     }
   }
+
+  @override
+  void dispose() {
+    _advertisingCostController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate({required bool start}) async {
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: (start ? _startDate : _endDate) ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (selected == null) return;
+    setState(() {
+      if (start) {
+        _startDate = selected;
+      } else {
+        _endDate = selected;
+      }
+    });
+    await _load();
+  }
+
+  String _dateLabel(DateTime? date) => date == null ? 'Toutes les dates' : '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
 
   double _number(dynamic value) => double.tryParse(value.toString()) ?? 0;
 
@@ -68,15 +102,42 @@ class _ProfitabilityPageState extends State<ProfitabilityPage> {
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Période d’analyse', style: TextStyle(fontWeight: FontWeight.w700)),
+                              const SizedBox(height: 8),
+                              Row(children: [
+                                Expanded(child: OutlinedButton.icon(onPressed: () => _pickDate(start: true), icon: const Icon(Icons.event), label: Text('Début: ${_dateLabel(_startDate)}'))),
+                                const SizedBox(width: 8),
+                                Expanded(child: OutlinedButton.icon(onPressed: () => _pickDate(start: false), icon: const Icon(Icons.event), label: Text('Fin: ${_dateLabel(_endDate)}'))),
+                              ]),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _advertisingCostController,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                decoration: const InputDecoration(labelText: 'Coût publicitaire de la période (FCFA)', isDense: true),
+                                onSubmitted: (_) => _load(),
+                              ),
+                              const SizedBox(height: 8),
+                              Align(alignment: Alignment.centerRight, child: ElevatedButton.icon(onPressed: _load, icon: const Icon(Icons.calculate), label: const Text('Actualiser'))),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
                       _sectionTitle('Bénéfice net global'),
                       _metricCard(
-                        '${_number(global['net_profit']).toStringAsFixed(2)} €',
+                        '${_number(global['net_profit']).toStringAsFixed(2)} FCFA',
                         'Commandes livrées: ${global['delivered_orders'] ?? 0}',
                         Colors.teal,
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'CA ${_number(global['revenue']).toStringAsFixed(2)} € - coûts produits ${_number(global['product_cost']).toStringAsFixed(2)} € - commissions ${_number(global['closer_commissions']).toStringAsFixed(2)} € - livraison ${_number(global['delivery_fees']).toStringAsFixed(2)} €',
+                        'CA ${_number(global['revenue']).toStringAsFixed(2)} FCFA - coûts produits ${_number(global['product_cost']).toStringAsFixed(2)} FCFA - commissions ${_number(global['closer_commissions']).toStringAsFixed(2)} FCFA - livraison ${_number(global['delivery_fees']).toStringAsFixed(2)} FCFA - publicité ${_number(global['advertising_cost']).toStringAsFixed(2)} FCFA',
                         style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
                       ),
                       const SizedBox(height: 24),
@@ -121,7 +182,7 @@ class _ProfitabilityPageState extends State<ProfitabilityPage> {
         child: ListTile(
           title: Text((item['product_name'] ?? 'Produit').toString()),
           subtitle: Text('Quantité: ${item['quantity'] ?? 0}'),
-          trailing: Text('${value(item).toStringAsFixed(2)} €', style: const TextStyle(fontWeight: FontWeight.w700)),
+          trailing: Text('${value(item).toStringAsFixed(2)} FCFA', style: const TextStyle(fontWeight: FontWeight.w700)),
         ),
       )).toList(),
     );
