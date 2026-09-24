@@ -7,6 +7,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const createTables = require('./database/init');
+const { getConnection } = require('./config/database');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const authRoutes = require('./extensions/auth/authRoutes');
@@ -137,7 +138,7 @@ app.get('/api/products', authMiddleware, async (req, res) => {
 
 app.post('/api/products', authMiddleware, async (req, res) => {
   try {
-    const { name, description, price, stock, ownerId } = req.body;
+    const { name, description, price, cost_price, stock, ownerId } = req.body;
     const effectiveOwnerId = ownerId && Number(ownerId) > 0 ? Number(ownerId) : req.userId;
 
     if (Number(req.userId) !== effectiveOwnerId) {
@@ -151,6 +152,9 @@ app.post('/api/products', authMiddleware, async (req, res) => {
       name,
       description: description || '',
       price: parseFloat(price),
+      cost_price: cost_price === undefined || cost_price === null || cost_price === ''
+        ? null
+        : parseFloat(cost_price),
       stock: parseInt(stock),
       image_url: null
     }, req.userId, effectiveOwnerId);
@@ -161,6 +165,8 @@ app.post('/api/products', authMiddleware, async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 });
+
+app.get('/api/products/profitability', authMiddleware, getProductProfitability);
 
 app.get('/api/products/:id', authMiddleware, async (req, res) => {
   try {
@@ -300,14 +306,231 @@ app.get('/api/orders/:id', authMiddleware, async (req, res) => {
   }
 });
 
+app.get('/api/earnings/me', authMiddleware, async (req, res) => {
+  try {
+    const userId = Number(req.userId);
+    const role = await User.getFixedRole(userId);
+    if (!['closer', 'courier'].includes(role)) {
+      return res.json({ role, total: 0, earnings: [] });
+    }
+
+    const conn = await getConnection();
+    try {
+      const availableColumns = await Order.getOrderColumnSet();
+      const personFilter = role === 'courier'
+        ? 'o.assigned_to = $1'
+        : availableColumns.has('assigned_closer_id')
+          ? 'COALESCE(o.assigned_closer_id, o.created_by) = $1'
+          : 'o.created_by = $1';
+      const amountColumn = role === 'courier' ? 'o.delivery_fee' : 'o.closer_commission_amount';
+
+      const [rows] = await conn.query(
+        `SELECT o.user_id AS owner_id,
+                owner.full_name AS owner_name,
+                owner.email AS owner_email,
+                COALESCE(SUM(${amountColumn}), 0) AS total_amount,
+                COUNT(*) AS delivered_orders
+         FROM orders o
+         LEFT JOIN app_users owner ON owner.id = o.user_id
+         WHERE ${personFilter}
+           AND o.status = 'livree'
+         GROUP BY o.user_id, owner.full_name, owner.email
+         ORDER BY o.user_id`,
+        [userId]
+      );
+
+      const earnings = rows.map((row) => ({
+        owner_id: Number(row.owner_id),
+        owner_name: row.owner_name || row.owner_email || 'Propriétaire',
+        owner_email: row.owner_email,
+        total_amount: Number(row.total_amount || 0),
+        delivered_orders: Number(row.delivered_orders || 0),
+      }));
+
+      return res.json({
+        role,
+        total: earnings.reduce((sum, item) => sum + item.total_amount, 0),
+        earnings,
+      });
+    } finally {
+      conn.release();
+    }
+  } catch (error) {
+    console.error('❌ Erreur récupération gains:', error);
+    return res.status(500).json({ error: 'Erreur récupération des gains' });
+  }
+});
+
+async function getProductProfitability(req, res) {
+  try {
+    const requesterId = Number(req.userId);
+    const requesterRole = await User.getFixedRole(requesterId);
+    if (!['owner', 'manager'].includes(requesterRole)) {
+      return res.status(403).json({ error: 'Accès réservé aux owners et managers' });
+    }
+
+    const requestedOwnerId = req.query.ownerId === undefined
+      ? requesterId
+      : Number(req.query.ownerId);
+    if (!Number.isInteger(requestedOwnerId) || requestedOwnerId <= 0) {
+      return res.status(400).json({ error: 'ownerId invalide' });
+    }
+
+    if (requesterRole === 'manager') {
+      const isMember = await User.isActiveTeamMemberForOwner(requesterId, requestedOwnerId);
+      if (!isMember) {
+        return res.status(403).json({ error: 'Vous n’êtes pas autorisé à voir cet owner' });
+      }
+    } else if (requestedOwnerId !== requesterId) {
+      return res.status(403).json({ error: 'Vous n’êtes pas autorisé à voir cet owner' });
+    }
+
+    const conn = await getConnection();
+    try {
+      const [productRows] = await conn.query(
+        `SELECT oi.product_id,
+                COALESCE(p.name, oi.product_name) AS product_name,
+                SUM((oi.unit_price - COALESCE(oi.unit_cost, 0)) * oi.quantity) AS gross_margin,
+                SUM(oi.unit_price * oi.quantity) AS revenue,
+                SUM(COALESCE(oi.unit_cost, 0) * oi.quantity) AS product_cost,
+                SUM(oi.quantity) AS quantity
+         FROM order_items oi
+         JOIN orders o ON o.id = oi.order_id
+         LEFT JOIN products p ON p.id = oi.product_id
+         WHERE o.user_id = $1 AND o.status = 'livree'
+         GROUP BY oi.product_id, COALESCE(p.name, oi.product_name)
+         ORDER BY gross_margin DESC`,
+        [requestedOwnerId]
+      );
+
+      const [globalRows] = await conn.query(
+        `SELECT
+           COALESCE(SUM(o.total_amount), 0)
+             - COALESCE((
+                 SELECT SUM(COALESCE(oi.unit_cost, 0) * oi.quantity)
+                 FROM order_items oi
+                 JOIN orders item_orders ON item_orders.id = oi.order_id
+                 WHERE item_orders.user_id = $1 AND item_orders.status = 'livree'
+               ), 0)
+             - COALESCE(SUM(o.closer_commission_amount), 0)
+             - COALESCE(SUM(o.delivery_fee), 0) AS net_profit,
+           COALESCE(SUM(o.total_amount), 0) AS revenue,
+           COALESCE((
+             SELECT SUM(COALESCE(oi.unit_cost, 0) * oi.quantity)
+             FROM order_items oi
+             JOIN orders cost_orders ON cost_orders.id = oi.order_id
+             WHERE cost_orders.user_id = $1 AND cost_orders.status = 'livree'
+           ), 0) AS product_cost,
+           COALESCE(SUM(o.closer_commission_amount), 0) AS closer_commissions,
+           COALESCE(SUM(o.delivery_fee), 0) AS delivery_fees,
+           COUNT(*) AS delivered_orders
+         FROM orders o
+         WHERE o.user_id = $1 AND o.status = 'livree'`,
+        [requestedOwnerId]
+      );
+
+      const [estimatedRows] = await conn.query(
+        `SELECT oi.product_id,
+                COALESCE(p.name, oi.product_name) AS product_name,
+                SUM(
+                  (oi.unit_price - COALESCE(oi.unit_cost, 0)) * oi.quantity
+                  - CASE WHEN o.total_amount > 0
+                    THEN (COALESCE(o.closer_commission_amount, 0) + COALESCE(o.delivery_fee, 0))
+                         * (oi.unit_price * oi.quantity / o.total_amount)
+                    ELSE 0 END
+                ) AS estimated_net_profit,
+                SUM(oi.quantity) AS quantity
+         FROM order_items oi
+         JOIN orders o ON o.id = oi.order_id
+         LEFT JOIN products p ON p.id = oi.product_id
+         WHERE o.user_id = $1 AND o.status = 'livree'
+         GROUP BY oi.product_id, COALESCE(p.name, oi.product_name)
+         ORDER BY estimated_net_profit DESC`,
+        [requestedOwnerId]
+      );
+
+      const numberize = (row, fields) => Object.fromEntries(
+        Object.entries(row).map(([key, value]) => [fields.includes(key) ? key : key, fields.includes(key) ? Number(value || 0) : value])
+      );
+      return res.json({
+        owner_id: requestedOwnerId,
+        global: numberize(globalRows[0] || {}, ['net_profit', 'revenue', 'product_cost', 'closer_commissions', 'delivery_fees', 'delivered_orders']),
+        products: productRows.map((row) => numberize(row, ['product_id', 'gross_margin', 'revenue', 'product_cost', 'quantity'])),
+        estimated_products: estimatedRows.map((row) => numberize(row, ['product_id', 'estimated_net_profit', 'quantity'])),
+      });
+    } finally {
+      conn.release();
+    }
+  } catch (error) {
+    console.error('❌ Erreur rentabilité produits:', error);
+    return res.status(500).json({ error: 'Erreur récupération rentabilité produits' });
+  }
+}
+
 app.patch('/api/orders/:id/status', authMiddleware, async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, delivery_fee } = req.body;
     console.log('🔄 Mise à jour statut pour user:', req.userId, req.params.id, status);
     
     const order = await Order.findById(req.params.id, req.userId);
     if (!order) {
       return res.status(404).json({ error: 'Commande non trouvée ou non autorisée' });
+    }
+
+    const callerRole = await User.getFixedRole(Number(req.userId));
+    const deliveryFee = Number(delivery_fee);
+    if (status === 'livree' && callerRole === 'courier' && (!Number.isFinite(deliveryFee) || deliveryFee <= 0)) {
+      return res.status(400).json({ error: 'Frais de livraison requis' });
+    }
+
+    if (status === 'livree' && callerRole === 'courier') {
+      const conn = await getConnection();
+      try {
+        const availableColumns = await Order.getOrderColumnSet();
+        const closerColumn = availableColumns.has('assigned_closer_id')
+          ? 'COALESCE(assigned_closer_id, created_by)'
+          : 'created_by';
+        const [closerRows] = await conn.query(
+          `SELECT ${closerColumn} AS closer_user_id
+           FROM orders
+           WHERE id = $1`,
+          [req.params.id]
+        );
+        const closerUserId = Number(closerRows[0]?.closer_user_id || 0);
+        let closerCommissionAmount = null;
+
+        if (closerUserId > 0) {
+          const [commissionRows] = await conn.query(
+            `SELECT tm.commission_amount, tm.commission_type
+             FROM team_memberships tm
+             WHERE tm.owner_user_id = $1
+               AND tm.member_user_id = $2
+               AND tm.role_name = 'closer'
+               AND tm.status = 'active'
+             ORDER BY tm.id DESC
+             LIMIT 1`,
+            [Number(order.user_id), closerUserId]
+          );
+          const commission = commissionRows[0];
+          if (commission) {
+            const configuredAmount = Number(commission.commission_amount || 0);
+            closerCommissionAmount = commission.commission_type === 'percentage'
+              ? Number(order.total_amount || 0) * configuredAmount / 100
+              : configuredAmount;
+          }
+        }
+
+        await conn.query(
+          `UPDATE orders
+           SET status = $1, delivery_fee = $2, closer_commission_amount = $3
+           WHERE id = $4`,
+          [status, deliveryFee, closerCommissionAmount, req.params.id]
+        );
+      } finally {
+        conn.release();
+      }
+
+      return res.json(await Order.findById(req.params.id, req.userId));
     }
     
     const updatedOrder = await Order.updateStatus(req.params.id, status);

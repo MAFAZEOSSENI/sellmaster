@@ -62,10 +62,30 @@ const adminController = {
 
   async getUsers(req, res) {
     try {
-      const ownerUserId = Number(req.userId);
+      const currentUserId = Number(req.userId);
+      const fixedRole = await User.getFixedRole(currentUserId);
       const conn = await getConnection();
 
       try {
+        let ownerUserId = currentUserId;
+        if (fixedRole === 'manager') {
+          const [managerMemberships] = await conn.query(
+            `SELECT owner_user_id
+             FROM team_memberships
+             WHERE member_user_id = $1
+               AND role_name = 'manager'
+               AND status = 'active'
+             ORDER BY created_at ASC
+             LIMIT 1`,
+            [currentUserId]
+          );
+          ownerUserId = Number(managerMemberships[0]?.owner_user_id || 0);
+        }
+
+        if (!ownerUserId) {
+          return res.json({ users: [] });
+        }
+
         const [rows] = await conn.query(
           `SELECT DISTINCT member_user_id AS user_id
            FROM team_memberships
@@ -91,8 +111,30 @@ const adminController = {
             max_orders: Number(user.max_orders || 10),
             license_key: user.license_key,
             license_expiry: user.license_expiry,
-            roles: await Rbac.getRolesForUser(userId)
+            roles: await Rbac.getRolesForUser(userId),
+            membership_id: null,
+            commission_amount: null,
+            commission_type: null
           });
+        }
+
+        const [memberships] = await conn.query(
+          `SELECT id, member_user_id, commission_amount, commission_type
+           FROM team_memberships
+           WHERE owner_user_id = $1
+             AND status IN ('active', 'pending')`,
+          [ownerUserId]
+        );
+        const membershipByMemberId = new Map(
+          memberships.map((membership) => [Number(membership.member_user_id), membership])
+        );
+        for (const user of users) {
+          const membership = membershipByMemberId.get(Number(user.id));
+          if (membership) {
+            user.membership_id = Number(membership.id);
+            user.commission_amount = membership.commission_amount;
+            user.commission_type = membership.commission_type;
+          }
         }
 
         res.json({ users });
@@ -327,6 +369,75 @@ const adminController = {
     } catch (error) {
       console.error('[ADMIN] Update my team error:', error);
       res.status(500).json({ error: 'Erreur mise à jour équipe' });
+    }
+  },
+
+  async updateCloserCommission(req, res) {
+    const membershipId = Number(req.params.membershipId);
+    const body = readRequestBody(req);
+    const commissionType = String(body.commission_type || '').trim().toLowerCase();
+    const commissionAmount = Number(body.commission_amount);
+
+    if (!membershipId) {
+      return res.status(400).json({ error: 'Identifiant de membership invalide' });
+    }
+    if (!['fixed_amount', 'percentage'].includes(commissionType)) {
+      return res.status(400).json({ error: 'Type de commission invalide' });
+    }
+    if (!Number.isFinite(commissionAmount) || commissionAmount < 0) {
+      return res.status(400).json({ error: 'Montant de commission invalide' });
+    }
+
+    try {
+      const requesterId = Number(req.userId);
+      const requesterRole = await User.getFixedRole(requesterId);
+      const conn = await getConnection();
+      try {
+        let ownerUserId = requesterId;
+        if (requesterRole === 'manager') {
+          const [managerMemberships] = await conn.query(
+            `SELECT owner_user_id
+             FROM team_memberships
+             WHERE member_user_id = $1
+               AND role_name = 'manager'
+               AND status = 'active'
+             ORDER BY created_at ASC
+             LIMIT 1`,
+            [requesterId]
+          );
+          ownerUserId = Number(managerMemberships[0]?.owner_user_id || 0);
+        }
+
+        const [memberships] = await conn.query(
+          `SELECT id, owner_user_id, member_user_id, role_name, status,
+                  commission_amount, commission_type
+           FROM team_memberships
+           WHERE id = $1
+             AND owner_user_id = $2
+             AND role_name = 'closer'
+             AND status IN ('active', 'pending')`,
+          [membershipId, ownerUserId]
+        );
+
+        if (!memberships.length) {
+          return res.status(404).json({ error: 'Membership closer introuvable pour votre équipe' });
+        }
+
+        const [updateResult] = await conn.query(
+          `UPDATE team_memberships
+           SET commission_amount = $1, commission_type = $2
+           WHERE id = $3
+           RETURNING id, owner_user_id, member_user_id, role_name, status, commission_amount, commission_type`,
+          [commissionAmount, commissionType, membershipId]
+        );
+
+        return res.json({ membership: updateResult.rows[0] });
+      } finally {
+        conn.release();
+      }
+    } catch (error) {
+      console.error('[ADMIN] Update closer commission error:', error);
+      return res.status(500).json({ error: 'Erreur mise à jour commission' });
     }
   },
 

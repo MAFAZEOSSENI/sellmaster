@@ -159,6 +159,40 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     }
   }
 
+  Future<void> _saveCloserCommission(Map<String, dynamic> member) async {
+    final membershipId = int.tryParse(member['membership_id'].toString());
+    final amount = double.tryParse(member['commission_amount'].toString());
+    final type = (member['commission_type'] ?? 'fixed_amount').toString();
+
+    if (membershipId == null || amount == null || amount < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Montant de commission invalide')),
+      );
+      return;
+    }
+
+    try {
+      final updated = await ApiService.updateCloserCommission(
+        membershipId,
+        commissionAmount: amount,
+        commissionType: type,
+      );
+      if (!mounted) return;
+      setState(() {
+        member['commission_amount'] = updated['commission_amount'];
+        member['commission_type'] = updated['commission_type'];
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Commission du closer mise à jour')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $error')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -379,6 +413,8 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
     final email = member['email'] ?? 'Inconnu';
     final userId = member['id'];
     final isOwner = roles.contains('owner');
+    final isCloser = roles.contains('closer');
+    final membershipId = int.tryParse(member['membership_id'].toString());
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -439,6 +475,53 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                 Text('Commandes: ${member['order_count'] ?? 0}/${member['max_orders'] ?? 10}'),
               ],
             ),
+            if (isCloser && membershipId != null) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      key: ValueKey('commission-$membershipId-${member['commission_amount']}'),
+                      initialValue: (member['commission_amount'] ?? 0).toString(),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Commission',
+                        suffixText: 'montant',
+                        isDense: true,
+                      ),
+                      onChanged: (value) => member['commission_amount'] = value,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 135,
+                    child: DropdownButtonFormField<String>(
+                      value: ['fixed_amount', 'percentage'].contains(member['commission_type'])
+                          ? member['commission_type']
+                          : 'fixed_amount',
+                      decoration: const InputDecoration(
+                        labelText: 'Type',
+                        isDense: true,
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'fixed_amount', child: Text('Montant fixe')),
+                        DropdownMenuItem(value: 'percentage', child: Text('Pourcentage')),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => member['commission_type'] = value);
+                        }
+                      },
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Enregistrer la commission',
+                    icon: const Icon(Icons.save_outlined),
+                    onPressed: () => _saveCloserCommission(member),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),

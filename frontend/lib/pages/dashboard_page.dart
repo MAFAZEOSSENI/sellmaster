@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../auth/auth_provider.dart';
 import '../services/api_service.dart';
 import '../models/order.dart';
 import '../models/product.dart';
+import 'profitability_page.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({Key? key}) : super(key: key);
@@ -161,6 +164,20 @@ class DashboardPageState extends State<DashboardPage> {
                           // Suivi équipe
                           _buildTeamOverview(),
                           const SizedBox(height: 24),
+
+                          if (Provider.of<AuthProvider>(context, listen: false).primaryRole == 'owner')
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () => Navigator.of(context).push(
+                                  MaterialPageRoute(builder: (_) => const ProfitabilityPage()),
+                                ),
+                                icon: const Icon(Icons.analytics_outlined),
+                                label: const Text('Voir la rentabilité'),
+                              ),
+                            ),
+                          if (Provider.of<AuthProvider>(context, listen: false).primaryRole == 'owner')
+                            const SizedBox(height: 24),
                           
                           // Produits populaires
                           _buildTopProducts(),

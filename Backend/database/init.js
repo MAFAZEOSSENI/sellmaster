@@ -50,6 +50,7 @@ async function createTables() {
         name VARCHAR(255) NOT NULL,
         description TEXT,
         price DECIMAL(10,2) NOT NULL,
+        cost_price DECIMAL(10,2) NULL,
         stock INT DEFAULT 0,
         image_url VARCHAR(500),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -57,6 +58,7 @@ async function createTables() {
     `);
 
     await ensureColumnExists(conn, 'products', 'user_id', 'ADD COLUMN "user_id" INT NULL');
+    await ensureColumnExists(conn, 'products', 'cost_price', 'ADD COLUMN "cost_price" DECIMAL(10,2) NULL');
 
     await conn.query(`
       CREATE TABLE IF NOT EXISTS "orders" (
@@ -78,6 +80,8 @@ async function createTables() {
         assigned_by INT NULL,
         assigned_at TIMESTAMP NULL,
         assignment_note TEXT,
+        closer_commission_amount DECIMAL(10,2) NULL,
+        delivery_fee DECIMAL(10,2) NULL,
         custom_order_number VARCHAR(100) NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -95,6 +99,8 @@ async function createTables() {
     await ensureColumnExists(conn, 'orders', 'assigned_by', "ADD COLUMN \"assigned_by\" INT NULL");
     await ensureColumnExists(conn, 'orders', 'assigned_at', "ADD COLUMN \"assigned_at\" TIMESTAMP NULL");
     await ensureColumnExists(conn, 'orders', 'assignment_note', "ADD COLUMN \"assignment_note\" TEXT");
+    await ensureColumnExists(conn, 'orders', 'closer_commission_amount', 'ADD COLUMN "closer_commission_amount" DECIMAL(10,2) NULL');
+    await ensureColumnExists(conn, 'orders', 'delivery_fee', 'ADD COLUMN "delivery_fee" DECIMAL(10,2) NULL');
     await ensureColumnExists(conn, 'orders', 'custom_order_number', "ADD COLUMN \"custom_order_number\" VARCHAR(100) NULL");
     await ensureColumnExists(conn, 'orders', 'updated_at', "ADD COLUMN \"updated_at\" TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
 
@@ -105,12 +111,15 @@ async function createTables() {
         product_id INT NOT NULL,
         product_name VARCHAR(255) NOT NULL,
         unit_price DECIMAL(10,2) NOT NULL,
+        unit_cost DECIMAL(10,2) NULL,
         quantity INT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES "orders"(id) ON DELETE CASCADE,
         CONSTRAINT fk_order_items_product FOREIGN KEY (product_id) REFERENCES "products"(id)
       )
     `);
+
+    await ensureColumnExists(conn, 'order_items', 'unit_cost', 'ADD COLUMN "unit_cost" DECIMAL(10,2) NULL');
 
     await conn.query(`
       CREATE TABLE IF NOT EXISTS "licenses" (
@@ -154,6 +163,8 @@ async function createTables() {
         invited_by INT NULL,
         nickname VARCHAR(100) NULL,
         is_working BOOLEAN NOT NULL DEFAULT FALSE,
+        commission_amount DECIMAL(10,2) NULL DEFAULT 0,
+        commission_type VARCHAR(20) NULL DEFAULT 'fixed_amount',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         confirmed_at TIMESTAMP NULL,
         UNIQUE (owner_user_id, member_user_id, role_name)
@@ -167,6 +178,20 @@ async function createTables() {
 
     await ensureColumnExists(conn, 'team_memberships', 'nickname', 'ADD COLUMN "nickname" VARCHAR(100) NULL');
     await ensureColumnExists(conn, 'team_memberships', 'is_working', 'ADD COLUMN "is_working" BOOLEAN NOT NULL DEFAULT FALSE');
+    await ensureColumnExists(conn, 'team_memberships', 'commission_amount', 'ADD COLUMN "commission_amount" DECIMAL(10,2) NULL DEFAULT 0');
+    await ensureColumnExists(conn, 'team_memberships', 'commission_type', 'ADD COLUMN "commission_type" VARCHAR(20) NULL DEFAULT \'fixed_amount\'');
+    await conn.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'team_memberships_commission_type_check'
+        ) THEN
+          ALTER TABLE "team_memberships"
+          ADD CONSTRAINT team_memberships_commission_type_check
+          CHECK (commission_type IS NULL OR commission_type IN ('fixed_amount', 'percentage'));
+        END IF;
+      END $$;
+    `);
 
     await conn.query(`
       CREATE TABLE IF NOT EXISTS "roles" (

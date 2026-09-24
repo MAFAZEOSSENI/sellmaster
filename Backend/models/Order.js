@@ -189,11 +189,17 @@ const Order = {
         console.log('📋 Ajout des items:', orderData.items.length);
         
         for (const item of orderData.items) {
+          const [productRows] = await conn.query(
+            'SELECT cost_price FROM products WHERE id = ?',
+            [item.productId]
+          );
+          const unitCost = productRows.length > 0 ? productRows[0].cost_price : null;
+
           await conn.query(`
-            INSERT INTO order_items (order_id, product_id, product_name, unit_price, quantity)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO order_items (order_id, product_id, product_name, unit_price, unit_cost, quantity)
+            VALUES (?, ?, ?, ?, ?, ?)
             RETURNING id
-          `, [orderId, item.productId, item.productName, item.unitPrice, item.quantity]);
+          `, [orderId, item.productId, item.productName, item.unitPrice, unitCost, item.quantity]);
 
           // Mettre à jour le stock
           if (item.productId) {
@@ -407,6 +413,7 @@ const Order = {
           oi.product_id,
           oi.product_name,
           oi.unit_price,
+          oi.unit_cost,
           oi.quantity,
           oi.created_at,
           p.image_url
@@ -465,16 +472,23 @@ const Order = {
 
       for (const item of orderData.items) {
         console.log('Ajout item:', item);
+
+        const [productRows] = await conn.query(
+          'SELECT cost_price FROM products WHERE id = ?',
+          [item.productId]
+        );
+        const unitCost = productRows.length > 0 ? productRows[0].cost_price : null;
         
         await conn.query(`
-          INSERT INTO order_items (order_id, product_id, product_name, unit_price, quantity)
-          VALUES (?, ?, ?, ?, ?)
+          INSERT INTO order_items (order_id, product_id, product_name, unit_price, unit_cost, quantity)
+          VALUES (?, ?, ?, ?, ?, ?)
           RETURNING id
         `, [
           orderId,
           item.productId,
           item.productName,
           item.unitPrice,
+          unitCost,
           item.quantity
         ]);
 

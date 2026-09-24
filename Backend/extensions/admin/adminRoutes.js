@@ -10,6 +10,7 @@ router.get('/users/search', authMiddleware, requireRole('owner', 'manager'), adm
 router.get('/team', authMiddleware, requireRole('owner', 'manager', 'closer'), adminController.getTeamMembers);
 router.get('/my-teams', authMiddleware, adminController.getMyTeams);
 router.patch('/my-teams/:membershipId', authMiddleware, adminController.updateMyTeam);
+router.patch('/my-teams/:membershipId/commission', authMiddleware, requireRole('owner', 'manager'), adminController.updateCloserCommission);
 router.get('/members/pending', authMiddleware, adminController.getPendingMemberships);
 router.post('/members/create', authMiddleware, requireRole('owner', 'manager'), adminController.createMember);
 router.post('/members/invite', authMiddleware, requireRole('owner', 'manager'), adminController.inviteMember);

@@ -142,16 +142,20 @@ const Product = {
           name, 
           description, 
           price, 
+          cost_price,
           stock, 
           image_url,
           created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
         RETURNING id
       `, [
         effectiveOwnerId,
         productData.name,
         productData.description || '',
         parseFloat(productData.price),
+        productData.cost_price === null || productData.cost_price === undefined || productData.cost_price === ''
+          ? null
+          : parseFloat(productData.cost_price),
         parseInt(productData.stock || 0),
         productData.image_url || null
       ]);
@@ -193,13 +197,16 @@ const Product = {
       
       let query = `
         UPDATE products 
-        SET name = ?, description = ?, price = ?, stock = ?, image_url = ?
+        SET name = ?, description = ?, price = ?, cost_price = ?, stock = ?, image_url = ?
         WHERE id = ?
       `;
       let params = [
         productData.name,
         productData.description || '',
         parseFloat(productData.price),
+        productData.cost_price === null || productData.cost_price === undefined || productData.cost_price === ''
+          ? null
+          : parseFloat(productData.cost_price),
         parseInt(productData.stock || 0),
         productData.image_url || null,
         id

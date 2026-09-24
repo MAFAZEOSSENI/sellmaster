@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../auth/auth_provider.dart';
@@ -24,11 +25,37 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
   List<Map<String, dynamic>> _teamCouriers = [];
   int? _selectedOwnerId;
   int? _selectedCourierIdForOrder;
+  Timer? _earningsTimer;
+  double _earningsTotal = 0;
+  List<Map<String, dynamic>> _earnings = [];
 
   @override
   void initState() {
     super.initState();
     _loadMyTeams();
+    _loadEarnings();
+    _earningsTimer = Timer.periodic(const Duration(seconds: 30), (_) => _loadEarnings());
+  }
+
+  @override
+  void dispose() {
+    _earningsTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadEarnings() async {
+    try {
+      final data = await ApiService.getMyEarnings();
+      if (!mounted) return;
+      setState(() {
+        _earningsTotal = double.tryParse(data['total'].toString()) ?? 0;
+        _earnings = (data['earnings'] as List? ?? const [])
+            .map((item) => Map<String, dynamic>.from(item as Map))
+            .toList();
+      });
+    } catch (_) {
+      // Earnings should not block the operational workspace.
+    }
   }
 
   Future<void> _loadOrders({int? ownerId, Set<int>? ownerIds}) async {
@@ -310,10 +337,11 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
     }
   }
 
-  Future<void> _updateStatus(Order order, String status) async {
+  Future<void> _updateStatus(Order order, String status, {double? deliveryFee}) async {
     try {
-      await ApiService.updateOrderStatus(order.id.toString(), status);
+      await ApiService.updateOrderStatus(order.id.toString(), status, deliveryFee: deliveryFee);
       await _loadOrders();
+      await _loadEarnings();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -329,6 +357,49 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
           backgroundColor: const Color(0xFFEF5350),
         ),
       );
+    }
+  }
+
+  Future<void> _handleStatusSelection(Order order, String status) async {
+    if (status != 'livree' || widget.role != 'courier') {
+      await _updateStatus(order, status);
+      return;
+    }
+
+    final controller = TextEditingController();
+    final deliveryFee = await showDialog<double>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Frais de livraison'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            labelText: 'Montant',
+            suffixText: '€',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final value = double.tryParse(controller.text.replaceAll(',', '.'));
+              if (value == null || value <= 0) return;
+              Navigator.of(dialogContext).pop(value);
+            },
+            child: const Text('Valider'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+
+    if (deliveryFee != null) {
+      await _updateStatus(order, status, deliveryFee: deliveryFee);
     }
   }
 
@@ -447,6 +518,10 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                         ],
                       ),
                     ),
+                  if (widget.role == 'closer' || widget.role == 'courier')
+                    _buildEarningsSection(),
+                  if (widget.role == 'closer' || widget.role == 'courier')
+                    const SizedBox(height: 16),
                   if (widget.role == 'closer') ...[
                     SizedBox(
                       width: double.infinity,
@@ -801,6 +876,49 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
     );
   }
 
+  Widget _buildEarningsSection() {
+    final label = widget.role == 'closer' ? 'Commissions gagnées' : 'Frais de livraison gagnés';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.payments_outlined, color: Color(0xFF00BCD4)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              ),
+              Text('${_earningsTotal.toStringAsFixed(2)} €', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            ],
+          ),
+          if (_earnings.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ..._earnings.map((earning) => Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Row(
+                    children: [
+                      Expanded(child: Text((earning['owner_name'] ?? 'Propriétaire').toString())),
+                      Text('${(double.tryParse(earning['total_amount'].toString()) ?? 0).toStringAsFixed(2)} €'),
+                    ],
+                  ),
+                )),
+          ] else
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text('Aucun gain enregistré pour le moment.', style: TextStyle(color: Color(0xFF64748B))),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _statusChip(String status, String label, Order order) {
     final isActive = order.status == status;
     return ChoiceChip(
@@ -812,7 +930,7 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
         color: isActive ? Colors.white : const Color(0xFF1A1A1A),
         fontWeight: FontWeight.w600,
       ),
-      onSelected: (_) => _updateStatus(order, status),
+      onSelected: (_) => _handleStatusSelection(order, status),
     );
   }
 }

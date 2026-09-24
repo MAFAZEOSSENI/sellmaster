@@ -227,19 +227,59 @@ class ApiService {
     }
   }
 
-  static Future<void> updateOrderStatus(String orderId, String status) async {
+  static Future<void> updateOrderStatus(String orderId, String status, {double? deliveryFee}) async {
     try {
+      final payload = <String, dynamic>{'status': status};
+      if (deliveryFee != null) {
+        payload['delivery_fee'] = deliveryFee;
+      }
       final response = await http.patch(
         Uri.parse('$baseUrl/orders/$orderId/status'),
         headers: await _getHeaders(),
-        body: json.encode({'status': status}),
+        body: json.encode(payload),
       );
 
       if (response.statusCode != 200) {
-        throw Exception('Erreur mise à jour statut: ${response.statusCode}');
+        final body = json.decode(response.body);
+        throw Exception(body['error'] ?? 'Erreur mise à jour statut: ${response.statusCode}');
       }
     } catch (e) {
       print('❌ Erreur updateOrderStatus: $e');
+      rethrow;
+    }
+  }
+
+  static Future<Map<String, dynamic>> getMyEarnings() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/earnings/me'),
+        headers: await _getHeaders(),
+      );
+      final body = json.decode(response.body);
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(body);
+      }
+      throw Exception(body['error'] ?? 'Erreur récupération des gains');
+    } catch (e) {
+      print('❌ Erreur getMyEarnings: $e');
+      rethrow;
+    }
+  }
+
+  static Future<Map<String, dynamic>> getProductProfitability({int? ownerId}) async {
+    try {
+      final query = ownerId == null ? '' : '?ownerId=$ownerId';
+      final response = await http.get(
+        Uri.parse('$baseUrl/products/profitability$query'),
+        headers: await _getHeaders(),
+      );
+      final body = json.decode(response.body);
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(body);
+      }
+      throw Exception(body['error'] ?? 'Erreur récupération rentabilité');
+    } catch (e) {
+      print('❌ Erreur getProductProfitability: $e');
       rethrow;
     }
   }
@@ -484,6 +524,33 @@ class ApiService {
       throw Exception(body['error'] ?? 'Erreur mise à jour équipe');
     } catch (e) {
       print('❌ Erreur updateMyTeam: $e');
+      rethrow;
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateCloserCommission(
+    int membershipId, {
+    required double commissionAmount,
+    required String commissionType,
+  }) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/admin/my-teams/$membershipId/commission'),
+        headers: await _getHeaders(),
+        body: json.encode({
+          'commission_amount': commissionAmount,
+          'commission_type': commissionType,
+        }),
+      );
+
+      final body = json.decode(response.body);
+      if (response.statusCode == 200) {
+        return Map<String, dynamic>.from(body['membership'] ?? body);
+      }
+
+      throw Exception(body['error'] ?? 'Erreur mise à jour commission');
+    } catch (e) {
+      print('❌ Erreur updateCloserCommission: $e');
       rethrow;
     }
   }
