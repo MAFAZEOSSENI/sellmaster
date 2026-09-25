@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 
 class ShopifyConnectPage extends StatefulWidget {
   const ShopifyConnectPage({Key? key}) : super(key: key);
@@ -23,7 +24,7 @@ class _ShopifyConnectPageState extends State<ShopifyConnectPage> {
       return;
     }
 
-    final token = ApiService.authToken;
+    final token = ApiService.authToken ?? await AuthService().getToken();
     if (token == null || token.isEmpty) {
       setState(() => _error = 'Ta session Sellmaster a expiré. Reconnecte-toi.');
       return;
