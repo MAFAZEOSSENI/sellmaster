@@ -174,7 +174,7 @@ class ShopifyService {
       sku: variant.sku || null,
     })));
     const costs = variants.length ? await this.getVariantCosts(config, variants.map(item => `gid://shopify/ProductVariant/${item.variantId}`)) : [];
-    const costByVariant = new Map(costs.map(item => [String(item.id).split('/').pop(), item.inventoryItem?.unitCost == null ? null : Number(item.inventoryItem.unitCost)]));
+    const costByVariant = new Map(costs.map(item => [String(item.id).split('/').pop(), item.inventoryItem?.unitCost?.amount == null ? null : Number(item.inventoryItem.unitCost.amount)]));
     const conn = await require('../config/database').getConnection();
     let created = 0;
     let updated = 0;
@@ -345,7 +345,7 @@ class ShopifyService {
         const data = await this.getVariantCosts(config, variantIds);
         for (const node of data) {
           const numericId = String(node.id || '').split('/').pop();
-          const cost = node.inventoryItem?.unitCost;
+          const cost = node.inventoryItem?.unitCost?.amount;
           if (numericId && cost !== null && cost !== undefined) {
             costsByVariantId.set(numericId, Number(cost));
           }
@@ -375,7 +375,7 @@ class ShopifyService {
           nodes(ids: $ids) {
             ... on ProductVariant {
               id
-              inventoryItem { unitCost }
+              inventoryItem { unitCost { amount currencyCode } }
             }
           }
         }`,
