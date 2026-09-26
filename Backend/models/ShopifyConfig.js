@@ -69,7 +69,7 @@ class ShopifyConfig {
       const [result] = await conn.query(`
         INSERT INTO shopify_configs 
         (shop_name, api_key, access_token, user_id, is_active, connected_at)
-        VALUES (?, ?, ?, ?, 1, NOW())
+        VALUES (?, ?, ?, ?, TRUE, NOW())
         RETURNING id
       `, [
         storeData.shopName,
@@ -102,7 +102,7 @@ class ShopifyConfig {
       if (existing.length > 0) {
         await conn.query(
           `UPDATE shopify_configs
-           SET api_key = ?, access_token = ?, is_active = 1, connected_at = NOW()
+           SET api_key = ?, access_token = ?, is_active = TRUE, connected_at = NOW()
            WHERE id = ? AND user_id = ?`,
           [storeData.apiKey, storeData.accessToken, existing[0].id, userId]
         );
@@ -112,7 +112,7 @@ class ShopifyConfig {
       const [result] = await conn.query(`
         INSERT INTO shopify_configs
         (shop_name, api_key, access_token, user_id, is_active, connected_at)
-        VALUES (?, ?, ?, ?, 1, NOW())
+        VALUES (?, ?, ?, ?, TRUE, NOW())
         RETURNING id
       `, [storeData.shopName, storeData.apiKey, storeData.accessToken, userId]);
 
