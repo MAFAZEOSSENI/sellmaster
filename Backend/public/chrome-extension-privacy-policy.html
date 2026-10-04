@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="index,follow">
+  <title>Confidentialité — Sellmaster Shopify Connector</title>
+  <style>
+    :root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#183139;background:#f3f7f7}*{box-sizing:border-box}body{margin:0;padding:42px 18px}.page{max-width:800px;margin:auto;background:#fff;border:1px solid #dce6e5;border-radius:14px;padding:clamp(22px,5vw,48px);box-shadow:0 18px 55px #163a3d12}h1{font-size:32px;line-height:1.15;margin:0 0 8px}h2{font-size:19px;margin:30px 0 8px}p,li{font-size:15px;line-height:1.7;color:#40565a}small{color:#64777c}.badge{display:inline-block;border-radius:99px;padding:5px 10px;background:#e5f5f1;color:#075e64;font-size:12px;font-weight:750;margin-bottom:13px}
+  </style>
+</head>
+<body><main class="page">
+  <span class="badge">Sellmaster Shopify Connector</span>
+  <h1>Politique de confidentialité</h1>
+  <small>Dernière mise à jour : 4 octobre 2026</small>
+  <p>Cette politique décrit les données utilisées par l’extension Chrome Sellmaster Shopify Connector et les raisons de leur traitement.</p>
+  <h2>Fonctionnement et accès aux pages Shopify</h2>
+  <p>L’extension injecte son panneau uniquement sur les pages d’administration Shopify déclarées dans son manifeste (<code>admin.shopify.com/store/*</code> et <code>*.myshopify.com/admin*</code>) et sur le tableau de bord développeur Shopify (<code>dev.shopify.com/dashboard/*</code>). Elle lit l’URL de la page pour détecter la boutique ou l’identifiant d’organisation. Lorsque l’utilisateur lance explicitement la configuration automatique d’une application, elle interagit avec les champs visibles nécessaires à cette tâche : nom de l’application, autorisations, URLs de configuration et identifiants générés par Shopify.</p>
+  <p>L’extension ne collecte pas l’historique de navigation, les commandes, les clients, les moyens de paiement ni le contenu général des pages Shopify. Elle ne lit les champs de configuration de l’application que pendant le parcours d’installation déclenché par l’utilisateur.</p>
+  <h2>Données traitées</h2>
+  <ul>
+    <li><strong>Compte Sellmaster :</strong> l’adresse e-mail et le mot de passe sont envoyés via HTTPS à l’API Sellmaster pour authentification. Le mot de passe n’est pas conservé par l’extension.</li>
+    <li><strong>Jeton de session Sellmaster :</strong> le JWT délivré après connexion est conservé dans <code>chrome.storage.local</code> pour authentifier les requêtes à l’API Sellmaster. La déconnexion le supprime.</li>
+    <li><strong>Informations de boutique :</strong> le domaine Shopify est lu depuis l’URL ou saisi par l’utilisateur, puis envoyé à Sellmaster pour associer la boutique à son compte.</li>
+    <li><strong>Credentials d’application Shopify :</strong> en mode manuel ou après la création automatique, le Client ID et le Client Secret sont transmis directement à l’API Sellmaster via HTTPS. Le secret n’est pas conservé dans le stockage de l’extension. Sellmaster le stocke côté serveur afin d’effectuer l’échange OAuth et de vérifier les webhooks Shopify.</li>
+    <li><strong>Configuration locale :</strong> l’App URL, l’URL de redirection et l’état temporaire du parcours de configuration sont conservés dans <code>chrome.storage.local</code>.</li>
+  </ul>
+  <h2>Partage et utilisation</h2>
+  <p>Les données sont utilisées uniquement pour connecter la boutique Shopify au compte Sellmaster et terminer l’autorisation demandée. Les credentials sont transmis à Sellmaster et à Shopify dans le cadre du protocole OAuth. Sellmaster ne vend pas les données de l’extension et ne les utilise pas pour la publicité. L’extension n’intègre pas d’outil d’analytique ni de suivi publicitaire.</p>
+  <h2>Conservation et contrôle</h2>
+  <p>Le JWT reste dans le profil Chrome jusqu’à la déconnexion ou son expiration. Les credentials d’application sont conservés côté Sellmaster tant que la connexion de boutique est active, pour les opérations Shopify demandées par le propriétaire. L’utilisateur peut supprimer la connexion de boutique depuis Sellmaster et se déconnecter de l’extension à tout moment.</p>
+  <h2>Sécurité</h2>
+  <p>Les appels entre l’extension et Sellmaster utilisent HTTPS. Les secrets Shopify ne sont pas écrits dans les journaux applicatifs par l’extension et ne sont pas enregistrés dans son stockage local.</p>
+  <h2>Contact</h2>
+  <p>Pour toute question relative à cette politique ou à vos données, contactez l’assistance Sellmaster depuis la section Assistance de l’application.</p>
+</main></body></html>

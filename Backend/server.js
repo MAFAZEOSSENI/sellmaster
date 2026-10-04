@@ -74,6 +74,10 @@ app.use(bigIntHandler());
 // Service fichiers statiques
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/form-builder', express.static(path.join(__dirname, 'form-builder')));
+app.get('/chrome-extension/privacy-policy', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=3600');
+  res.sendFile(path.join(__dirname, 'public', 'chrome-extension-privacy-policy.html'));
+});
 app.get('/widget.js', (req, res) => {
   const token = String(req.query.token || '');
   if (!/^[a-f0-9]{64}$/i.test(token)) {
