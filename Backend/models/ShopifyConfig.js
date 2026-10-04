@@ -21,6 +21,56 @@ class ShopifyConfig {
     }
   }
 
+  static async findOAuthCredentials(shopName, userId, clientId = null) {
+    const conn = await getConnection();
+    try {
+      const params = [shopName, Number(userId)];
+      let query = `SELECT id, user_id, shop_name, api_key, client_secret
+                   FROM shopify_configs
+                   WHERE shop_name = $1 AND user_id = $2`;
+      if (clientId) {
+        query += ' AND api_key = $3';
+        params.push(clientId);
+      }
+      query += ' ORDER BY connected_at DESC NULLS LAST, id DESC LIMIT 1';
+      const [rows] = await conn.query(query, params);
+      return rows[0] || null;
+    } finally {
+      conn.release();
+    }
+  }
+
+  static async registerOAuthCredentials({ shopName, clientId, clientSecret }, userId) {
+    const conn = await getConnection();
+    try {
+      const [existing] = await conn.query(
+        `SELECT id FROM shopify_configs WHERE user_id = $1 AND shop_name = $2
+         ORDER BY id DESC LIMIT 1`,
+        [Number(userId), shopName]
+      );
+
+      if (existing.length) {
+        const [result] = await conn.query(
+          `UPDATE shopify_configs
+           SET api_key = $1, client_secret = $2, updated_at = NOW()
+           WHERE id = $3 AND user_id = $4`,
+          [clientId, clientSecret, existing[0].id, Number(userId)]
+        );
+        return { id: existing[0].id, affectedRows: result.affectedRows };
+      }
+
+      const [result] = await conn.query(
+        `INSERT INTO shopify_configs (user_id, shop_name, api_key, client_secret, is_active)
+         VALUES ($1, $2, $3, $4, FALSE)
+         RETURNING id`,
+        [Number(userId), shopName, clientId, clientSecret]
+      );
+      return { id: result.insertId };
+    } finally {
+      conn.release();
+    }
+  }
+
   // Trouver tous les stores d'un utilisateur
   static async findByUserId(userId) {
     let conn;
@@ -118,19 +168,20 @@ class ShopifyConfig {
       if (existing.length > 0) {
         await conn.query(
           `UPDATE shopify_configs
-           SET api_key = ?, access_token = ?, is_active = TRUE, connected_at = NOW()
+           SET api_key = ?, access_token = ?, client_secret = COALESCE(?, client_secret),
+               is_active = TRUE, connected_at = NOW(), updated_at = NOW()
            WHERE id = ? AND user_id = ?`,
-          [storeData.apiKey, storeData.accessToken, existing[0].id, userId]
+          [storeData.apiKey, storeData.accessToken, storeData.clientSecret || null, existing[0].id, userId]
         );
         return { id: existing[0].id, shop_name: storeData.shopName, user_id: userId };
       }
 
       const [result] = await conn.query(`
         INSERT INTO shopify_configs
-        (shop_name, api_key, access_token, user_id, is_active, connected_at)
-        VALUES (?, ?, ?, ?, TRUE, NOW())
+        (shop_name, api_key, client_secret, access_token, user_id, is_active, connected_at)
+        VALUES (?, ?, ?, ?, ?, TRUE, NOW())
         RETURNING id
-      `, [storeData.shopName, storeData.apiKey, storeData.accessToken, userId]);
+      `, [storeData.shopName, storeData.apiKey, storeData.clientSecret || null, storeData.accessToken, userId]);
 
       return { id: result.insertId, shop_name: storeData.shopName, user_id: userId };
     } finally {

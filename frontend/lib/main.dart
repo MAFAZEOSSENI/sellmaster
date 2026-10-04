@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
+import 'package:app_links/app_links.dart';
 import 'pages/dashboard_page.dart';
 import 'pages/products_page.dart';
 import 'pages/orders_page.dart';
@@ -14,15 +17,77 @@ import 'admin/admin_dashboard.dart';
 import 'support/support_page.dart';
 import 'auth/auth_provider.dart';
 import 'services/api_service.dart';
+import 'pages/shopify_connected_page.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   const bool useLocalApi = bool.fromEnvironment('USE_LOCAL_API', defaultValue: false);
   ApiService.setEnvironment(useLocal: useLocalApi);
-  runApp(const MyApp());
+  Uri? initialLink;
+  if (!kIsWeb) {
+    try {
+      initialLink = await AppLinks().getInitialLink();
+    } catch (_) {
+      initialLink = null;
+    }
+  }
+  runApp(MyApp(initialLink: initialLink));
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+class MyApp extends StatefulWidget {
+  final Uri? initialLink;
+
+  const MyApp({Key? key, this.initialLink}) : super(key: key);
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  static final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  StreamSubscription<Uri>? _linkSubscription;
+  String? _initialConnectedStore;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialConnectedStore = _storeFromDeepLink(widget.initialLink) ?? _storeFromWebCallback();
+    if (!kIsWeb) {
+      _linkSubscription = AppLinks().uriLinkStream.listen(_handleDeepLink);
+    }
+  }
+
+  String? _storeFromDeepLink(Uri? uri) {
+    if (uri?.scheme != 'sellmaster' || uri?.host != 'shopify-connected') return null;
+    return uri?.queryParameters['store'] ?? '';
+  }
+
+  String? _storeFromWebCallback() {
+    if (!kIsWeb) return null;
+    final uri = Uri.base;
+    if (uri.queryParameters['shopify'] != 'connected') return null;
+    return uri.queryParameters['store'] ?? '';
+  }
+
+  void _handleDeepLink(Uri uri) {
+    final store = _storeFromDeepLink(uri);
+    if (store == null) return;
+    final navigator = _navigatorKey.currentState;
+    if (navigator == null) {
+      setState(() => _initialConnectedStore = store);
+      return;
+    }
+    navigator.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => ShopifyConnectedPage(store: store)),
+      (_) => false,
+    );
+  }
+
+  @override
+  void dispose() {
+    _linkSubscription?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +98,7 @@ class MyApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
+        navigatorKey: _navigatorKey,
         title: 'Gestion Commandes',
         theme: ThemeData(
           primarySwatch: Colors.cyan,
@@ -45,7 +111,9 @@ class MyApp extends StatelessWidget {
           ),
         ),
         debugShowCheckedModeBanner: false,
-        home: const AuthWrapper(),
+        home: _initialConnectedStore != null
+          ? ShopifyConnectedPage(store: _initialConnectedStore!)
+          : const AuthWrapper(),
         routes: {
           '/auth/login': (context) => const LoginPage(),
           '/auth/register': (context) => const RegisterPage(),

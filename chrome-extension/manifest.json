@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "Sellmaster Shopify Connector",
+  "version": "1.0.0",
+  "description": "Connecte une boutique Shopify à Sellmaster.",
+  "permissions": [
+    "storage",
+    "scripting",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://sellmaster-1.onrender.com/*",
+    "http://localhost:3000/*"
+  ],
+  "action": {
+    "default_title": "Sellmaster",
+    "default_popup": "popup.html"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://admin.shopify.com/store/*",
+        "*://*.myshopify.com/admin*"
+      ],
+      "js": ["panel.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://dev.shopify.com/dashboard/*"],
+      "js": ["selectors.js", "app-setup.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

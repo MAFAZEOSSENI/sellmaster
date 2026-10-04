@@ -84,6 +84,26 @@ async function registerShopifyWebhooks(shopDomain, accessToken) {
 // Test de connexion Shopify
 router.post('/test-connection', authMiddleware, ShopifyController.testConnection);
 
+router.post('/register-store-credentials', authMiddleware, async (req, res) => {
+  try {
+    const shopDomain = normalizeShopDomain(req.body?.shopDomain);
+    const clientId = String(req.body?.clientId || '').trim();
+    const clientSecret = String(req.body?.clientSecret || '').trim();
+    if (!clientId || clientId.length > 255 || !clientSecret || clientSecret.length > 4096) {
+      return res.status(400).json({ error: 'clientId et clientSecret valides sont requis.' });
+    }
+
+    const result = await ShopifyConfig.registerOAuthCredentials(
+      { shopName: shopDomain, clientId, clientSecret },
+      Number(req.userId)
+    );
+    return res.status(200).json({ success: true, storeId: result.id, shopName: shopDomain });
+  } catch (error) {
+    console.error('[Shopify OAuth] Credential registration failed:', error.message);
+    return res.status(400).json({ error: 'Impossible d’enregistrer les identifiants Shopify.' });
+  }
+});
+
 // Gestion des stores Shopify
 router.post('/stores', authMiddleware, ShopifyController.configureStore);
 router.get('/stores', authMiddleware, ShopifyController.getStores);
@@ -112,14 +132,14 @@ router.get('/stores/:storeId/stats',
   ShopifyController.getSyncStats
 );
 
-function buildShopifyAuthorizationUrl(shopDomain, userId) {
+function buildShopifyAuthorizationUrl(shopDomain, userId, clientId) {
   const state = jwt.sign(
-    { userId, shop: shopDomain },
+    { userId, shop: shopDomain, clientId },
     process.env.JWT_SECRET || 'votre_secret_jwt',
     { expiresIn: '10m' }
   );
   const params = new URLSearchParams({
-    client_id: process.env.SHOPIFY_CLIENT_ID || '',
+    client_id: clientId,
     scope: SHOPIFY_SCOPES,
     redirect_uri: SHOPIFY_REDIRECT_URI,
     state
@@ -128,13 +148,17 @@ function buildShopifyAuthorizationUrl(shopDomain, userId) {
 }
 
 // Prépare l'installation Shopify depuis Sellmaster sans exposer le JWT dans l'URL.
-router.get('/auth/start', authMiddleware, (req, res) => {
+router.get('/auth/start', authMiddleware, async (req, res) => {
   try {
     const shopDomain = normalizeShopDomain(req.query.shop);
-    if (!process.env.SHOPIFY_CLIENT_ID || !getShopifySecret()) {
+    const registered = await ShopifyConfig.findOAuthCredentials(shopDomain, Number(req.userId));
+    const useStoreApp = Boolean(registered?.api_key && registered?.client_secret);
+    const clientId = useStoreApp ? registered.api_key : process.env.SHOPIFY_CLIENT_ID;
+    const clientSecret = useStoreApp ? registered.client_secret : getShopifySecret();
+    if (!clientId || !clientSecret) {
       return res.status(500).json({ error: 'Shopify OAuth is not configured' });
     }
-    return res.json({ url: buildShopifyAuthorizationUrl(shopDomain, req.userId) });
+    return res.json({ url: buildShopifyAuthorizationUrl(shopDomain, Number(req.userId), clientId) });
   } catch (error) {
     console.error('[Shopify OAuth] Authorization error:', error.message);
     return res.status(400).json({ error: 'Invalid Shopify OAuth request' });
@@ -165,22 +189,19 @@ router.get('/auth/callback', async (req, res) => {
 
     const decoded = jwt.verify(String(state || ''), process.env.JWT_SECRET || 'votre_secret_jwt');
     const shopDomain = normalizeShopDomain(shop || decoded.shop);
-    const secret = getShopifySecret();
-    if (!secret) {
-      console.error('[Shopify OAuth] Missing Shopify client secret');
-      return res.status(500).send('Shopify OAuth is not configured');
-    }
     if (normalizeShopDomain(decoded.shop) !== shopDomain) {
-      console.warn('[Shopify OAuth] Callback shop differs from requested shop:', {
-        requestedShop: decoded.shop,
-        callbackShop: shopDomain,
-        userId: decoded.userId
-      });
+      return res.status(400).send('Invalid Shopify OAuth callback: shop mismatch');
     }
 
+    const clientId = decoded.clientId || process.env.SHOPIFY_CLIENT_ID;
+    if (!clientId) return res.status(500).send('Shopify OAuth is not configured');
+    const storeCredentials = await ShopifyConfig.findOAuthCredentials(shopDomain, Number(decoded.userId), clientId);
+    const clientSecret = storeCredentials?.client_secret || (clientId === process.env.SHOPIFY_CLIENT_ID ? getShopifySecret() : null);
+    if (!clientSecret) return res.status(400).send('Shopify app credentials not registered for this store');
+
     const tokenResponse = await axios.post(`https://${shopDomain}/admin/oauth/access_token`, {
-      client_id: process.env.SHOPIFY_CLIENT_ID,
-      client_secret: secret,
+      client_id: clientId,
+      client_secret: clientSecret,
       code
     });
     const accessToken = tokenResponse.data.access_token;
@@ -188,13 +209,15 @@ router.get('/auth/callback', async (req, res) => {
 
     await ShopifyConfig.upsertOAuthStore({
       shopName: shopDomain,
-      apiKey: process.env.SHOPIFY_CLIENT_ID,
+      apiKey: clientId,
+      clientSecret,
       accessToken
     }, decoded.userId);
     await registerShopifyWebhooks(shopDomain, accessToken);
 
     const redirect = new URL(FRONTEND_URL);
     redirect.searchParams.set('shopify', 'connected');
+    redirect.searchParams.set('store', shopDomain);
     return res.redirect(redirect.toString());
   } catch (error) {
     console.error('[Shopify OAuth] Callback error:', error.response?.data || error.message);
@@ -217,11 +240,6 @@ router.post('/webhook', async (req, res) => {
       return res.status(400).send('Invalid raw body');
     }
 
-    if (!process.env.SHOPIFY_API_SECRET) {
-      console.error('[Shopify Webhook] Missing SHOPIFY_API_SECRET in environment');
-      return res.status(500).send('Webhook secret missing');
-    }
-
     if (!hmacHeader || !topic || !shopDomain) {
       console.warn('[Shopify Webhook] Missing required webhook headers', {
         hmacHeader: !!hmacHeader,
@@ -231,8 +249,19 @@ router.post('/webhook', async (req, res) => {
       return res.status(401).send('Missing Shopify webhook headers');
     }
 
+    const storeConfig = await ShopifyConfig.findByShopName(shopDomain);
+    if (!storeConfig) {
+      console.warn('[Shopify Webhook] Store not found for shop domain:', shopDomain);
+      return res.status(404).send('Store not configured');
+    }
+    const webhookSecret = storeConfig.client_secret || getShopifySecret();
+    if (!webhookSecret) {
+      console.error('[Shopify Webhook] No signing secret configured for store');
+      return res.status(500).send('Webhook secret missing');
+    }
+
     const generatedHmac = crypto
-      .createHmac('sha256', process.env.SHOPIFY_API_SECRET)
+      .createHmac('sha256', webhookSecret)
       .update(rawBody)
       .digest('base64');
 
@@ -263,12 +292,6 @@ router.post('/webhook', async (req, res) => {
 
     if (!orderId && topic && !topic.includes('orders')) {
       return res.status(200).send('OK');
-    }
-
-    const storeConfig = await ShopifyConfig.findByShopName(shopDomain);
-    if (!storeConfig) {
-      console.warn('[Shopify Webhook] Store not found for shop domain:', shopDomain);
-      return res.status(404).send('Store not configured');
     }
 
     const service = new ShopifyService(storeConfig.user_id);

@@ -166,6 +166,7 @@ async function createTables() {
         user_id INT NOT NULL,
         shop_name VARCHAR(255) NOT NULL,
         api_key VARCHAR(255) NULL,
+        client_secret TEXT NULL,
         access_token TEXT NULL,
         is_active BOOLEAN NOT NULL DEFAULT TRUE,
         connected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -174,6 +175,8 @@ async function createTables() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    await ensureColumnExists(conn, 'shopify_configs', 'client_secret', 'ADD COLUMN "client_secret" TEXT NULL');
 
     await conn.query(`
       CREATE TABLE IF NOT EXISTS "team_memberships" (
