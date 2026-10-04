@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f7f7">
+  <title>Form Builder | Sellmaster</title>
+  <style>
+    :root{color-scheme:light;--ink:#172b32;--muted:#64777c;--line:#dce6e5;--paper:#fff;--ground:#f3f7f7;--teal:#087f83;--teal-dark:#075e64;--mint:#e5f5f1;--red:#a93434;--shadow:0 20px 55px #163a3d12}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 88% 0,#d8efea 0,transparent 34%),var(--ground);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh}
+    button,input{font:inherit}button{cursor:pointer}.topbar{height:64px;border-bottom:1px solid #dce6e5;background:#ffffffd9;display:flex;align-items:center;justify-content:space-between;padding:0 max(22px,calc((100vw - 1100px)/2));backdrop-filter:blur(10px)}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.01em}.mark{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:var(--teal);color:white;font-weight:900}.brand span:last-child{color:var(--muted);font-weight:550}
+    .shell{width:min(100% - 32px,1000px);margin:54px auto 80px}.eyebrow{color:var(--teal);font-size:12px;font-weight:800;text-transform:uppercase}.title{margin:7px 0 8px;font-size:clamp(27px,4vw,38px);line-height:1.15;letter-spacing:-.025em}.lead{max-width:650px;color:var(--muted);margin:0 0 28px}
+    .login{max-width:440px;margin:70px auto;background:var(--paper);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:30px}.login h1{font-size:24px;margin:0 0 6px}.login p{color:var(--muted);margin:0 0 24px}
+    label.field-label{display:block;font-size:13px;font-weight:700;margin:14px 0 6px}.text-input{width:100%;height:46px;border:1px solid #cbd8d7;border-radius:9px;padding:0 12px;background:#fff;color:var(--ink);outline:none}.text-input:focus{border-color:var(--teal);box-shadow:0 0 0 3px #087f831a}
+    .button{border:0;border-radius:9px;min-height:43px;padding:0 16px;background:var(--teal);color:#fff;font-weight:750}.button:hover{background:var(--teal-dark)}.button.secondary{background:#eef5f4;color:var(--teal-dark);border:1px solid var(--line)}.button.secondary:hover{background:#e4efed}.button:disabled{opacity:.6;cursor:wait}.wide{width:100%;margin-top:18px}
+    .layout{display:grid;grid-template-columns:285px minmax(0,1fr);gap:20px;align-items:start}.surface{background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}.side{padding:16px}.side-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:14px;font-weight:800}.form-list{display:grid;gap:7px}.form-item{border:1px solid transparent;border-radius:9px;background:#f5f8f8;text-align:left;padding:11px 12px;color:var(--ink)}.form-item.active{background:var(--mint);border-color:#b5ded7}.form-item strong{display:block;font-size:13px}.form-item small{color:var(--muted)}.content{padding:24px}.content-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line);padding-bottom:17px;margin-bottom:19px}.content-head h2{margin:0;font-size:20px}.subtle{font-size:13px;color:var(--muted);margin-top:3px}.controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}.toggle{display:flex;align-items:center;gap:10px;min-height:51px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#fbfdfd;font-weight:650}.toggle input{accent-color:var(--teal);width:17px;height:17px}.section-title{margin:24px 0 10px;font-size:13px;font-weight:800}.snippet{position:relative;background:#122c33;color:#dbf2ed;border-radius:10px;padding:15px 115px 15px 15px;overflow-wrap:anywhere;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}.copy{position:absolute;right:9px;top:9px;min-height:33px;padding:0 10px;background:#e7f5f1;color:#075e64;font-size:12px}.instructions{margin:10px 0 0;color:var(--muted);font-size:13px}.instructions strong{color:var(--ink)}.toolbar{display:flex;gap:8px;flex-wrap:wrap}.status{display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border-radius:999px;background:#edf2f2;color:#52656b;font-size:12px;font-weight:750}.status.on{background:#e5f5ec;color:#157347}.dot{width:7px;height:7px;border-radius:50%;background:currentColor}.notice{min-height:22px;margin-top:12px;font-size:13px;color:var(--muted)}.notice.error{color:var(--red)}.notice.ok{color:#157347}.hidden{display:none!important}.logout{border:0;background:none;color:var(--muted);font-weight:700}.empty{padding:22px;border:1px dashed #c6d4d2;border-radius:10px;color:var(--muted);text-align:center}
+    @media(max-width:720px){.shell{margin-top:34px}.layout{grid-template-columns:1fr}.side{padding:13px}.form-list{grid-template-columns:1fr 1fr}.content{padding:18px}.content-head{display:block}.toolbar{margin-top:12px}.controls{grid-template-columns:1fr}.topbar{padding:0 16px}}
+  </style>
+</head>
+<body>
+  <header class="topbar"><div class="brand"><span class="mark">S</span><span>SELLMASTER</span><span>/ Form Builder</span></div><button id="logout" class="logout hidden" type="button">Se déconnecter</button></header>
+  <main class="shell">
+    <section id="login" class="login">
+      <div class="eyebrow">Espace propriétaire</div>
+      <h1>Connectez votre compte</h1>
+      <p>Utilisez vos identifiants Sellmaster pour créer et publier votre formulaire Shopify.</p>
+      <form id="login-form">
+        <label class="field-label" for="email">E-mail</label><input class="text-input" id="email" name="email" type="email" autocomplete="username" required>
+        <label class="field-label" for="password">Mot de passe</label><input class="text-input" id="password" name="password" type="password" autocomplete="current-password" required>
+        <button id="login-button" class="button wide" type="submit">Se connecter</button>
+      </form>
+      <div id="login-notice" class="notice" role="status"></div>
+    </section>
+
+    <section id="builder" class="hidden">
+      <div class="eyebrow">Shopify · Commandes</div>
+      <h1 class="title">Votre formulaire de commande</h1>
+      <p class="lead">Choisissez les informations demandées au client, puis publiez le formulaire et copiez son script dans votre thème Shopify.</p>
+      <div class="layout">
+        <aside class="surface side">
+          <div class="side-head"><span>Mes formulaires</span><button id="new-form" class="button secondary" type="button" aria-label="Créer un formulaire">＋</button></div>
+          <div id="form-list" class="form-list"></div>
+        </aside>
+        <section class="surface content">
+          <div id="editor-empty" class="empty">Créez un formulaire pour commencer.</div>
+          <div id="editor" class="hidden">
+            <div class="content-head">
+              <div><h2>Champs du formulaire</h2><div class="subtle">Le nom du client est toujours demandé.</div></div>
+              <div class="toolbar"><span id="publish-status" class="status"><span class="dot"></span><span>Non publié</span></span><button id="publish" class="button" type="button">Publier</button></div>
+            </div>
+            <div class="controls">
+              <label class="toggle"><input type="checkbox" data-field="phone"> Téléphone</label>
+              <label class="toggle"><input type="checkbox" data-field="city"> Ville</label>
+              <label class="toggle"><input type="checkbox" data-field="address"> Adresse de livraison</label>
+              <label class="toggle"><input type="checkbox" data-field="product_variant"> Sélecteur produit / variante</label>
+              <label class="toggle"><input type="checkbox" data-field="quantity"> Quantité</label>
+            </div>
+            <button id="save-fields" class="button secondary" type="button" style="margin-top:14px">Enregistrer les champs</button>
+            <div class="section-title">Script pour votre boutique Shopify</div>
+            <div class="snippet"><code id="snippet">Le script apparaîtra après publication.</code><button id="copy" class="button copy" type="button" disabled>Copier</button></div>
+            <p class="instructions">Dans Shopify : <strong>Admin Shopify &gt; Boutique en ligne &gt; Thèmes &gt; … &gt; Modifier le code</strong>, puis collez le script dans le modèle produit, avant <code>&lt;/body&gt;</code>.</p>
+            <div id="builder-notice" class="notice" role="status"></div>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+<script>
+(function(){
+  'use strict';
+  const api='/api';
+  const tokenKey='sellmaster_form_builder_token';
+  const loginView=document.getElementById('login');
+  const builderView=document.getElementById('builder');
+  const logoutButton=document.getElementById('logout');
+  const loginNotice=document.getElementById('login-notice');
+  const builderNotice=document.getElementById('builder-notice');
+  const formList=document.getElementById('form-list');
+  const editor=document.getElementById('editor');
+  const editorEmpty=document.getElementById('editor-empty');
+  const snippet=document.getElementById('snippet');
+  const copyButton=document.getElementById('copy');
+  let authToken=sessionStorage.getItem(tokenKey)||'';
+  let forms=[];
+  let selected=null;
+
+  function notice(node,text,kind){node.textContent=text||'';node.className='notice'+(kind?' '+kind:'');}
+  async function request(path,options){
+    const headers=Object.assign({'Content-Type':'application/json'},options&&options.headers||{});
+    if(authToken)headers.Authorization='Bearer '+authToken;
+    const response=await fetch(api+path,Object.assign({},options||{},{headers}));
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok){if(response.status===401){logout();}throw new Error(data.error||'Erreur de communication avec Sellmaster.');}
+    return data;
+  }
+  function showBuilder(){loginView.classList.add('hidden');builderView.classList.remove('hidden');logoutButton.classList.remove('hidden');}
+  function logout(){authToken='';sessionStorage.removeItem(tokenKey);forms=[];selected=null;builderView.classList.add('hidden');logoutButton.classList.add('hidden');loginView.classList.remove('hidden');}
+  function setEditor(form){
+    selected=form;
+    editor.classList.toggle('hidden',!form);
+    editorEmpty.classList.toggle('hidden',Boolean(form));
+    if(!form)return;
+    const config=form.fields_config||{};
+    document.querySelectorAll('[data-field]').forEach(input=>{input.checked=config[input.dataset.field]===true;});
+    updatePublishUi();
+    updateSnippet();
+    renderForms();
+  }
+  function updatePublishUi(){
+    if(!selected)return;
+    const published=selected.is_published===true;
+    const status=document.getElementById('publish-status');
+    status.classList.toggle('on',published);
+    status.lastElementChild.textContent=published?'Publié':'Non publié';
+    document.getElementById('publish').textContent=published?'Dépublier':'Publier';
+  }
+  function updateSnippet(){
+    if(!selected||selected.is_published!==true){snippet.textContent='Publiez le formulaire pour obtenir le script.';copyButton.disabled=true;return;}
+    const src=window.location.origin+'/widget.js?token='+selected.public_token;
+    snippet.textContent='<script async src="'+src+'"><\/script>';
+    copyButton.disabled=false;
+  }
+  function renderForms(){
+    formList.replaceChildren();
+    if(!forms.length){const empty=document.createElement('div');empty.className='empty';empty.textContent='Aucun formulaire pour le moment.';formList.appendChild(empty);return;}
+    forms.forEach((form,index)=>{
+      const button=document.createElement('button');button.type='button';button.className='form-item'+(selected&&Number(selected.id)===Number(form.id)?' active':'');
+      const name=document.createElement('strong');name.textContent='Formulaire '+(forms.length-index);
+      const state=document.createElement('small');state.textContent=form.is_published?'Publié':'Brouillon';button.append(name,state);
+      button.addEventListener('click',()=>setEditor(form));formList.appendChild(button);
+    });
+  }
+  async function loadForms(){
+    notice(builderNotice,'Chargement de vos formulaires...');
+    const data=await request('/order-forms');forms=data.forms||[];
+    if(selected){selected=forms.find(item=>Number(item.id)===Number(selected.id))||null;}
+    if(!selected&&forms.length)selected=forms[0];
+    renderForms();setEditor(selected);notice(builderNotice,'');
+  }
+  document.getElementById('login-form').addEventListener('submit',async event=>{
+    event.preventDefault();notice(loginNotice,'Connexion en cours...');
+    const button=document.getElementById('login-button');button.disabled=true;
+    try{
+      const response=await fetch(api+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:document.getElementById('email').value.trim(),password:document.getElementById('password').value})});
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(data.error||'Connexion impossible.');
+      if(!data.token)throw new Error('La réponse Sellmaster ne contient pas de session valide.');
+      if(!Array.isArray(data.user&&data.user.roles)||!data.user.roles.includes('owner'))throw new Error('Cet espace est réservé aux comptes owner.');
+      authToken=data.token;sessionStorage.setItem(tokenKey,authToken);showBuilder();await loadForms();
+    }catch(error){notice(loginNotice,error.message,'error');}
+    finally{button.disabled=false;}
+  });
+  document.getElementById('new-form').addEventListener('click',async()=>{
+    try{notice(builderNotice,'Création du formulaire...');const data=await request('/order-forms',{method:'POST',body:JSON.stringify({fields_config:{phone:true,city:true,address:true,product_variant:true,quantity:true}})});forms.unshift(data.form);setEditor(data.form);notice(builderNotice,'Formulaire créé. Configurez les champs puis publiez-le.','ok');}
+    catch(error){notice(builderNotice,error.message,'error');}
+  });
+  document.getElementById('save-fields').addEventListener('click',async()=>{
+    if(!selected)return;
+    const fields_config={};document.querySelectorAll('[data-field]').forEach(input=>{fields_config[input.dataset.field]=input.checked;});
+    try{notice(builderNotice,'Enregistrement...');const data=await request('/order-forms/'+selected.id,{method:'PUT',body:JSON.stringify({fields_config})});selected=data.form;forms=forms.map(form=>Number(form.id)===Number(selected.id)?selected:form);updateSnippet();renderForms();notice(builderNotice,'Configuration enregistrée.','ok');}
+    catch(error){notice(builderNotice,error.message,'error');}
+  });
+  document.getElementById('publish').addEventListener('click',async()=>{
+    if(!selected)return;
+    try{notice(builderNotice,'Mise à jour...');const data=await request('/order-forms/'+selected.id+'/publish',{method:'PATCH',body:JSON.stringify({is_published:selected.is_published!==true})});selected=data.form;forms=forms.map(form=>Number(form.id)===Number(selected.id)?selected:form);updatePublishUi();updateSnippet();renderForms();notice(builderNotice,selected.is_published?'Formulaire publié.':'Formulaire dépublié.','ok');}
+    catch(error){notice(builderNotice,error.message,'error');}
+  });
+  copyButton.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(snippet.textContent);notice(builderNotice,'Script copié dans le presse-papiers.','ok');}catch(_){notice(builderNotice,'Copie impossible: sélectionnez le script et copiez-le manuellement.','error');}});
+  logoutButton.addEventListener('click',logout);
+  if(authToken){showBuilder();loadForms().catch(error=>{logout();notice(loginNotice,error.message,'error');});}
+})();
+</script>
+</body>
+</html>

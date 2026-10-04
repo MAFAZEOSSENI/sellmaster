@@ -16,6 +16,7 @@ const licenseRoutes = require('./extensions/licenses/licenseRoutes');
 const paymentRoutes = require('./extensions/payments/paymentRoutes');
 const adminRoutes = require('./extensions/admin/adminRoutes');
 const publicFormRoutes = require('./routes/publicForm.routes');
+const orderFormsRoutes = require('./routes/orderForms.routes');
 
 // Middleware de base
 app.use(cors({
@@ -72,6 +73,15 @@ app.use(bigIntHandler());
 
 // Service fichiers statiques
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/form-builder', express.static(path.join(__dirname, 'form-builder')));
+app.get('/widget.js', (req, res) => {
+  const token = String(req.query.token || '');
+  if (!/^[a-f0-9]{64}$/i.test(token)) {
+    return res.status(400).type('text').send('A valid public form token is required.');
+  }
+  res.set('Cache-Control', 'public, max-age=3600');
+  res.type('application/javascript').sendFile(path.join(__dirname, 'public', 'widget.js'));
+});
 
 // Import des modèles
 const Product = require('./models/Product');
@@ -113,6 +123,7 @@ async function ensureOwnerMemberAccess(req, res, effectiveOwnerId, resourceLabel
 const shopifyRoutesV2 = require('./routes/shopify.routes'); // Nouveau fichier
 app.use('/api/shopify', shopifyRoutesV2);
 app.use('/api/public/forms', publicFormRoutes);
+app.use('/api/order-forms', orderFormsRoutes);
 
 // ==================== ROUTES API ====================
 
