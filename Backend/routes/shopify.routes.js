@@ -11,7 +11,7 @@ const ShopifyConfig = require('../models/ShopifyConfig');
 const ShopifyService = require('../services/ShopifyService');
 
 const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || '2026-07';
-const SHOPIFY_SCOPES = process.env.SHOPIFY_SCOPES || 'read_orders,read_products,read_customers';
+const SHOPIFY_SCOPES = process.env.SHOPIFY_SCOPES || 'read_orders,write_orders,read_products,read_customers,read_inventory';
 const SHOPIFY_REDIRECT_URI = process.env.SHOPIFY_REDIRECT_URI || 'https://sellmaster-1.onrender.com/api/shopify/auth/callback';
 const FRONTEND_URL = process.env.SHOPIFY_FRONTEND_URL || 'https://sellmaster.web.app';
 

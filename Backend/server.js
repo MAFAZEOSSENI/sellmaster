@@ -9,11 +9,13 @@ const path = require('path');
 const createTables = require('./database/init');
 const { getConnection } = require('./config/database');
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 const authRoutes = require('./extensions/auth/authRoutes');
 const licenseRoutes = require('./extensions/licenses/licenseRoutes');
 const paymentRoutes = require('./extensions/payments/paymentRoutes');
 const adminRoutes = require('./extensions/admin/adminRoutes');
+const publicFormRoutes = require('./routes/publicForm.routes');
 
 // Middleware de base
 app.use(cors({
@@ -110,6 +112,7 @@ async function ensureOwnerMemberAccess(req, res, effectiveOwnerId, resourceLabel
 // Import des routes Shopify
 const shopifyRoutesV2 = require('./routes/shopify.routes'); // Nouveau fichier
 app.use('/api/shopify', shopifyRoutesV2);
+app.use('/api/public/forms', publicFormRoutes);
 
 // ==================== ROUTES API ====================
 

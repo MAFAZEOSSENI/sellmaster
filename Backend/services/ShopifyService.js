@@ -54,6 +54,69 @@ class ShopifyService {
     }
   }
 
+  async createOrderFromForm(config, formData) {
+    const shopDomain = String(config?.shop_name || '')
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, '')
+      .replace(/\/$/, '');
+    if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shopDomain) || !config?.access_token) {
+      throw new Error('Configuration Shopify invalide');
+    }
+
+    const items = Array.isArray(formData.items) ? formData.items : [];
+    if (!items.length || items.some(item => !/^\d+$/.test(String(item.variantId)) || !Number.isInteger(Number(item.quantity)) || Number(item.quantity) < 1)) {
+      throw new Error('Produits ou quantités invalides');
+    }
+
+    const fullName = String(formData.customer_name || '').trim();
+    const nameParts = fullName.split(/\s+/);
+    const order = {
+      financial_status: 'pending',
+      tags: 'sellmaster-form',
+      line_items: items.map(item => ({ variant_id: Number(item.variantId), quantity: Number(item.quantity) })),
+      note: 'Commande créée via le formulaire public Sellmaster',
+      customer: {
+        first_name: nameParts[0] || '',
+        last_name: nameParts.slice(1).join(' '),
+        email: formData.email || undefined,
+        phone: formData.phone || undefined,
+      },
+    };
+    if (formData.email) order.email = String(formData.email).trim();
+    if (formData.phone) order.phone = String(formData.phone).trim();
+    if (formData.address || formData.city || formData.phone) {
+      order.shipping_address = {
+        first_name: nameParts[0] || '',
+        last_name: nameParts.slice(1).join(' '),
+        address1: formData.address ? String(formData.address).trim() : undefined,
+        city: formData.city ? String(formData.city).trim() : undefined,
+        phone: formData.phone ? String(formData.phone).trim() : undefined,
+        country_code: formData.country_code ? String(formData.country_code).trim().toUpperCase() : undefined,
+      };
+    }
+
+    const response = await axios.post(
+      `https://${shopDomain}/admin/api/${SHOPIFY_API_VERSION}/orders.json`,
+      { order },
+      {
+        headers: {
+          'X-Shopify-Access-Token': config.access_token,
+          'Content-Type': 'application/json',
+        },
+        timeout: 20000,
+      }
+    );
+    const createdOrder = response.data?.order;
+    if (!createdOrder?.id) throw new Error('Shopify n’a pas retourné la commande créée');
+    return {
+      id: createdOrder.id,
+      name: createdOrder.name,
+      financial_status: createdOrder.financial_status,
+      status_url: createdOrder.order_status_url || null,
+    };
+  }
+
   // Récupérer les commandes Shopify
   async getOrders(storeId, limit = 50) {
     console.log(`📦 [ShopifyService] Récupération commandes pour store: ${storeId}`);
@@ -170,6 +233,7 @@ class ShopifyService {
     const variants = shopifyProducts.flatMap(product => (product.variants || []).map(variant => ({
       name: (product.title || 'Produit Shopify') + (variant.title && variant.title !== 'Default Title' ? ` - ${variant.title}` : ''),
       price: Number(variant.price || 0),
+      productId: product.id,
       variantId: variant.id,
       sku: variant.sku || null,
     })));
@@ -181,12 +245,26 @@ class ShopifyService {
     try {
       for (const item of variants) {
         const cost = costByVariant.get(String(item.variantId));
-        const [existing] = await conn.query('SELECT id FROM products WHERE user_id = ? AND name = ? LIMIT 1', [this.userId, item.name]);
+        const [existing] = await conn.query(
+          'SELECT id FROM products WHERE user_id = ? AND shopify_store_id = ? AND shopify_variant_id = ? LIMIT 1',
+          [this.userId, storeId, String(item.variantId)]
+        );
         if (existing.length) {
-          await conn.query('UPDATE products SET price = ?, cost_price = ? WHERE id = ?', [item.price, cost, existing[0].id]);
+          await conn.query(
+            `UPDATE products
+             SET name = ?, description = ?, price = ?,
+                 cost_price = COALESCE(?, cost_price), shopify_product_id = ?, shopify_sku = ?
+             WHERE id = ?`,
+            [item.name, `Shopify SKU: ${item.sku || 'N/A'}`, item.price, cost, String(item.productId), item.sku, existing[0].id]
+          );
           updated++;
         } else {
-          await conn.query(`INSERT INTO products (user_id, name, description, price, cost_price, stock, created_at) VALUES (?, ?, ?, ?, ?, 0, NOW())`, [this.userId, item.name, `Shopify SKU: ${item.sku || 'N/A'}`, item.price, cost]);
+          await conn.query(
+            `INSERT INTO products
+             (user_id, name, description, price, cost_price, shopify_store_id, shopify_product_id, shopify_variant_id, shopify_sku, stock, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NOW())`,
+            [this.userId, item.name, `Shopify SKU: ${item.sku || 'N/A'}`, item.price, cost, storeId, String(item.productId), String(item.variantId), item.sku]
+          );
           created++;
         }
       }

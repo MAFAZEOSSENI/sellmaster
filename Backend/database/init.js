@@ -51,6 +51,10 @@ async function createTables() {
         description TEXT,
         price DECIMAL(10,2) NOT NULL,
         cost_price DECIMAL(10,2) NULL,
+        shopify_store_id INT NULL,
+        shopify_product_id VARCHAR(64) NULL,
+        shopify_variant_id VARCHAR(64) NULL,
+        shopify_sku VARCHAR(255) NULL,
         stock INT DEFAULT 0,
         image_url VARCHAR(500),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -59,6 +63,10 @@ async function createTables() {
 
     await ensureColumnExists(conn, 'products', 'user_id', 'ADD COLUMN "user_id" INT NULL');
     await ensureColumnExists(conn, 'products', 'cost_price', 'ADD COLUMN "cost_price" DECIMAL(10,2) NULL');
+    await ensureColumnExists(conn, 'products', 'shopify_store_id', 'ADD COLUMN "shopify_store_id" INT NULL');
+    await ensureColumnExists(conn, 'products', 'shopify_product_id', 'ADD COLUMN "shopify_product_id" VARCHAR(64) NULL');
+    await ensureColumnExists(conn, 'products', 'shopify_variant_id', 'ADD COLUMN "shopify_variant_id" VARCHAR(64) NULL');
+    await ensureColumnExists(conn, 'products', 'shopify_sku', 'ADD COLUMN "shopify_sku" VARCHAR(255) NULL');
 
     await conn.query(`
       CREATE TABLE IF NOT EXISTS "orders" (
@@ -122,6 +130,18 @@ async function createTables() {
     `);
 
     await ensureColumnExists(conn, 'order_items', 'unit_cost', 'ADD COLUMN "unit_cost" DECIMAL(10,2) NULL');
+
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS "order_forms" (
+        id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        owner_user_id INT NOT NULL REFERENCES "app_users"(id) ON DELETE CASCADE,
+        public_token VARCHAR(64) NOT NULL UNIQUE,
+        fields_config JSONB NOT NULL DEFAULT '{"phone":true,"city":true,"address":true,"product_variant":true,"quantity":true}'::jsonb,
+        is_published BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
     await conn.query(`
       CREATE TABLE IF NOT EXISTS "licenses" (

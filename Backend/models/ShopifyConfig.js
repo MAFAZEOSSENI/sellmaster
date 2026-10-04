@@ -39,6 +39,22 @@ class ShopifyConfig {
     }
   }
 
+  static async findActiveByOwner(ownerUserId) {
+    const conn = await getConnection();
+    try {
+      const [configs] = await conn.query(
+        `SELECT id, user_id, shop_name, access_token
+         FROM shopify_configs
+         WHERE user_id = $1 AND is_active = TRUE
+         ORDER BY connected_at DESC`,
+        [ownerUserId]
+      );
+      return configs;
+    } finally {
+      conn.release();
+    }
+  }
+
   // Trouver un store par le domaine Shopify
   static async findByShopName(shopName) {
     let conn;
