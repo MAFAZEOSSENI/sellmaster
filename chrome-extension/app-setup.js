@@ -15,6 +15,46 @@
     read_customers: ['read customers', 'read customer'],
     read_inventory: ['read inventory', 'read stock'],
   };
+  const SCOPE_VARIANTS = Object.fromEntries(Object.entries(LABELS).map(([scope, labels]) => [
+    scope,
+    Array.from(new Set([
+      scope,
+      scope.replace(/_/g, '-'),
+      scope.replace(/_/g, ' '),
+      ...labels,
+      ...labels.map(label => label.replace(/\s+/g, '-')),
+      ...labels.map(label => label.replace(/\s+/g, '_')),
+      ...labels.map(label => label.replace(/\s+/g, ' '))
+    ].filter(Boolean)))
+  ]));
+
+  function scopeSelectorVariants(scope) {
+    const variants = SCOPE_VARIANTS[scope] || [scope];
+    const selectors = [];
+    for (const variant of variants) {
+      selectors.push(
+        `input[type="checkbox"][value*="${variant}" i]`,
+        `input[type="checkbox"][name*="${variant}" i]`,
+        `input[type="checkbox"][data-scope*="${variant}" i]`,
+        `input[type="checkbox"][data-value*="${variant}" i]`,
+        `input[type="checkbox"][aria-label*="${variant}" i]`,
+        `[role="checkbox"][data-value*="${variant}" i]`,
+        `[role="checkbox"][data-scope*="${variant}" i]`,
+        `[role="checkbox"][aria-label*="${variant}" i]`,
+        `[role="switch"][data-value*="${variant}" i]`,
+        `[role="switch"][data-scope*="${variant}" i]`,
+        `[role="switch"][aria-label*="${variant}" i]`,
+        `button[role="checkbox"][aria-label*="${variant}" i]`,
+        `button[role="switch"][aria-label*="${variant}" i]`,
+        `[data-testid*="${variant}" i]`,
+        `[data-scope*="${variant}" i]`,
+        `[data-value*="${variant}" i]`,
+        `[aria-label*="${variant}" i]`
+      );
+    }
+    return [...new Set(selectors)];
+  }
+
   let running = false;
 
   const host = document.createElement('div');
@@ -94,7 +134,8 @@
   }
 
   function orgIdFromUrl() {
-    const match = window.location.pathname.match(/^\/dashboard\/([^/]+)/i);
+    const match = window.location.pathname.match(/^\/dashboard\/(?:[^/]+\/)?(\d+)(?:\/|$)/i)
+      || window.location.pathname.match(/^\/dashboard\/(\d+)(?:\/|$)/i);
     return match ? match[1] : '';
   }
 
@@ -120,22 +161,29 @@
   async function ensureScopes() {
     const inputSelectors = SELECTORS.access.scopeInputs;
     for (const scope of API_SCOPE_KEYS) {
-      const scopeSelectors = inputSelectors.map(selector => selector.replaceAll('{scope}', scope));
+      const scopeSelectors = [
+        ...inputSelectors.map(selector => selector.replaceAll('{scope}', scope)),
+        ...scopeSelectorVariants(scope),
+      ];
       let control = findFirst(scopeSelectors);
       if (!control) {
-        const rowSelectors = SELECTORS.access.scopeRows.map(selector => selector.replaceAll('{scope}', scope));
+        const rowSelectors = [
+          ...SELECTORS.access.scopeRows.map(selector => selector.replaceAll('{scope}', scope)),
+          ...scopeSelectorVariants(scope)
+        ];
         const labels = [];
         rowSelectors.forEach(selector => labels.push(...document.querySelectorAll(selector)));
-        const accepted = LABELS[scope];
+        const accepted = LABELS[scope] || [scope];
         const row = labels.find(element => visible(element) && accepted.some(label => (element.innerText || '').toLowerCase().includes(label)));
         if (row) {
           control = findFirst(SELECTORS.access.nestedCheckboxes, row);
           if (!control && SELECTORS.access.roleCheckboxes.some(selector => row.matches(selector))) control = row;
           if (!control && row.tagName === 'LABEL') control = row;
+          if (!control && row.querySelector) control = findFirst(SELECTORS.access.nestedCheckboxes, row);
         }
       }
       if (!control) throw new Error(`Scope ${scope} non trouvé. Corrige selectors.js pour l’interface Shopify actuelle.`);
-      const checked = control.checked === true || control.getAttribute('aria-checked') === 'true';
+      const checked = control.checked === true || control.getAttribute('aria-checked') === 'true' || control.getAttribute('aria-selected') === 'true';
       if (!checked) control.click();
     }
   }
@@ -156,6 +204,9 @@
       const { [PENDING_KEY]: pending, [CONFIG_KEY]: config } = await chrome.storage.local.get([PENDING_KEY, CONFIG_KEY]);
       if (!pending?.shopDomain || !pending?.storeHandle) throw new Error('Aucune création Shopify en attente. Lance-la depuis la boutique Shopify.');
       if (!config?.appUrl || !config?.redirectUri) throw new Error('Configure App URL et Redirect URI dans les options de l’extension.');
+      if (/^https?:\/\/example\.com/i.test(config.appUrl) || /^https?:\/\/example\.com/i.test(config.redirectUri)) {
+        throw new Error('Valeur placeholder Shopify détectée: remplace example.com par l’URL réelle de production (App URL + Redirect URI).');
+      }
       const orgId = orgIdFromUrl() || pending.orgId;
       if (!orgId) throw new Error('Sélectionne d’abord ton organisation dans le dashboard Shopify Developer, puis clique à nouveau sur Auto-remplir.');
       if (window.location.pathname !== `/dashboard/${orgId}/apps/new` && pending.step === 'create') {
