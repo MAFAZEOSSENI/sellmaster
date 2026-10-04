@@ -157,7 +157,7 @@
       if (!pending?.shopDomain || !pending?.storeHandle) throw new Error('Aucune création Shopify en attente. Lance-la depuis la boutique Shopify.');
       if (!config?.appUrl || !config?.redirectUri) throw new Error('Configure App URL et Redirect URI dans les options de l’extension.');
       const orgId = orgIdFromUrl() || pending.orgId;
-      if (!orgId) throw new Error('Organization ID absent de l’URL du dashboard développeur.');
+      if (!orgId) throw new Error('Sélectionne d’abord ton organisation dans le dashboard Shopify Developer, puis clique à nouveau sur Auto-remplir.');
       if (window.location.pathname !== `/dashboard/${orgId}/apps/new` && pending.step === 'create') {
         await updatePending({ orgId, step: 'create', autoRun: true });
         status('Ouverture de la page de création...', '');

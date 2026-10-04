@@ -20,8 +20,9 @@ The extension calls the production API at `https://sellmaster-1.onrender.com/api
 ## Dedicated app setup
 
 1. Open the extension options and set the Shopify **App URL** and the fixed Sellmaster **Redirect URI**.
-2. On the target Shopify admin page, choose **Auto** and click **Créer une app dédiée automatiquement**.
-3. In the Shopify developer dashboard, click **Auto-remplir**. The extension continues through app creation, scopes, URLs, publication, then registers the Client ID and generated secret with Sellmaster and opens the store grant page.
+2. On the target Shopify admin page, choose **Auto** and click **Créer une app dédiée automatiquement**. The extension opens the Shopify developer dashboard without assuming an organization.
+3. Select your organization in Shopify Developer. The extension detects its ID from the current URL and navigates to `https://dev.shopify.com/dashboard/{orgId}/apps/new`.
+4. Click **Auto-remplir**. The extension continues through app creation, scopes, URLs, publication, then registers the Client ID and generated secret with Sellmaster and opens the store grant page.
 4. If Shopify changes its dashboard UI, adjust selectors only in `selectors.js`.
 
 The automated dashboard steps are best-effort because Shopify changes its developer UI. The generated client secret is read only after the explicit user action and is sent to Sellmaster without being stored in extension storage.

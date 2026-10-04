@@ -127,7 +127,7 @@
         },
       });
       await sendToBackground({ type: 'SELLMASTER_OPEN_DEV_DASHBOARD' });
-      notify('Ouvre le dashboard développeur Shopify, puis clique sur Auto-remplir.', 'success');
+      notify('Dashboard développeur ouvert. Sélectionne ton organisation Shopify, puis clique sur Auto-remplir.', 'success');
     } catch (error) {
       notify(error.message || 'Impossible d’ouvrir le dashboard développeur.', 'error');
     } finally {
