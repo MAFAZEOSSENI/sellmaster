@@ -339,6 +339,42 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> getNotifications() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/notifications'),
+        headers: await _getHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+
+      final body = json.decode(response.body);
+      throw Exception(body['error'] ?? 'Erreur chargement notifications');
+    } catch (e) {
+      print('❌ Erreur getNotifications: $e');
+      rethrow;
+    }
+  }
+
+  static Future<void> markNotificationsAsRead() async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/notifications/read-all'),
+        headers: await _getHeaders(),
+      );
+
+      if (response.statusCode != 200) {
+        final body = json.decode(response.body);
+        throw Exception(body['error'] ?? 'Erreur marquage notifications');
+      }
+    } catch (e) {
+      print('❌ Erreur markNotificationsAsRead: $e');
+      rethrow;
+    }
+  }
+
   // ==================== LICENCES ====================
 
   static Future<Map<String, dynamic>> getLicenseStatus({int? ownerId}) async {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
@@ -17,12 +18,24 @@ import 'admin/admin_dashboard.dart';
 import 'support/support_page.dart';
 import 'auth/auth_provider.dart';
 import 'services/api_service.dart';
+import 'services/notification_service.dart';
+import 'services/fcm_service.dart';
+import 'firebase_options.dart';
 import 'pages/shopify_connected_page.dart';
+import 'pages/notifications_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   const bool useLocalApi = bool.fromEnvironment('USE_LOCAL_API', defaultValue: false);
   ApiService.setEnvironment(useLocal: useLocalApi);
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  final notificationService = NotificationService();
+  await FcmService().initialize(notificationService);
+
   Uri? initialLink;
   if (!kIsWeb) {
     try {
@@ -31,13 +44,14 @@ Future<void> main() async {
       initialLink = null;
     }
   }
-  runApp(MyApp(initialLink: initialLink));
+  runApp(MyApp(initialLink: initialLink, notificationService: notificationService));
 }
 
 class MyApp extends StatefulWidget {
   final Uri? initialLink;
+  final NotificationService notificationService;
 
-  const MyApp({Key? key, this.initialLink}) : super(key: key);
+  const MyApp({Key? key, this.initialLink, required this.notificationService}) : super(key: key);
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -95,6 +109,9 @@ class _MyAppState extends State<MyApp> {
       providers: [
         ChangeNotifierProvider(
           create: (context) => AuthProvider()..initialize(),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => widget.notificationService,
         ),
       ],
       child: MaterialApp(
@@ -160,6 +177,19 @@ class AuthWrapper extends StatelessWidget {
         if (!auth.isAuthenticated) {
           return const LoginPage();
         }
+
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (auth.isAuthenticated) {
+            await context.read<NotificationService>().syncFromServer();
+            if (context.read<NotificationService>().items.isEmpty) {
+              context.read<NotificationService>().show(
+                title: 'Bienvenue',
+                message: 'Vos notifications s\'afficheront ici.',
+                type: AppNotificationType.success,
+              );
+            }
+          }
+        });
 
         // ✅ Seulement aller au dashboard si authentifié
         return const MainNavigationPage();
@@ -248,20 +278,54 @@ class MainNavigationPageState extends State<MainNavigationPage> {
             visualDensity: VisualDensity.compact,
           ),
         ),
-        Container(
-          margin: const EdgeInsets.only(right: 8, top: 8),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: const Color(0xFFF5F7FA),
-          ),
-          child: IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: Color(0xFF1A1A1A)),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Notifications - Bientôt disponible')),
-              );
-            },
-          ),
+        Builder(
+          builder: (context) {
+            final notifications = context.watch<NotificationService>();
+            return Container(
+              margin: const EdgeInsets.only(right: 8, top: 8),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFF5F7FA),
+              ),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications_outlined, color: Color(0xFF1A1A1A)),
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const NotificationsPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  if (notifications.unreadCount > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        width: 18,
+                        height: 18,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFEF4444),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          notifications.unreadCount > 9 ? '9+' : notifications.unreadCount.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
         ),
         
         Container(

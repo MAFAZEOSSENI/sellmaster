@@ -90,6 +90,7 @@ app.get('/widget.js', (req, res) => {
 // Import des modèles
 const Product = require('./models/Product');
 const Order = require('./models/Order');
+const Notification = require('./models/Notification');
 
 async function ensureOwnerMemberAccess(req, res, effectiveOwnerId, resourceLabel = 'cette ressource') {
   if (!effectiveOwnerId || Number(req.userId) === Number(effectiveOwnerId)) {
@@ -588,10 +589,70 @@ app.patch('/api/orders/:id/status', authMiddleware, async (req, res) => {
         conn.release();
       }
 
-      return res.json(await Order.findById(req.params.id, req.userId));
+      const updatedOrder = await Order.findById(req.params.id, req.userId);
+      const orderNumber = updatedOrder?.custom_order_number || updatedOrder?.id || req.params.id;
+      const ownerUserId = Number(updatedOrder?.user_id || order.user_id);
+      const recipientIds = [
+        ownerUserId,
+        Number(updatedOrder?.assigned_closer_id || order.assigned_closer_id || order.created_by),
+        Number(req.userId)
+      ].filter((value) => Number.isFinite(value) && value > 0);
+
+      await Notification.notifyRoleGroup({
+        ownerUserId,
+        roleNames: ['owner', 'manager', 'closer', 'courier'],
+        includeOwner: true,
+        title: 'Commande livrée',
+        message: `La commande ${orderNumber} a bien été livrée par le livreur.`,
+        type: 'success',
+        relatedType: 'order',
+        relatedId: Number(req.params.id),
+      });
+
+      await Notification.notifyUsers({
+        userIds: recipientIds,
+        title: 'Commande livrée',
+        message: `La commande ${orderNumber} a bien été livrée par le livreur.`,
+        type: 'success',
+        relatedType: 'order',
+        relatedId: Number(req.params.id),
+      });
+
+      return res.json(updatedOrder);
     }
     
     const updatedOrder = await Order.updateStatus(req.params.id, status);
+    const orderNumber = updatedOrder?.custom_order_number || updatedOrder?.id || req.params.id;
+    const ownerUserId = Number(updatedOrder?.user_id || order.user_id);
+    const recipients = [
+      ownerUserId,
+      Number(updatedOrder?.assigned_to || order.assigned_to),
+      Number(updatedOrder?.assigned_closer_id || order.assigned_closer_id || order.created_by),
+      Number(req.userId)
+    ].filter((value) => Number.isFinite(value) && value > 0);
+
+    if (status === 'reportee' || status === 'dashboard' || status === 'annulee') {
+      await Notification.notifyRoleGroup({
+        ownerUserId,
+        roleNames: ['owner', 'manager', 'closer', 'courier'],
+        includeOwner: true,
+        title: status === 'reportee' ? 'Commande reportée' : status === 'annulee' ? 'Commande annulée' : 'Commande mise à jour',
+        message: `La commande ${orderNumber} a changé de statut: ${status}.`,
+        type: status === 'annulee' ? 'warning' : 'info',
+        relatedType: 'order',
+        relatedId: Number(req.params.id),
+      });
+
+      await Notification.notifyUsers({
+        userIds: recipients,
+        title: status === 'reportee' ? 'Commande reportée' : status === 'annulee' ? 'Commande annulée' : 'Commande mise à jour',
+        message: `La commande ${orderNumber} a changé de statut: ${status}.`,
+        type: status === 'annulee' ? 'warning' : 'info',
+        relatedType: 'order',
+        relatedId: Number(req.params.id),
+      });
+    }
+
     res.json(updatedOrder);
   } catch (error) {
     console.error('❌ Erreur mise à jour statut:', error);
@@ -654,6 +715,35 @@ app.patch('/api/orders/:id/assign', authMiddleware, async (req, res) => {
       currentRole === 'closer' ? currentUserId : null
     );
 
+    const orderNumber = updatedOrder?.custom_order_number || updatedOrder?.id || req.params.id;
+    const updatedOwnerUserId = Number(updatedOrder?.user_id || order.user_id);
+    const notifierRecipients = [
+      updatedOwnerUserId,
+      Number(updatedOrder?.assigned_closer_id || order.assigned_closer_id || order.created_by),
+      Number(assignedToUserId),
+      Number(req.userId)
+    ].filter((value) => Number.isFinite(value) && value > 0);
+
+    await Notification.notifyRoleGroup({
+      ownerUserId: updatedOwnerUserId,
+      roleNames: ['owner', 'manager', 'closer', 'courier'],
+      includeOwner: true,
+      title: 'Commande assignée',
+      message: `La commande ${orderNumber} a été assignée au livreur sélectionné.`,
+      type: 'info',
+      relatedType: 'order',
+      relatedId: Number(req.params.id),
+    });
+
+    await Notification.notifyUsers({
+      userIds: notifierRecipients,
+      title: 'Commande assignée',
+      message: `La commande ${orderNumber} a été assignée au livreur sélectionné.`,
+      type: 'info',
+      relatedType: 'order',
+      relatedId: Number(req.params.id),
+    });
+
     res.json(updatedOrder);
   } catch (error) {
     console.error('❌ Erreur attribution commande:', error);
@@ -671,6 +761,31 @@ app.get('/api/orders/stats/dashboard', authMiddleware, async (req, res) => {
     res.json(stats);
   } catch (error) {
     console.error('❌ Erreur récupération stats:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/notifications', authMiddleware, async (req, res) => {
+  try {
+    const notifications = await Notification.findByUser(Number(req.userId), { limit: 50 });
+    res.json({
+      success: true,
+      count: notifications.length,
+      unreadCount: await Notification.getUnreadCount(Number(req.userId)),
+      notifications,
+    });
+  } catch (error) {
+    console.error('❌ Erreur récupération notifications:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.patch('/api/notifications/read-all', authMiddleware, async (req, res) => {
+  try {
+    await Notification.markAllAsRead(Number(req.userId));
+    res.json({ success: true, message: 'Notifications marquées comme lues' });
+  } catch (error) {
+    console.error('❌ Erreur marquage notifications lues:', error);
     res.status(500).json({ error: error.message });
   }
 });

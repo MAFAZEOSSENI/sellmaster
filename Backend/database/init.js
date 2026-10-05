@@ -179,6 +179,24 @@ async function createTables() {
     await ensureColumnExists(conn, 'shopify_configs', 'client_secret', 'ADD COLUMN "client_secret" TEXT NULL');
 
     await conn.query(`
+      CREATE TABLE IF NOT EXISTS "notifications" (
+        id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        user_id INT NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        message TEXT NOT NULL,
+        type VARCHAR(30) NOT NULL DEFAULT 'info',
+        related_type VARCHAR(50) NULL,
+        related_id INT NULL,
+        is_read BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await ensureColumnExists(conn, 'notifications', 'related_type', 'ADD COLUMN "related_type" VARCHAR(50) NULL');
+    await ensureColumnExists(conn, 'notifications', 'related_id', 'ADD COLUMN "related_id" INT NULL');
+    await ensureColumnExists(conn, 'notifications', 'is_read', 'ADD COLUMN "is_read" BOOLEAN NOT NULL DEFAULT FALSE');
+
+    await conn.query(`
       CREATE TABLE IF NOT EXISTS "team_memberships" (
         id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         owner_user_id INT NOT NULL,
