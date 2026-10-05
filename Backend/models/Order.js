@@ -814,15 +814,33 @@ async updateFromShopify(orderId, orderData, userId) {
     
     console.log(`🔄 [Order.updateFromShopify] Mise à jour commande ${orderId}`);
     
-    // Vérifier que la commande appartient à l'utilisateur
-    const [existingOrder] = await conn.query(
-      'SELECT id FROM orders WHERE id = ? AND user_id = ?',
-      [orderId, userId]
-    );
+    const ownerId = Number(userId);
+    if (!Number.isInteger(ownerId) || ownerId <= 0) {
+      throw new Error('Utilisateur Shopify invalide');
+    }
+
+    // Resolve by Shopify identity so a stale local ID cannot block a valid sync.
+    let existingOrder = [];
+    if (orderData.shopify_order_id && orderData.shopify_store_id) {
+      [existingOrder] = await conn.query(
+        `SELECT id FROM orders
+         WHERE shopify_order_id = ? AND shopify_store_id = ? AND user_id = ?
+         LIMIT 1`,
+        [String(orderData.shopify_order_id), orderData.shopify_store_id, ownerId]
+      );
+    }
+
+    if (existingOrder.length === 0) {
+      [existingOrder] = await conn.query(
+        'SELECT id FROM orders WHERE id = ? AND user_id = ?',
+        [orderId, ownerId]
+      );
+    }
     
     if (existingOrder.length === 0) {
       throw new Error('Commande non trouvée ou non autorisée');
     }
+    const targetOrderId = existingOrder[0].id;
     
     // IMPORTANT: Vérifier et parser total_amount
     const totalAmount = parseFloat(orderData.total_amount) || 0;
@@ -853,13 +871,13 @@ async updateFromShopify(orderId, orderData, userId) {
       orderData.notes || '',                   // notes
       orderData.products || '[]',              // products
       orderData.shopify_data || '{}',          // shopify_data
-      orderId                                  // WHERE id = ?
+      targetOrderId                            // WHERE id = ?
     ]);
 
     const importedProducts = typeof orderData.products === 'string'
       ? JSON.parse(orderData.products || '[]')
       : (orderData.products || []);
-    await conn.query('DELETE FROM order_items WHERE order_id = ?', [orderId]);
+    await conn.query('DELETE FROM order_items WHERE order_id = ?', [targetOrderId]);
     for (const item of importedProducts) {
       const [productRows] = await conn.query(
         'SELECT id FROM products WHERE user_id = ? AND name = ? LIMIT 1',
@@ -879,14 +897,14 @@ async updateFromShopify(orderId, orderData, userId) {
       await conn.query(
         `INSERT INTO order_items (order_id, product_id, product_name, unit_price, unit_cost, quantity)
          VALUES (?, ?, ?, ?, ?, ?)`,
-        [orderId, productId, item.name || 'Produit Shopify', Number(item.price || 0), item.cost_price, Number(item.quantity || 1)]
+        [targetOrderId, productId, item.name || 'Produit Shopify', Number(item.price || 0), item.cost_price, Number(item.quantity || 1)]
       );
     }
     
     // Récupérer la commande mise à jour
     const [updatedOrders] = await conn.query(
-      'SELECT * FROM orders WHERE id = ?',
-      [orderId]
+      'SELECT * FROM orders WHERE id = ? AND user_id = ?',
+      [targetOrderId, ownerId]
     );
     const updatedOrder = updatedOrders[0];
     
