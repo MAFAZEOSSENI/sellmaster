@@ -9,6 +9,7 @@ const orderAuth = require('../extensions/middleware/orderAuth'); // ← AJOUTER
 const ShopifyController = require('../controllers/shopify.controller');
 const ShopifyConfig = require('../models/ShopifyConfig');
 const ShopifyService = require('../services/ShopifyService');
+const { verifyShopifyOAuthHmac } = require('../utils/shopifyOAuth');
 
 const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || '2026-07';
 const SHOPIFY_SCOPES = process.env.SHOPIFY_SCOPES || 'read_orders,write_orders,read_products,read_customers,read_inventory';
@@ -188,16 +189,16 @@ router.get('/auth/callback', async (req, res) => {
     }
 
     const decoded = jwt.verify(String(state || ''), process.env.JWT_SECRET || 'votre_secret_jwt');
-    const shopDomain = normalizeShopDomain(shop || decoded.shop);
-    if (normalizeShopDomain(decoded.shop) !== shopDomain) {
-      return res.status(400).send('Invalid Shopify OAuth callback: shop mismatch');
-    }
-
+    const requestedShopDomain = normalizeShopDomain(decoded.shop);
+    const shopDomain = normalizeShopDomain(shop);
     const clientId = decoded.clientId || process.env.SHOPIFY_CLIENT_ID;
     if (!clientId) return res.status(500).send('Shopify OAuth is not configured');
-    const storeCredentials = await ShopifyConfig.findOAuthCredentials(shopDomain, Number(decoded.userId), clientId);
+    const storeCredentials = await ShopifyConfig.findOAuthCredentials(requestedShopDomain, Number(decoded.userId), clientId);
     const clientSecret = storeCredentials?.client_secret || (clientId === process.env.SHOPIFY_CLIENT_ID ? getShopifySecret() : null);
     if (!clientSecret) return res.status(400).send('Shopify app credentials not registered for this store');
+    if (!verifyShopifyOAuthHmac(req.query, clientSecret)) {
+      return res.status(401).send('Invalid Shopify OAuth callback: HMAC verification failed');
+    }
 
     const tokenResponse = await axios.post(`https://${shopDomain}/admin/oauth/access_token`, {
       client_id: clientId,

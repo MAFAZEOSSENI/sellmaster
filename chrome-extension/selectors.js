@@ -33,6 +33,73 @@ globalThis.SellmasterShopifySelectors = Object.freeze({
     ]
   },
   access: {
+    scopePickerButtons: [
+      'button[aria-controls="select_scopes-dialog"]',
+      'button[commandfor="select_scopes-dialog"]',
+      'button[aria-label*="select scopes" i]',
+      'button[aria-label*="scope" i]',
+      'button[placeholder*="scope" i]',
+      '[role="combobox"][aria-label*="scope" i]',
+      '[role="combobox"][placeholder*="scope" i]',
+      '[aria-haspopup="listbox"][aria-label*="scope" i]',
+      'button[data-testid*="scope" i]',
+      '[data-testid*="scope-picker" i]',
+      '[role="combobox"]',
+      'button',
+      '[role="button"]'
+    ],
+    scopeListInputs: [
+      'textarea#app_form_app_module_data_app_access_scopes',
+      'textarea[name="app_form[app_module_data][app_access][scopes]"]',
+      'textarea[data-app-module--app-access-next-target="scopesField"]',
+      'textarea[name*="scope" i]',
+      'input[name*="scopes" i]:not([role="combobox"])',
+      'input[id*="scopes" i]:not([role="combobox"])',
+      'input[aria-label*="comma" i]',
+      'textarea[aria-label*="comma" i]',
+      'input[placeholder*="comma" i]',
+      'textarea[placeholder*="comma" i]',
+      'input[aria-label*="scope list" i]',
+      'textarea[aria-label*="scope list" i]',
+      'input[placeholder*="scope list" i]',
+      'textarea[placeholder*="scope list" i]'
+    ],
+    scopeSearchInputs: [
+      'input#select_scopes-search',
+      'input[name="select_scopes-search"]',
+      'input[aria-label="Search for scopes"]',
+      'input[role="combobox"]',
+      'input[aria-label*="search scope" i]',
+      'input[placeholder*="search scope" i]',
+      'input[aria-label*="search" i][aria-controls]',
+      'input[placeholder*="search" i][aria-controls]',
+      'input[aria-label*="scope" i]',
+      'input[placeholder*="scope" i]',
+      '[role="combobox"] input',
+      '[role="listbox"] input[type="text"]',
+    ],
+    scopeDropdowns: [
+      'dialog#select_scopes-dialog[open]',
+      '[role="listbox"]',
+      '[role="menu"]',
+      '[data-testid*="scope-dropdown" i]'
+    ],
+    scopeDialogCloseButtons: [
+      'dialog#select_scopes-dialog button[command="close"]',
+      'dialog#select_scopes-dialog button[aria-label="Cancel"]'
+    ],
+    scopeOptions: [
+      'label[for$="-{scope}"]',
+      'input[type="checkbox"][value="{scope}"]',
+      '[role="option"]',
+      '[role="menuitemcheckbox"]',
+      '[role="menuitem"]',
+      '[role="listbox"] li',
+      '[role="listbox"] button',
+      '[role="listbox"] label',
+      '[data-testid*="scope-option" i]',
+      'li[aria-selected]'
+    ],
     scopeInputs: [
       'input[type="checkbox"][value="{scope}"]',
       'input[type="checkbox"][name="{scope}"]',
@@ -113,6 +180,8 @@ globalThis.SellmasterShopifySelectors = Object.freeze({
       'button[title*="settings" i]'
     ],
     appUrlInputs: [
+      'input#app_form_app_module_data_app_home_app_url',
+      'input[name="app_form[app_module_data][app_home][app_url]"]',
       'input[name="application_url"]',
       'input[name="app_url"]',
       'input[aria-label*="app url" i]',
@@ -126,6 +195,9 @@ globalThis.SellmasterShopifySelectors = Object.freeze({
       'input[data-testid*="application-url" i]'
     ],
     redirectInputs: [
+      'textarea#app_form_app_module_data_app_access_redirect_url_allowlist',
+      'textarea[name="app_form[app_module_data][app_access][redirect_url_allowlist]"]',
+      'textarea[name*="[redirect_url_allowlist]"]',
       'input[name="redirect_urls"]',
       'input[name="redirect_url"]',
       'textarea[name="redirect_urls"]',
@@ -151,6 +223,9 @@ globalThis.SellmasterShopifySelectors = Object.freeze({
       'button[data-testid*="continue" i]'
     ],
     publishButtons: [
+      'button[data-action="altair--form#review"]',
+      'button[data-altair--form-target="submit"]',
+      'button[data-altair-variant="primary"]',
       'button[data-testid*="release"]',
       'button[aria-label*="publish" i]',
       'button[aria-label*="release" i]',
@@ -159,6 +234,8 @@ globalThis.SellmasterShopifySelectors = Object.freeze({
       'button[data-testid*="publish" i]'
     ],
     publishConfirmButtons: [
+      'dialog#release_modal-dialog button[data-altair--form-target="submit"]',
+      'dialog[aria-labelledby="release_modal-title"] button[type="submit"]',
       'button[data-testid*="confirm-publish"]',
       'button[aria-label*="confirm publish" i]',
       'button[aria-label*="confirm release" i]',

@@ -15,45 +15,7 @@
     read_customers: ['read customers', 'read customer'],
     read_inventory: ['read inventory', 'read stock'],
   };
-  const SCOPE_VARIANTS = Object.fromEntries(Object.entries(LABELS).map(([scope, labels]) => [
-    scope,
-    Array.from(new Set([
-      scope,
-      scope.replace(/_/g, '-'),
-      scope.replace(/_/g, ' '),
-      ...labels,
-      ...labels.map(label => label.replace(/\s+/g, '-')),
-      ...labels.map(label => label.replace(/\s+/g, '_')),
-      ...labels.map(label => label.replace(/\s+/g, ' '))
-    ].filter(Boolean)))
-  ]));
-
-  function scopeSelectorVariants(scope) {
-    const variants = SCOPE_VARIANTS[scope] || [scope];
-    const selectors = [];
-    for (const variant of variants) {
-      selectors.push(
-        `input[type="checkbox"][value*="${variant}" i]`,
-        `input[type="checkbox"][name*="${variant}" i]`,
-        `input[type="checkbox"][data-scope*="${variant}" i]`,
-        `input[type="checkbox"][data-value*="${variant}" i]`,
-        `input[type="checkbox"][aria-label*="${variant}" i]`,
-        `[role="checkbox"][data-value*="${variant}" i]`,
-        `[role="checkbox"][data-scope*="${variant}" i]`,
-        `[role="checkbox"][aria-label*="${variant}" i]`,
-        `[role="switch"][data-value*="${variant}" i]`,
-        `[role="switch"][data-scope*="${variant}" i]`,
-        `[role="switch"][aria-label*="${variant}" i]`,
-        `button[role="checkbox"][aria-label*="${variant}" i]`,
-        `button[role="switch"][aria-label*="${variant}" i]`,
-        `[data-testid*="${variant}" i]`,
-        `[data-scope*="${variant}" i]`,
-        `[data-value*="${variant}" i]`,
-        `[aria-label*="${variant}" i]`
-      );
-    }
-    return [...new Set(selectors)];
-  }
+  const SCOPE_CSV = API_SCOPE_KEYS.join(',');
 
   let running = false;
 
@@ -109,6 +71,42 @@
     return candidates.find(element => visible(element) && (!phrase || `${element.innerText || ''} ${element.getAttribute('aria-label') || ''}`.toLowerCase().includes(phrase))) || null;
   }
 
+  function findScopePicker() {
+    const semanticSelectors = SELECTORS.access.scopePickerButtons.filter(selector => selector !== 'button' && selector !== '[role="button"]');
+    return findButton(SELECTORS.access.scopePickerButtons, 'scope') || findFirst(semanticSelectors);
+  }
+
+  function waitForScopePicker(timeoutMs = 45000) {
+    return new Promise((resolve, reject) => {
+      const started = Date.now();
+      const timer = setInterval(() => {
+        const picker = findScopePicker();
+        if (picker) {
+          clearInterval(timer);
+          resolve(picker);
+        } else if (Date.now() - started > timeoutMs) {
+          clearInterval(timer);
+          reject(new Error('Menu “Select scopes” introuvable. Vérifie les sélecteurs du scope dans selectors.js.'));
+        }
+      }, 350);
+    });
+  }
+
+  function waitForHidden(selectorList, timeoutMs = 5000) {
+    return new Promise((resolve, reject) => {
+      const started = Date.now();
+      const timer = setInterval(() => {
+        if (!findFirst(selectorList)) {
+          clearInterval(timer);
+          resolve();
+        } else if (Date.now() - started > timeoutMs) {
+          clearInterval(timer);
+          reject(new Error('Le menu des scopes Shopify ne s’est pas fermé.'));
+        }
+      }, 100);
+    });
+  }
+
   function waitFor(selectorList, timeoutMs = 45000) {
     return new Promise((resolve, reject) => {
       const started = Date.now();
@@ -158,33 +156,82 @@
     }
   }
 
-  async function ensureScopes() {
-    const inputSelectors = SELECTORS.access.scopeInputs;
-    for (const scope of API_SCOPE_KEYS) {
-      const scopeSelectors = [
-        ...inputSelectors.map(selector => selector.replaceAll('{scope}', scope)),
-        ...scopeSelectorVariants(scope),
-      ];
-      let control = findFirst(scopeSelectors);
-      if (!control) {
-        const rowSelectors = [
-          ...SELECTORS.access.scopeRows.map(selector => selector.replaceAll('{scope}', scope)),
-          ...scopeSelectorVariants(scope)
-        ];
-        const labels = [];
-        rowSelectors.forEach(selector => labels.push(...document.querySelectorAll(selector)));
-        const accepted = LABELS[scope] || [scope];
-        const row = labels.find(element => visible(element) && accepted.some(label => (element.innerText || '').toLowerCase().includes(label)));
-        if (row) {
-          control = findFirst(SELECTORS.access.nestedCheckboxes, row);
-          if (!control && SELECTORS.access.roleCheckboxes.some(selector => row.matches(selector))) control = row;
-          if (!control && row.tagName === 'LABEL') control = row;
-          if (!control && row.querySelector) control = findFirst(SELECTORS.access.nestedCheckboxes, row);
+  function findScopeOption(scope) {
+    const labels = [scope, scope.replace(/_/g, '-'), scope.replace(/_/g, ' '), ...(LABELS[scope] || [])]
+      .map(value => value.toLowerCase());
+    const options = [];
+    SELECTORS.access.scopeOptions.forEach(selector => {
+      options.push(...document.querySelectorAll(selector.replaceAll('{scope}', scope)));
+    });
+    return options.find(option => {
+      if (!visible(option)) return false;
+      const text = `${option.innerText || ''} ${option.getAttribute('aria-label') || ''}`.trim().toLowerCase();
+      return labels.some(label => text === label || text.startsWith(`${label} `) || text.includes(` ${label} `));
+    }) || null;
+  }
+
+  function scopeMenuOpen() {
+    return Boolean(findFirst(SELECTORS.access.scopeDropdowns) || findFirst(SELECTORS.access.scopeOptions));
+  }
+
+  function waitForScopeOption(scope, timeoutMs = 12000) {
+    return new Promise((resolve, reject) => {
+      const started = Date.now();
+      const timer = setInterval(() => {
+        const option = findScopeOption(scope);
+        if (option) {
+          clearInterval(timer);
+          resolve(option);
+        } else if (Date.now() - started > timeoutMs) {
+          clearInterval(timer);
+          reject(new Error(`Option du scope ${scope} introuvable dans le menu Shopify.`));
         }
+      }, 250);
+    });
+  }
+
+  async function ensureScopes() {
+    const picker = await waitForScopePicker();
+    picker.click();
+
+    const listInput = SELECTORS.access.scopeListInputs
+      .flatMap(selector => Array.from(document.querySelectorAll(selector)))
+      .find(element => visible(element) && !/search|query/i.test([
+        element.name,
+        element.id,
+        element.getAttribute('aria-label'),
+        element.placeholder
+      ].join(' ')));
+    if (listInput) {
+      const openDialog = findFirst(SELECTORS.access.scopeDropdowns);
+      if (openDialog) {
+        const closeButton = findFirst(SELECTORS.access.scopeDialogCloseButtons, openDialog);
+        if (!closeButton) throw new Error('Bouton de fermeture du menu des scopes introuvable dans selectors.js.');
+        closeButton.click();
+        await waitForHidden(SELECTORS.access.scopeDropdowns);
       }
-      if (!control) throw new Error(`Scope ${scope} non trouvé. Corrige selectors.js pour l’interface Shopify actuelle.`);
-      const checked = control.checked === true || control.getAttribute('aria-checked') === 'true' || control.getAttribute('aria-selected') === 'true';
-      if (!checked) control.click();
+      setValue(listInput, SCOPE_CSV);
+      return;
+    }
+
+    for (const scope of API_SCOPE_KEYS) {
+      if (!scopeMenuOpen()) {
+        const pickerButton = await waitForScopePicker();
+        pickerButton.click();
+      }
+      const searchInput = findFirst(SELECTORS.access.scopeSearchInputs)
+        || (picker.matches('input, textarea') && visible(picker) ? picker : null)
+        || await waitFor(SELECTORS.access.scopeSearchInputs);
+      setValue(searchInput, scope);
+      const option = await waitForScopeOption(scope);
+      const optionControl = option.matches('label') ? option.control
+        : option.matches('input[type="checkbox"]') ? option
+          : option.querySelector('input[type="checkbox"]');
+      const alreadySelected = optionControl?.checked === true
+        || option.getAttribute('aria-selected') === 'true'
+        || option.getAttribute('aria-checked') === 'true'
+        || option.getAttribute('data-state') === 'checked';
+      if (!alreadySelected) option.click();
     }
   }
 
@@ -223,25 +270,14 @@
         setValue(nameInput, state.appName || 'Connecteur Sellmaster');
         const createButton = findButton(SELECTORS.appCreate.createButtons, 'create') || findButton(SELECTORS.appCreate.createButtons, 'créer');
         if (!createButton) throw new Error('Bouton de création introuvable dans selectors.js.');
-        state = await updatePending({ orgId, step: 'access' });
+        state = await updatePending({ orgId, step: 'configure' });
         createButton.click();
       }
 
-      if (state.step === 'access') {
-        status('Configuration des accès Shopify...', '');
-        if (!findFirst(SELECTORS.access.scopeInputs.map(selector => selector.replaceAll('{scope}', 'read_orders')))) {
-          const accessLink = findButton(SELECTORS.access.navigationLinks, 'access') || findButton(SELECTORS.access.navigationLinks, 'permission');
-          if (accessLink) accessLink.click();
-        }
-        await waitFor(SELECTORS.access.scopeInputs.map(selector => selector.replaceAll('{scope}', 'read_orders')).concat(SELECTORS.access.scopeRows));
+      if (['access', 'settings', 'configure'].includes(state.step)) {
+        status('Configuration des accès et des URLs Shopify...', '');
+        state = await updatePending({ step: 'configure' });
         await ensureScopes();
-        state = await updatePending({ step: 'settings' });
-        const saveScopes = findButton(SELECTORS.access.saveButtons, 'save') || findButton(SELECTORS.access.saveButtons, 'enregistrer');
-        if (saveScopes) saveScopes.click();
-      }
-
-      if (state.step === 'settings') {
-        status('Configuration des URLs et publication...', '');
         const appUrlInput = await waitFor(SELECTORS.settings.appUrlInputs);
         const redirectInput = await waitFor(SELECTORS.settings.redirectInputs);
         setValue(appUrlInput, config.appUrl);
@@ -288,11 +324,15 @@
           body: { shopDomain: state.shopDomain, clientId, clientSecret },
         });
         secretInput.value = '';
-        const grantUrl = new URL(`https://admin.shopify.com/store/${encodeURIComponent(state.storeHandle)}/app/grant`);
-        grantUrl.searchParams.set('client_id', clientId);
+        const authorization = await send({
+          type: 'SELLMASTER_API',
+          path: '/shopify/auth/start',
+          method: 'GET',
+          body: { shopDomain: state.shopDomain },
+        });
         await chrome.storage.local.remove(PENDING_KEY);
         status('Identifiants enregistrés. Ouverture de l’autorisation de la boutique...', 'success');
-        await send({ type: 'SELLMASTER_OPEN_GRANT', url: grantUrl.toString() });
+        await send({ type: 'SELLMASTER_OPEN_OAUTH', url: authorization.url });
         return;
       }
     } catch (error) {
