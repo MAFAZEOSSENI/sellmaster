@@ -71,6 +71,21 @@
     return candidates.find(element => visible(element) && (!phrase || `${element.innerText || ''} ${element.getAttribute('aria-label') || ''}`.toLowerCase().includes(phrase))) || null;
   }
 
+  function findSecretActionButton(selectorList, kind, root = document) {
+    const candidates = new Set();
+    (selectorList || []).forEach(selector => root.querySelectorAll(selector).forEach(element => candidates.add(element)));
+    root.querySelectorAll('button').forEach(element => candidates.add(element));
+    const actionPattern = kind === 'confirm'
+      ? /confirm|continue|save|rotate|generate|regenerat|confirm|continuer|enregistrer|valider|g[eé]n[eé]r|r[eé]g[eé]n[eé]r|cr[eé]er|pivoter/i
+      : /rotate|regenerat|generate|create|faire pivoter|pivoter|g[eé]n[eé]r|r[eé]g[eé]n[eé]r|cr[eé]er|nouveau secret|nouvelle cl[eé]/i;
+    return [...candidates].find(element => visible(element) && actionPattern.test([
+      element.innerText || '',
+      element.getAttribute('aria-label') || '',
+      element.getAttribute('title') || '',
+      element.getAttribute('data-testid') || ''
+    ].join(' '))) || null;
+  }
+
   function findScopePicker() {
     const semanticSelectors = SELECTORS.access.scopePickerButtons.filter(selector => selector !== 'button' && selector !== '[role="button"]');
     return findButton(SELECTORS.access.scopePickerButtons, 'scope') || findFirst(semanticSelectors);
@@ -308,13 +323,27 @@
         const clientIdInput = await waitFor(SELECTORS.settings.clientIdInputs);
         const clientId = String(clientIdInput.value || clientIdInput.textContent || '').trim();
         if (!clientId) throw new Error('Client ID vide. Corrige le sélecteur correspondant dans selectors.js.');
-        const rotate = findButton(SELECTORS.settings.rotateSecretButtons, 'rotate') || findButton(SELECTORS.settings.rotateSecretButtons, 'generate') || findButton(SELECTORS.settings.rotateSecretButtons, 'générer');
-        if (!rotate) throw new Error('Bouton de génération du secret introuvable.');
-        rotate.click();
-        const confirmRotate = await waitFor(SELECTORS.settings.rotateConfirmButtons, 5000).catch(() => null);
-        if (confirmRotate) confirmRotate.click();
-        const secretInput = await waitFor(SELECTORS.settings.clientSecretInputs);
-        const clientSecret = String(secretInput.value || secretInput.textContent || '').trim();
+        let secretInput = findFirst(SELECTORS.settings.clientSecretInputs);
+        let clientSecret = String(secretInput?.value || secretInput?.textContent || '').trim();
+        if (!clientSecret) {
+          const rotate = findSecretActionButton(SELECTORS.settings.rotateSecretButtons, 'generate');
+          if (!rotate) throw new Error('Secret client absent et action Générer/Renouveler introuvable.');
+          rotate.click();
+          const confirmRotate = await new Promise(resolve => {
+            const started = Date.now();
+            const timer = setInterval(() => {
+              const dialog = findFirst(['dialog[open]', '[role="dialog"]']);
+              const confirm = dialog && findSecretActionButton(SELECTORS.settings.rotateConfirmButtons, 'confirm', dialog);
+              if (confirm || Date.now() - started > 5000) {
+                clearInterval(timer);
+                resolve(confirm || null);
+              }
+            }, 150);
+          });
+          if (confirmRotate) confirmRotate.click();
+          secretInput = await waitFor(SELECTORS.settings.clientSecretInputs);
+          clientSecret = String(secretInput.value || secretInput.textContent || '').trim();
+        }
         if (!clientSecret) throw new Error('Secret non lisible. Shopify peut ne l’afficher qu’une seule fois; vérifie la page avant de recommencer.');
         state = await updatePending({ step: 'registering' });
         await send({

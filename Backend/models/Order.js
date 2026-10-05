@@ -650,14 +650,24 @@ const Order = {
       if (conn) conn.release();
     }
   },
-  async findByShopifyOrderId(shopifyOrderId) {
+  async findByShopifyOrderId(shopifyOrderId, userId = null, shopifyStoreId = null) {
     let conn;
     try {
       conn = await getConnection();
-      const [orders] = await conn.query(
-        'SELECT * FROM orders WHERE shopify_order_id = ?',
-        [shopifyOrderId]
-      );
+      let query = 'SELECT * FROM orders WHERE shopify_order_id = ?';
+      const params = [shopifyOrderId];
+
+      if (userId) {
+        query += ' AND user_id = ?';
+        params.push(userId);
+      }
+
+      if (shopifyStoreId) {
+        query += ' AND shopify_store_id = ?';
+        params.push(shopifyStoreId);
+      }
+
+      const [orders] = await conn.query(query, params);
       return orders[0] || null;
     } finally {
       if (conn) conn.release();

@@ -305,8 +305,12 @@ class ShopifyService {
       order_date: new Date(shopifyOrder.created_at || shopifyOrder.processed_at)
     };
     
-    // Vérifier si la commande existe déjà
-    const existingOrder = await Order.findByShopifyOrderId(shopifyOrder.id.toString());
+    // Vérifier si la commande existe déjà pour ce store / cette boutique
+    const existingOrder = await Order.findByShopifyOrderId(
+      shopifyOrder.id.toString(),
+      this.userId,
+      storeId
+    );
     
     if (!existingOrder) {
       // Créer une nouvelle commande
