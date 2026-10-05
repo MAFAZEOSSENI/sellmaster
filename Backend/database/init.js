@@ -137,11 +137,13 @@ async function createTables() {
         owner_user_id INT NOT NULL REFERENCES "app_users"(id) ON DELETE CASCADE,
         public_token VARCHAR(64) NOT NULL UNIQUE,
         fields_config JSONB NOT NULL DEFAULT '{"phone":true,"city":true,"address":true,"product_variant":true,"quantity":true}'::jsonb,
+        cod_gateway_name VARCHAR(255) NOT NULL DEFAULT 'Cash on Delivery (COD)',
         is_published BOOLEAN NOT NULL DEFAULT FALSE,
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    await ensureColumnExists(conn, 'order_forms', 'cod_gateway_name', `ADD COLUMN "cod_gateway_name" VARCHAR(255) NOT NULL DEFAULT 'Cash on Delivery (COD)'`);
 
     await conn.query(`
       CREATE TABLE IF NOT EXISTS "licenses" (

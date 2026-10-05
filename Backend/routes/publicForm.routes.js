@@ -161,8 +161,9 @@ router.post('/:token/submit', submitLimiter, async (req, res) => {
       items: formData.items.map(item => ({
         variantId: productsById.get(item.productId).shopify_variant_id,
         quantity: item.quantity,
+        unitPrice: Number(productsById.get(item.productId).price || 0),
       })),
-    });
+    }, { ...config, cod_gateway_name: form.cod_gateway_name });
     return res.status(201).json({ success: true, order: createdOrder });
   } catch (error) {
     console.error('[Public order form] Shopify order creation failed:', {

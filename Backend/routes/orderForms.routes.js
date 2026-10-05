@@ -4,6 +4,7 @@ const { requireRole } = require('../middleware/rbacMiddleware');
 const User = require('../models/User');
 const License = require('../models/License');
 const OrderForm = require('../models/OrderForm');
+const ShopifyConfig = require('../models/ShopifyConfig');
 
 const router = express.Router();
 router.use(authMiddleware, requireRole('owner'));
@@ -41,7 +42,7 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const form = await OrderForm.create(Number(req.userId), req.body?.fields_config);
+    const form = await OrderForm.create(Number(req.userId), req.body?.fields_config, req.body?.cod_gateway_name);
     return res.status(201).json({ form });
   } catch (error) {
     console.error('[Order forms] Create failed:', error);
@@ -51,7 +52,12 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
-    const form = await OrderForm.update(req.params.id, Number(req.userId), req.body?.fields_config);
+    const form = await OrderForm.update(
+      req.params.id,
+      Number(req.userId),
+      req.body?.fields_config,
+      req.body?.cod_gateway_name
+    );
     if (!form) return res.status(404).json({ error: 'Formulaire introuvable.' });
     return res.json({ form });
   } catch (error) {
@@ -67,7 +73,13 @@ router.patch('/:id/publish', async (req, res) => {
     const action = req.body.is_published ? OrderForm.publish : OrderForm.unpublish;
     const form = await action.call(OrderForm, req.params.id, Number(req.userId));
     if (!form) return res.status(404).json({ error: 'Formulaire introuvable.' });
-    return res.json({ form });
+    if (!req.body.is_published) return res.json({ form });
+
+    const stores = await ShopifyConfig.findActiveByOwner(Number(req.userId));
+    const warning = stores.length
+      ? `Vérification Shopify impossible : l’API ne publie pas la liste des moyens de paiement manuels. Confirmez que « ${form.cod_gateway_name} » correspond EXACTEMENT au moyen créé dans Shopify (Réglages > Paiements), sinon la création de commande échouera ou son statut pourra être incorrect.`
+      : 'Aucune boutique Shopify active n’est connectée. Connectez une boutique et vérifiez son moyen de paiement manuel avant de recevoir des commandes.';
+    return res.json({ form, gateway_verified: false, warning });
   } catch (error) {
     console.error('[Order forms] Publish update failed:', error);
     return res.status(400).json({ error: 'Impossible de modifier la publication.' });

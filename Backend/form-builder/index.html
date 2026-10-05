@@ -56,6 +56,9 @@
               <label class="toggle"><input type="checkbox" data-field="product_variant"> Sélecteur produit / variante</label>
               <label class="toggle"><input type="checkbox" data-field="quantity"> Quantité</label>
             </div>
+            <label class="field-label" for="cod-gateway-name">Nom du moyen de paiement à la livraison</label>
+            <input class="text-input" id="cod-gateway-name" maxlength="255" value="Cash on Delivery (COD)" required>
+            <p class="instructions">Ce nom doit correspondre EXACTEMENT au moyen de paiement manuel que vous avez créé dans Shopify (Réglages &gt; Paiements).</p>
             <button id="save-fields" class="button secondary" type="button" style="margin-top:14px">Enregistrer les champs</button>
             <div class="section-title">Script pour votre boutique Shopify</div>
             <div class="snippet"><code id="snippet">Le script apparaîtra après publication.</code><button id="copy" class="button copy" type="button" disabled>Copier</button></div>
@@ -103,6 +106,7 @@
     if(!form)return;
     const config=form.fields_config||{};
     document.querySelectorAll('[data-field]').forEach(input=>{input.checked=config[input.dataset.field]===true;});
+    document.getElementById('cod-gateway-name').value=form.cod_gateway_name||'Cash on Delivery (COD)';
     updatePublishUi();
     updateSnippet();
     renderForms();
@@ -152,18 +156,20 @@
     finally{button.disabled=false;}
   });
   document.getElementById('new-form').addEventListener('click',async()=>{
-    try{notice(builderNotice,'Création du formulaire...');const data=await request('/order-forms',{method:'POST',body:JSON.stringify({fields_config:{phone:true,city:true,address:true,product_variant:true,quantity:true}})});forms.unshift(data.form);setEditor(data.form);notice(builderNotice,'Formulaire créé. Configurez les champs puis publiez-le.','ok');}
+    try{notice(builderNotice,'Création du formulaire...');const data=await request('/order-forms',{method:'POST',body:JSON.stringify({fields_config:{phone:true,city:true,address:true,product_variant:true,quantity:true},cod_gateway_name:'Cash on Delivery (COD)'})});forms.unshift(data.form);setEditor(data.form);notice(builderNotice,'Formulaire créé. Configurez les champs puis publiez-le.','ok');}
     catch(error){notice(builderNotice,error.message,'error');}
   });
   document.getElementById('save-fields').addEventListener('click',async()=>{
     if(!selected)return;
     const fields_config={};document.querySelectorAll('[data-field]').forEach(input=>{fields_config[input.dataset.field]=input.checked;});
-    try{notice(builderNotice,'Enregistrement...');const data=await request('/order-forms/'+selected.id,{method:'PUT',body:JSON.stringify({fields_config})});selected=data.form;forms=forms.map(form=>Number(form.id)===Number(selected.id)?selected:form);updateSnippet();renderForms();notice(builderNotice,'Configuration enregistrée.','ok');}
+    const cod_gateway_name=document.getElementById('cod-gateway-name').value.trim();
+    if(!cod_gateway_name){notice(builderNotice,'Le nom du moyen de paiement COD est obligatoire.','error');return;}
+    try{notice(builderNotice,'Enregistrement...');const data=await request('/order-forms/'+selected.id,{method:'PUT',body:JSON.stringify({fields_config,cod_gateway_name})});selected=data.form;forms=forms.map(form=>Number(form.id)===Number(selected.id)?selected:form);updateSnippet();renderForms();notice(builderNotice,'Configuration enregistrée.','ok');}
     catch(error){notice(builderNotice,error.message,'error');}
   });
   document.getElementById('publish').addEventListener('click',async()=>{
     if(!selected)return;
-    try{notice(builderNotice,'Mise à jour...');const data=await request('/order-forms/'+selected.id+'/publish',{method:'PATCH',body:JSON.stringify({is_published:selected.is_published!==true})});selected=data.form;forms=forms.map(form=>Number(form.id)===Number(selected.id)?selected:form);updatePublishUi();updateSnippet();renderForms();notice(builderNotice,selected.is_published?'Formulaire publié.':'Formulaire dépublié.','ok');}
+    try{notice(builderNotice,'Mise à jour...');const data=await request('/order-forms/'+selected.id+'/publish',{method:'PATCH',body:JSON.stringify({is_published:selected.is_published!==true})});selected=data.form;forms=forms.map(form=>Number(form.id)===Number(selected.id)?selected:form);updatePublishUi();updateSnippet();renderForms();notice(builderNotice,data.warning|| (selected.is_published?'Formulaire publié.':'Formulaire dépublié.'),data.warning?'error':'ok');}
     catch(error){notice(builderNotice,error.message,'error');}
   });
   copyButton.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(snippet.textContent);notice(builderNotice,'Script copié dans le presse-papiers.','ok');}catch(_){notice(builderNotice,'Copie impossible: sélectionnez le script et copiez-le manuellement.','error');}});

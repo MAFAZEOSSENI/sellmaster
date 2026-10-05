@@ -69,16 +69,33 @@ class ShopifyService {
       throw new Error('Produits ou quantités invalides');
     }
 
+    const gatewayName = String(config.cod_gateway_name || '').trim();
+    if (!gatewayName || gatewayName.length > 255) {
+      throw new Error('Nom du moyen de paiement COD invalide');
+    }
+    const totalCents = items.reduce((total, item) => {
+      const unitPrice = Number(item.unitPrice);
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new Error('Prix produit invalide');
+      return total + Math.round(unitPrice * 100) * Number(item.quantity);
+    }, 0);
+    const totalAmount = (totalCents / 100).toFixed(2);
+
     const fullName = String(formData.customer_name || '').trim();
     const nameParts = fullName.split(/\s+/);
+    const firstName = nameParts[0] || 'Client';
+    const lastName = nameParts.slice(1).join(' ') || firstName;
     const order = {
       financial_status: 'pending',
-      tags: 'sellmaster-form',
+      gateway: gatewayName,
+      processing_method: 'manual',
+      payment_gateway_names: [gatewayName],
+      transactions: [{ kind: 'sale', status: 'pending', amount: totalAmount, gateway: gatewayName }],
+      tags: 'COD, SELLMASTER_FORM',
       line_items: items.map(item => ({ variant_id: Number(item.variantId), quantity: Number(item.quantity) })),
       note: 'Commande créée via le formulaire public Sellmaster',
       customer: {
-        first_name: nameParts[0] || '',
-        last_name: nameParts.slice(1).join(' '),
+        first_name: firstName,
+        last_name: lastName,
         email: formData.email || undefined,
         phone: formData.phone || undefined,
       },
@@ -87,8 +104,8 @@ class ShopifyService {
     if (formData.phone) order.phone = String(formData.phone).trim();
     if (formData.address || formData.city || formData.phone) {
       order.shipping_address = {
-        first_name: nameParts[0] || '',
-        last_name: nameParts.slice(1).join(' '),
+        first_name: firstName,
+        last_name: lastName,
         address1: formData.address ? String(formData.address).trim() : undefined,
         city: formData.city ? String(formData.city).trim() : undefined,
         phone: formData.phone ? String(formData.phone).trim() : undefined,

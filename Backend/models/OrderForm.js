@@ -8,9 +8,10 @@ const DEFAULT_FIELDS_CONFIG = {
   product_variant: true,
   quantity: true,
 };
+const DEFAULT_COD_GATEWAY_NAME = 'Cash on Delivery (COD)';
 
 class OrderForm {
-  static async create(ownerUserId, fieldsConfig = DEFAULT_FIELDS_CONFIG) {
+  static async create(ownerUserId, fieldsConfig = DEFAULT_FIELDS_CONFIG, codGatewayName = DEFAULT_COD_GATEWAY_NAME) {
     const normalizedOwnerId = Number(ownerUserId);
     if (!Number.isInteger(normalizedOwnerId) || normalizedOwnerId <= 0) {
       throw new Error('ownerUserId invalide');
@@ -18,13 +19,15 @@ class OrderForm {
 
     const publicToken = crypto.randomBytes(32).toString('hex');
     const config = { ...DEFAULT_FIELDS_CONFIG, ...fieldsConfig };
+    const gatewayName = String(codGatewayName || '').trim();
+    if (!gatewayName || gatewayName.length > 255) throw new Error('Nom du moyen de paiement COD invalide');
     const conn = await getConnection();
     try {
       const [result] = await conn.query(
-        `INSERT INTO order_forms (owner_user_id, public_token, fields_config)
-         VALUES ($1, $2, $3::jsonb)
+        `INSERT INTO order_forms (owner_user_id, public_token, fields_config, cod_gateway_name)
+         VALUES ($1, $2, $3::jsonb, $4)
          RETURNING id`,
-        [normalizedOwnerId, publicToken, JSON.stringify(config)]
+        [normalizedOwnerId, publicToken, JSON.stringify(config), gatewayName]
       );
       const [rows] = await conn.query('SELECT * FROM order_forms WHERE id = $1', [result.insertId]);
       return rows[0] || null;
@@ -41,7 +44,7 @@ class OrderForm {
     const conn = await getConnection();
     try {
       const [rows] = await conn.query(
-        `SELECT id, owner_user_id, public_token, fields_config, is_published, created_at, updated_at
+        `SELECT id, owner_user_id, public_token, fields_config, cod_gateway_name, is_published, created_at, updated_at
          FROM order_forms
          WHERE public_token = $1 AND is_published = TRUE
          LIMIT 1`,
@@ -62,7 +65,7 @@ class OrderForm {
     const conn = await getConnection();
     try {
       const [rows] = await conn.query(
-        `SELECT id, owner_user_id, public_token, fields_config, is_published, created_at, updated_at
+        `SELECT id, owner_user_id, public_token, fields_config, cod_gateway_name, is_published, created_at, updated_at
          FROM order_forms
          WHERE owner_user_id = $1
          ORDER BY created_at DESC`,
@@ -74,7 +77,7 @@ class OrderForm {
     }
   }
 
-  static async update(id, ownerUserId, fieldsConfig) {
+  static async update(id, ownerUserId, fieldsConfig, codGatewayName = DEFAULT_COD_GATEWAY_NAME) {
     const normalizedId = Number(id);
     const normalizedOwnerId = Number(ownerUserId);
     if (!Number.isInteger(normalizedId) || normalizedId <= 0 || !Number.isInteger(normalizedOwnerId) || normalizedOwnerId <= 0) {
@@ -83,14 +86,16 @@ class OrderForm {
     if (!fieldsConfig || typeof fieldsConfig !== 'object' || Array.isArray(fieldsConfig)) {
       throw new Error('fields_config invalide');
     }
+    const gatewayName = String(codGatewayName || '').trim();
+    if (!gatewayName || gatewayName.length > 255) throw new Error('Nom du moyen de paiement COD invalide');
 
     const conn = await getConnection();
     try {
       const [result] = await conn.query(
         `UPDATE order_forms
-         SET fields_config = $1::jsonb, updated_at = NOW()
-         WHERE id = $2 AND owner_user_id = $3`,
-        [JSON.stringify({ ...DEFAULT_FIELDS_CONFIG, ...fieldsConfig }), normalizedId, normalizedOwnerId]
+         SET fields_config = $1::jsonb, cod_gateway_name = $2, updated_at = NOW()
+         WHERE id = $3 AND owner_user_id = $4`,
+        [JSON.stringify({ ...DEFAULT_FIELDS_CONFIG, ...fieldsConfig }), gatewayName, normalizedId, normalizedOwnerId]
       );
       if (result.affectedRows === 0) return null;
 
