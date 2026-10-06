@@ -20,7 +20,6 @@
   var apiBase = scriptUrl.origin + '/api/public/forms/' + encodeURIComponent(token);
   var host = document.createElement('div');
   host.setAttribute('data-sellmaster-form-widget', '');
-  (document.body || document.documentElement).appendChild(host);
   var shadow = host.attachShadow({ mode: 'open' });
 
   var style = document.createElement('style');
@@ -31,6 +30,7 @@
     '.overlay{position:fixed;inset:0;z-index:2147483001;display:none;align-items:center;justify-content:center;padding:16px;background:#10182099}',
     '.overlay.open{display:flex}',
     '.panel{position:relative;width:min(100%,480px);max-height:90vh;overflow:auto;background:#fff;border-radius:14px;padding:24px;box-shadow:0 20px 70px #0004}',
+    '.panel.embedded{max-height:none;margin:0 auto;box-shadow:none}',
     'h2{margin:0 36px 18px 0;font:700 22px system-ui,sans-serif;color:#17202a}',
     '.close{position:absolute;top:12px;right:12px;border:0;background:transparent;color:#52606d;font-size:26px;line-height:1;cursor:pointer}',
     'label{display:block;margin:12px 0 5px;font:600 13px system-ui,sans-serif;color:#344054}',
@@ -68,8 +68,6 @@
 
   var title = document.createElement('h2');
   title.textContent = 'Passer une commande';
-  panel.appendChild(close);
-  panel.appendChild(title);
 
   var form = document.createElement('form');
   var message = document.createElement('p');
@@ -190,14 +188,42 @@
     overlay.classList.remove('open');
   }
 
-  launcher.addEventListener('click', openModal);
-  close.addEventListener('click', closeModal);
-  overlay.addEventListener('click', function (event) {
-    if (event.target === overlay) closeModal();
-  });
-  document.addEventListener('keydown', function (event) {
-    if (event.key === 'Escape' && overlay.classList.contains('open')) closeModal();
-  });
+  function mountPopup(config) {
+    var buttonText = String(config.button_text || 'Commander').trim().slice(0, 60) || 'Commander';
+    var buttonColor = /^#[0-9a-fA-F]{6}$/.test(config.button_color || '') ? config.button_color : '#00a6b2';
+    launcher.textContent = buttonText;
+    launcher.style.backgroundColor = buttonColor;
+    panel.appendChild(close);
+    panel.appendChild(title);
+    panel.appendChild(form);
+    overlay.appendChild(panel);
+    shadow.appendChild(launcher);
+    shadow.appendChild(overlay);
+    (document.body || document.documentElement).appendChild(host);
+    launcher.addEventListener('click', openModal);
+    close.addEventListener('click', closeModal);
+    overlay.addEventListener('click', function (event) {
+      if (event.target === overlay) closeModal();
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && overlay.classList.contains('open')) closeModal();
+    });
+    launcher.hidden = false;
+  }
+
+  function mountEmbedded() {
+    panel.classList.add('embedded');
+    panel.appendChild(title);
+    panel.appendChild(form);
+    shadow.appendChild(panel);
+    host.style.display = 'block';
+    host.style.width = '100%';
+    if (script.parentNode) {
+      script.insertAdjacentElement('afterend', host);
+    } else {
+      (document.body || document.documentElement).appendChild(host);
+    }
+  }
 
   form.addEventListener('submit', function (event) {
     event.preventDefault();
@@ -244,9 +270,6 @@
   });
 
   panel.appendChild(form);
-  overlay.appendChild(panel);
-  shadow.appendChild(launcher);
-  shadow.appendChild(overlay);
   setMessage('Chargement du formulaire...', 'loading');
 
   fetch(apiBase, { headers: { 'Accept': 'application/json' } })
@@ -261,15 +284,27 @@
       products = Array.isArray(config.products) ? config.products : [];
       renderConfiguredFields();
       setMessage('', '');
-      launcher.hidden = false;
+      if (config.display_mode === 'embedded') {
+        mountEmbedded();
+      } else {
+        mountPopup(fields);
+      }
     })
     .catch(function (error) {
-      launcher.hidden = true;
       setMessage(error.message || 'Formulaire indisponible.', 'error');
+      panel.appendChild(title);
       panel.appendChild(message);
       panel.appendChild(close);
       overlay.classList.add('open');
+      overlay.appendChild(panel);
+      close.addEventListener('click', closeModal);
+      overlay.addEventListener('click', function (event) {
+        if (event.target === overlay) closeModal();
+      });
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && overlay.classList.contains('open')) closeModal();
+      });
+      shadow.appendChild(overlay);
+      (document.body || document.documentElement).appendChild(host);
     });
-
-  launcher.hidden = true;
 })();

@@ -19,7 +19,11 @@ const submitLimiter = rateLimit({
 const configurableFields = ['phone', 'city', 'address', 'product_variant', 'quantity'];
 
 function publicFieldsConfig(config) {
-  return Object.fromEntries(configurableFields.map(key => [key, config?.[key] === true]));
+  return {
+    ...Object.fromEntries(configurableFields.map(key => [key, config?.[key] === true])),
+    button_text: String(config?.button_text || 'Commander').trim().slice(0, 60) || 'Commander',
+    button_color: /^#[0-9a-fA-F]{6}$/.test(String(config?.button_color || '')) ? config.button_color : '#00a6b2',
+  };
 }
 
 function getFormData(body, fieldsConfig) {
@@ -77,7 +81,7 @@ router.get('/:token', async (req, res) => {
   }
 
   const configs = await ShopifyConfig.findActiveByOwner(form.owner_user_id);
-  if (!configs.length) return res.status(200).json({ fields_config: publicFieldsConfig(form.fields_config), products: [] });
+  if (!configs.length) return res.status(200).json({ fields_config: publicFieldsConfig(form.fields_config), display_mode: form.display_mode === 'embedded' ? 'embedded' : 'popup', products: [] });
 
   const conn = await getConnection();
   try {
@@ -93,6 +97,7 @@ router.get('/:token', async (req, res) => {
     );
     return res.json({
       fields_config: publicFieldsConfig(form.fields_config),
+      display_mode: form.display_mode === 'embedded' ? 'embedded' : 'popup',
       products: products.map(product => ({
         product_id: Number(product.product_id),
         name: product.name,

@@ -7,27 +7,40 @@ const DEFAULT_FIELDS_CONFIG = {
   address: true,
   product_variant: true,
   quantity: true,
+  button_text: 'Commander',
+  button_color: '#00a6b2',
 };
 const DEFAULT_COD_GATEWAY_NAME = 'Cash on Delivery (COD)';
+const VALID_DISPLAY_MODES = new Set(['popup', 'embedded']);
+
+function normalizeFieldsConfig(fieldsConfig = {}) {
+  const config = { ...DEFAULT_FIELDS_CONFIG, ...(fieldsConfig && typeof fieldsConfig === 'object' ? fieldsConfig : {}) };
+  config.button_text = String(config.button_text || DEFAULT_FIELDS_CONFIG.button_text).trim().slice(0, 60) || DEFAULT_FIELDS_CONFIG.button_text;
+  config.button_color = /^#[0-9a-fA-F]{6}$/.test(String(config.button_color))
+    ? String(config.button_color)
+    : DEFAULT_FIELDS_CONFIG.button_color;
+  return config;
+}
 
 class OrderForm {
-  static async create(ownerUserId, fieldsConfig = DEFAULT_FIELDS_CONFIG, codGatewayName = DEFAULT_COD_GATEWAY_NAME) {
+  static async create(ownerUserId, fieldsConfig = DEFAULT_FIELDS_CONFIG, codGatewayName = DEFAULT_COD_GATEWAY_NAME, displayMode = 'popup') {
     const normalizedOwnerId = Number(ownerUserId);
     if (!Number.isInteger(normalizedOwnerId) || normalizedOwnerId <= 0) {
       throw new Error('ownerUserId invalide');
     }
 
     const publicToken = crypto.randomBytes(32).toString('hex');
-    const config = { ...DEFAULT_FIELDS_CONFIG, ...fieldsConfig };
+    const config = normalizeFieldsConfig(fieldsConfig);
+    const normalizedDisplayMode = VALID_DISPLAY_MODES.has(displayMode) ? displayMode : 'popup';
     const gatewayName = String(codGatewayName || '').trim();
     if (!gatewayName || gatewayName.length > 255) throw new Error('Nom du moyen de paiement COD invalide');
     const conn = await getConnection();
     try {
       const [result] = await conn.query(
-        `INSERT INTO order_forms (owner_user_id, public_token, fields_config, cod_gateway_name)
-         VALUES ($1, $2, $3::jsonb, $4)
+        `INSERT INTO order_forms (owner_user_id, public_token, fields_config, cod_gateway_name, display_mode)
+         VALUES ($1, $2, $3::jsonb, $4, $5)
          RETURNING id`,
-        [normalizedOwnerId, publicToken, JSON.stringify(config), gatewayName]
+        [normalizedOwnerId, publicToken, JSON.stringify(config), gatewayName, normalizedDisplayMode]
       );
       const [rows] = await conn.query('SELECT * FROM order_forms WHERE id = $1', [result.insertId]);
       return rows[0] || null;
@@ -44,7 +57,7 @@ class OrderForm {
     const conn = await getConnection();
     try {
       const [rows] = await conn.query(
-        `SELECT id, owner_user_id, public_token, fields_config, cod_gateway_name, is_published, created_at, updated_at
+        `SELECT id, owner_user_id, public_token, fields_config, cod_gateway_name, display_mode, is_published, created_at, updated_at
          FROM order_forms
          WHERE public_token = $1 AND is_published = TRUE
          LIMIT 1`,
@@ -65,7 +78,7 @@ class OrderForm {
     const conn = await getConnection();
     try {
       const [rows] = await conn.query(
-        `SELECT id, owner_user_id, public_token, fields_config, cod_gateway_name, is_published, created_at, updated_at
+        `SELECT id, owner_user_id, public_token, fields_config, cod_gateway_name, display_mode, is_published, created_at, updated_at
          FROM order_forms
          WHERE owner_user_id = $1
          ORDER BY created_at DESC`,
@@ -77,7 +90,7 @@ class OrderForm {
     }
   }
 
-  static async update(id, ownerUserId, fieldsConfig, codGatewayName = DEFAULT_COD_GATEWAY_NAME) {
+  static async update(id, ownerUserId, fieldsConfig, codGatewayName = DEFAULT_COD_GATEWAY_NAME, displayMode = 'popup') {
     const normalizedId = Number(id);
     const normalizedOwnerId = Number(ownerUserId);
     if (!Number.isInteger(normalizedId) || normalizedId <= 0 || !Number.isInteger(normalizedOwnerId) || normalizedOwnerId <= 0) {
@@ -88,14 +101,15 @@ class OrderForm {
     }
     const gatewayName = String(codGatewayName || '').trim();
     if (!gatewayName || gatewayName.length > 255) throw new Error('Nom du moyen de paiement COD invalide');
+    if (!VALID_DISPLAY_MODES.has(displayMode)) throw new Error('Mode d’affichage invalide');
 
     const conn = await getConnection();
     try {
       const [result] = await conn.query(
         `UPDATE order_forms
-         SET fields_config = $1::jsonb, cod_gateway_name = $2, updated_at = NOW()
-         WHERE id = $3 AND owner_user_id = $4`,
-        [JSON.stringify({ ...DEFAULT_FIELDS_CONFIG, ...fieldsConfig }), gatewayName, normalizedId, normalizedOwnerId]
+         SET fields_config = $1::jsonb, cod_gateway_name = $2, display_mode = $3, updated_at = NOW()
+         WHERE id = $4 AND owner_user_id = $5`,
+        [JSON.stringify(normalizeFieldsConfig(fieldsConfig)), gatewayName, displayMode, normalizedId, normalizedOwnerId]
       );
       if (result.affectedRows === 0) return null;
 

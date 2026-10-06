@@ -42,7 +42,7 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const form = await OrderForm.create(Number(req.userId), req.body?.fields_config, req.body?.cod_gateway_name);
+    const form = await OrderForm.create(Number(req.userId), req.body?.fields_config, req.body?.cod_gateway_name, req.body?.display_mode);
     return res.status(201).json({ form });
   } catch (error) {
     console.error('[Order forms] Create failed:', error);
@@ -56,7 +56,8 @@ router.put('/:id', async (req, res) => {
       req.params.id,
       Number(req.userId),
       req.body?.fields_config,
-      req.body?.cod_gateway_name
+      req.body?.cod_gateway_name,
+      req.body?.display_mode
     );
     if (!form) return res.status(404).json({ error: 'Formulaire introuvable.' });
     return res.json({ form });
