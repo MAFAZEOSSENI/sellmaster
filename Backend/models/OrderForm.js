@@ -41,6 +41,10 @@ function normalizeFieldsConfig(fieldsConfig = {}) {
 }
 
 class OrderForm {
+  static normalizeFieldsConfig(fieldsConfig) {
+    return normalizeFieldsConfig(fieldsConfig);
+  }
+
   static async create(ownerUserId, fieldsConfig = DEFAULT_FIELDS_CONFIG, codGatewayName = DEFAULT_COD_GATEWAY_NAME, displayMode = 'embedded') {
     const normalizedOwnerId = Number(ownerUserId);
     if (!Number.isInteger(normalizedOwnerId) || normalizedOwnerId <= 0) {
