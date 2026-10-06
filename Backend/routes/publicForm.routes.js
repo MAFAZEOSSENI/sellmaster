@@ -39,7 +39,6 @@ function getFormData(body, fieldsConfig) {
   const items = Array.isArray(body.items) ? body.items : [];
 
   if (!customerName) throw new Error('Nom du client requis');
-  if (fieldsConfig.product_variant !== true) throw new Error('La sélection de produit doit être activée pour créer une commande');
   if (fieldsConfig.phone && !phone) throw new Error('Téléphone requis');
   if (fieldsConfig.city && !city) throw new Error('Ville requise');
   if (fieldsConfig.address && !address) throw new Error('Adresse requise');
@@ -104,7 +103,7 @@ router.get('/:token', async (req, res) => {
   try {
     const storeIds = configs.map(config => Number(config.id));
     const [products] = await conn.query(
-      `SELECT id AS product_id, name, price
+      `SELECT id AS product_id, name, price, shopify_product_id, shopify_variant_id
        FROM products
        WHERE user_id = $1
          AND shopify_store_id = ANY($2::int[])
@@ -119,6 +118,8 @@ router.get('/:token', async (req, res) => {
         product_id: Number(product.product_id),
         name: product.name,
         price: Number(product.price || 0),
+        shopify_product_id: product.shopify_product_id == null ? null : String(product.shopify_product_id),
+        shopify_variant_id: product.shopify_variant_id == null ? null : String(product.shopify_variant_id),
       })),
     });
   } finally {
