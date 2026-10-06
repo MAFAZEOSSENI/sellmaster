@@ -16,14 +16,8 @@ const submitLimiter = rateLimit({
   message: { error: 'Trop de tentatives. Réessayez dans une minute.' },
 });
 
-const configurableFields = ['phone', 'city', 'address', 'product_variant', 'quantity'];
-
 function publicFieldsConfig(config) {
-  return {
-    ...Object.fromEntries(configurableFields.map(key => [key, config?.[key] === true])),
-    button_text: String(config?.button_text || 'Commander').trim().slice(0, 60) || 'Commander',
-    button_color: /^#[0-9a-fA-F]{6}$/.test(String(config?.button_color || '')) ? config.button_color : '#00a6b2',
-  };
+  return OrderForm.normalizeFieldsConfig(config);
 }
 
 function getFormData(body, fieldsConfig) {
@@ -32,6 +26,16 @@ function getFormData(body, fieldsConfig) {
   const phone = fieldsConfig.phone ? String(body.phone || '').trim() : '';
   const city = fieldsConfig.city ? String(body.city || '').trim() : '';
   const address = fieldsConfig.address ? String(body.address || '').trim() : '';
+  const deliveryNote = fieldsConfig.delivery_note ? String(body.delivery_note || '').trim().slice(0, 1000) : '';
+  const countryOptions = Array.isArray(fieldsConfig.country) ? fieldsConfig.country : [];
+  const requestedCountry = String(body.country || '').trim();
+  const country = countryOptions.find(option => option.value === requestedCountry || option.label === requestedCountry) || null;
+  const shippingOptions = Array.isArray(fieldsConfig.shipping_options) ? fieldsConfig.shipping_options : [];
+  const requestedShipping = body.shipping_option;
+  const shippingIndex = Number.isInteger(Number(requestedShipping)) && String(requestedShipping).trim() !== ''
+    ? Number(requestedShipping)
+    : shippingOptions.findIndex(option => option.label === String(requestedShipping || '').trim());
+  const shippingOption = shippingOptions.length ? shippingOptions[shippingIndex] || null : null;
   const items = Array.isArray(body.items) ? body.items : [];
 
   if (!customerName) throw new Error('Nom du client requis');
@@ -39,6 +43,9 @@ function getFormData(body, fieldsConfig) {
   if (fieldsConfig.phone && !phone) throw new Error('Téléphone requis');
   if (fieldsConfig.city && !city) throw new Error('Ville requise');
   if (fieldsConfig.address && !address) throw new Error('Adresse requise');
+  if (fieldsConfig.delivery_note && !deliveryNote) throw new Error('Heure de livraison souhaitée requise');
+  if (countryOptions.length && !country) throw new Error('Sélectionnez un pays valide');
+  if (shippingOptions.length && !shippingOption) throw new Error('Sélectionnez une option de livraison valide');
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Adresse e-mail invalide');
   if (!items.length) throw new Error('Sélectionnez au moins un produit');
 
@@ -50,7 +57,17 @@ function getFormData(body, fieldsConfig) {
     return { productId, quantity };
   });
 
-  return { customerName, email: email || null, phone, city, address, items: normalizedItems };
+  return {
+    customerName,
+    email: email || null,
+    phone,
+    city,
+    address,
+    deliveryNote,
+    country,
+    shippingOption: shippingOption ? { label: shippingOption.label, price: Number(shippingOption.price) } : null,
+    items: normalizedItems,
+  };
 }
 
 async function hasActivePaidLicense(ownerId) {
@@ -81,7 +98,7 @@ router.get('/:token', async (req, res) => {
   }
 
   const configs = await ShopifyConfig.findActiveByOwner(form.owner_user_id);
-  if (!configs.length) return res.status(200).json({ fields_config: publicFieldsConfig(form.fields_config), display_mode: form.display_mode === 'embedded' ? 'embedded' : 'popup', products: [] });
+  if (!configs.length) return res.status(200).json({ fields_config: publicFieldsConfig(form.fields_config), display_mode: form.display_mode === 'popup' ? 'popup' : 'embedded', products: [] });
 
   const conn = await getConnection();
   try {
@@ -97,7 +114,7 @@ router.get('/:token', async (req, res) => {
     );
     return res.json({
       fields_config: publicFieldsConfig(form.fields_config),
-      display_mode: form.display_mode === 'embedded' ? 'embedded' : 'popup',
+      display_mode: form.display_mode === 'popup' ? 'popup' : 'embedded',
       products: products.map(product => ({
         product_id: Number(product.product_id),
         name: product.name,
@@ -157,18 +174,21 @@ router.post('/:token/submit', submitLimiter, async (req, res) => {
 
   const service = new ShopifyService(form.owner_user_id);
   try {
-    const createdOrder = await service.createOrderFromForm(config, {
+    const createdOrder = await service.createOrderFromForm({ ...config, cod_gateway_name: form.cod_gateway_name }, {
       customer_name: formData.customerName,
       email: formData.email,
       phone: formData.phone,
       city: formData.city,
       address: formData.address,
+      delivery_note: formData.deliveryNote,
+      country: formData.country,
+      shipping_option: formData.shippingOption,
       items: formData.items.map(item => ({
         variantId: productsById.get(item.productId).shopify_variant_id,
         quantity: item.quantity,
         unitPrice: Number(productsById.get(item.productId).price || 0),
       })),
-    }, { ...config, cod_gateway_name: form.cod_gateway_name });
+    });
     return res.status(201).json({ success: true, order: createdOrder });
   } catch (error) {
     console.error('[Public order form] Shopify order creation failed:', {

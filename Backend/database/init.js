@@ -136,15 +136,16 @@ async function createTables() {
         id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         owner_user_id INT NOT NULL REFERENCES "app_users"(id) ON DELETE CASCADE,
         public_token VARCHAR(64) NOT NULL UNIQUE,
-        fields_config JSONB NOT NULL DEFAULT '{"phone":true,"city":true,"address":true,"product_variant":true,"quantity":true}'::jsonb,
-        display_mode VARCHAR(20) NOT NULL DEFAULT 'popup',
+        fields_config JSONB NOT NULL DEFAULT '{"phone":true,"city":true,"address":true,"product_variant":true,"quantity":true,"delivery_note":false,"phone_label":"Numéro WhatsApp","button_text":"Commander","button_color":"#00a6b2","country":[],"shipping_options":[]}'::jsonb,
+        display_mode VARCHAR(20) NOT NULL DEFAULT 'embedded',
         cod_gateway_name VARCHAR(255) NOT NULL DEFAULT 'Cash on Delivery (COD)',
         is_published BOOLEAN NOT NULL DEFAULT FALSE,
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    await ensureColumnExists(conn, 'order_forms', 'display_mode', `ADD COLUMN "display_mode" VARCHAR(20) NOT NULL DEFAULT 'popup'`);
+    await ensureColumnExists(conn, 'order_forms', 'display_mode', `ADD COLUMN "display_mode" VARCHAR(20) NOT NULL DEFAULT 'embedded'`);
+    await conn.query(`ALTER TABLE "order_forms" ALTER COLUMN "display_mode" SET DEFAULT 'embedded'`);
     await ensureColumnExists(conn, 'order_forms', 'cod_gateway_name', `ADD COLUMN "cod_gateway_name" VARCHAR(255) NOT NULL DEFAULT 'Cash on Delivery (COD)'`);
 
     await conn.query(`

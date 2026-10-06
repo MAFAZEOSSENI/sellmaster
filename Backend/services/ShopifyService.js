@@ -77,8 +77,9 @@ class ShopifyService {
       const unitPrice = Number(item.unitPrice);
       if (!Number.isFinite(unitPrice) || unitPrice < 0) throw new Error('Prix produit invalide');
       return total + Math.round(unitPrice * 100) * Number(item.quantity);
-    }, 0);
+    }, Math.round(Math.max(0, Number(formData.shipping_option?.price) || 0) * 100));
     const totalAmount = (totalCents / 100).toFixed(2);
+    const shippingOption = formData.shipping_option;
 
     const fullName = String(formData.customer_name || '').trim();
     const nameParts = fullName.split(/\s+/);
@@ -92,7 +93,12 @@ class ShopifyService {
       transactions: [{ kind: 'sale', status: 'pending', amount: totalAmount, gateway: gatewayName }],
       tags: 'COD, SELLMASTER_FORM',
       line_items: items.map(item => ({ variant_id: Number(item.variantId), quantity: Number(item.quantity) })),
+      shipping_lines: shippingOption ? [{ title: String(shippingOption.label), price: (Math.round(Number(shippingOption.price) * 100) / 100).toFixed(2) }] : [],
       note: 'Commande créée via le formulaire public Sellmaster',
+      note_attributes: [
+        formData.delivery_note ? { name: 'Heure de livraison souhaitée', value: String(formData.delivery_note).trim() } : null,
+        formData.country ? { name: 'Pays', value: String(formData.country.label || formData.country.value) } : null,
+      ].filter(Boolean),
       customer: {
         first_name: firstName,
         last_name: lastName,
@@ -102,14 +108,14 @@ class ShopifyService {
     };
     if (formData.email) order.email = String(formData.email).trim();
     if (formData.phone) order.phone = String(formData.phone).trim();
-    if (formData.address || formData.city || formData.phone) {
+    if (formData.address || formData.city || formData.phone || formData.country) {
       order.shipping_address = {
         first_name: firstName,
         last_name: lastName,
         address1: formData.address ? String(formData.address).trim() : undefined,
         city: formData.city ? String(formData.city).trim() : undefined,
         phone: formData.phone ? String(formData.phone).trim() : undefined,
-        country_code: formData.country_code ? String(formData.country_code).trim().toUpperCase() : undefined,
+        country_code: /^[A-Za-z]{2}$/.test(String(formData.country?.value || '')) ? String(formData.country.value).toUpperCase() : undefined,
       };
     }
 

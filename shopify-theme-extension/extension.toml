@@ -1,0 +1,5 @@
+name = "Sellmaster"
+type = "theme"
+
+# This directory is a theme app extension. Link it to the existing Shopify Partner app
+# from that app's CLI project before deploying.

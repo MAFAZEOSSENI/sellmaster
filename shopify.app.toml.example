@@ -1,0 +1,13 @@
+# Example app-level configuration only. Do not use this file as-is.
+# Link the extension to Sellmaster's existing Partner app and preserve its real
+# client_id, URLs, scopes, and webhook configuration.
+client_id = "YOUR_EXISTING_PARTNER_APP_CLIENT_ID"
+name = "Sellmaster"
+application_url = "https://sellmaster.web.app"
+embedded = false
+
+[access_scopes]
+scopes = "read_orders,write_orders,read_products,read_customers,read_inventory"
+
+[auth]
+redirect_urls = [ "https://sellmaster-1.onrender.com/api/shopify/auth/callback" ]

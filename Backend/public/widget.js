@@ -27,6 +27,7 @@
     ':host{all:initial;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#17202a}',
     '*,*::before,*::after{box-sizing:border-box}',
     '.launcher{position:fixed;right:20px;bottom:20px;z-index:2147483000;border:0;border-radius:999px;padding:14px 20px;background:#00a6b2;color:#fff;font:600 15px system-ui,sans-serif;box-shadow:0 8px 28px #0003;cursor:pointer}',
+    '.sticky-launcher{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:2147483000;width:min(calc(100vw - 28px),480px);border:0;border-radius:8px;padding:14px 20px;background:#00a6b2;color:#fff;font:700 15px system-ui,sans-serif;box-shadow:0 8px 28px #0003;cursor:pointer}',
     '.overlay{position:fixed;inset:0;z-index:2147483001;display:none;align-items:center;justify-content:center;padding:16px;background:#10182099}',
     '.overlay.open{display:flex}',
     '.panel{position:relative;width:min(100%,480px);max-height:90vh;overflow:auto;background:#fff;border-radius:14px;padding:24px;box-shadow:0 20px 70px #0004}',
@@ -34,7 +35,10 @@
     'h2{margin:0 36px 18px 0;font:700 22px system-ui,sans-serif;color:#17202a}',
     '.close{position:absolute;top:12px;right:12px;border:0;background:transparent;color:#52606d;font-size:26px;line-height:1;cursor:pointer}',
     'label{display:block;margin:12px 0 5px;font:600 13px system-ui,sans-serif;color:#344054}',
-    'input,select{display:block;width:100%;min-height:44px;padding:10px 12px;border:1px solid #cfd8df;border-radius:8px;background:#fff;color:#17202a;font:15px system-ui,sans-serif}',
+    'input,select,textarea{display:block;width:100%;min-height:44px;padding:10px 12px;border:1px solid #cfd8df;border-radius:8px;background:#fff;color:#17202a;font:15px system-ui,sans-serif}',
+    'textarea{min-height:88px;resize:vertical}',
+    '.shipping-option{display:flex;align-items:center;gap:10px;margin:8px 0;padding:10px;border:1px solid #cfd8df;border-radius:8px;font:14px system-ui,sans-serif;color:#17202a}',
+    '.shipping-option input{width:18px;min-height:18px;margin:0}',
     '.submit{width:100%;margin-top:18px;min-height:46px;border:0;border-radius:8px;background:#00a6b2;color:#fff;font:700 15px system-ui,sans-serif;cursor:pointer}',
     '.submit:disabled{opacity:.6;cursor:wait}',
     '.message{margin:12px 0 0;font:14px/1.45 system-ui,sans-serif}',
@@ -68,6 +72,10 @@
 
   var title = document.createElement('h2');
   title.textContent = 'Passer une commande';
+  var stickyButton = document.createElement('button');
+  stickyButton.className = 'sticky-launcher';
+  stickyButton.type = 'button';
+  stickyButton.hidden = true;
 
   var form = document.createElement('form');
   var message = document.createElement('p');
@@ -79,6 +87,8 @@
   var products = [];
   var productSelect = null;
   var quantityInput = null;
+  var shippingOptions = [];
+  var submitButton = null;
 
   function makeInput(name, labelText, type, required) {
     var wrapper = document.createElement('div');
@@ -92,6 +102,20 @@
     input.required = Boolean(required);
     wrapper.appendChild(label);
     wrapper.appendChild(input);
+    return wrapper;
+  }
+
+  function makeTextarea(name, labelText, required) {
+    var wrapper = document.createElement('div');
+    var label = document.createElement('label');
+    label.htmlFor = 'sm-' + name;
+    label.textContent = labelText;
+    var textarea = document.createElement('textarea');
+    textarea.id = 'sm-' + name;
+    textarea.name = name;
+    textarea.required = Boolean(required);
+    wrapper.appendChild(label);
+    wrapper.appendChild(textarea);
     return wrapper;
   }
 
@@ -146,6 +170,66 @@
       quantityWrapper.appendChild(quantityInput);
       form.appendChild(quantityWrapper);
     }
+
+    productSelect.addEventListener('change', updateSubmitTotal);
+    if (quantityInput) quantityInput.addEventListener('input', updateSubmitTotal);
+  }
+
+  function addCountryControl() {
+    if (!Array.isArray(fields.country) || !fields.country.length) return;
+    var wrapper = document.createElement('div');
+    var label = document.createElement('label');
+    label.htmlFor = 'sm-country';
+    label.textContent = 'Pays';
+    var select = document.createElement('select');
+    select.id = 'sm-country';
+    select.name = 'country';
+    select.required = true;
+    var placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Choisir un pays';
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    select.appendChild(placeholder);
+    fields.country.forEach(function (country) {
+      var option = document.createElement('option');
+      option.value = String(country.value || country.label);
+      option.textContent = String(country.label || country.value);
+      select.appendChild(option);
+    });
+    wrapper.appendChild(label);
+    wrapper.appendChild(select);
+    form.appendChild(wrapper);
+  }
+
+  function addShippingOptions() {
+    shippingOptions = Array.isArray(fields.shipping_options) ? fields.shipping_options : [];
+    if (!shippingOptions.length) return;
+    var wrapper = document.createElement('fieldset');
+    wrapper.style.border = '0';
+    wrapper.style.padding = '0';
+    wrapper.style.margin = '12px 0 0';
+    var legend = document.createElement('legend');
+    legend.textContent = 'Mode de livraison';
+    legend.style.font = '600 13px system-ui,sans-serif';
+    wrapper.appendChild(legend);
+    shippingOptions.forEach(function (shipping, index) {
+      var label = document.createElement('label');
+      label.className = 'shipping-option';
+      var radio = document.createElement('input');
+      radio.type = 'radio';
+      radio.name = 'shipping_option';
+      radio.value = String(index);
+      radio.required = true;
+      radio.checked = index === 0;
+      radio.addEventListener('change', updateSubmitTotal);
+      label.appendChild(radio);
+      var text = document.createElement('span');
+      text.textContent = String(shipping.label) + ' - ' + formatPrice(shipping.price);
+      label.appendChild(text);
+      wrapper.appendChild(label);
+    });
+    form.appendChild(wrapper);
   }
 
   function formatPrice(value) {
@@ -164,18 +248,42 @@
     return input ? String(input.value || '').trim() : '';
   }
 
+  function selectedShippingOption() {
+    var selected = form.querySelector('input[name="shipping_option"]:checked');
+    return selected ? Number(selected.value) : null;
+  }
+
+  function updateSubmitTotal() {
+    if (!submitButton) return;
+    var product = products.find(function (item) {
+      return productSelect && Number(item.product_id) === Number(productSelect.value);
+    });
+    var quantity = quantityInput ? Math.max(1, Number(quantityInput.value) || 1) : 1;
+    var selectedIndex = selectedShippingOption();
+    var deliveryPrice = selectedIndex !== null && shippingOptions[selectedIndex]
+      ? Number(shippingOptions[selectedIndex].price) || 0
+      : 0;
+    var total = product ? (Number(product.price) || 0) * quantity + deliveryPrice : 0;
+    submitButton.textContent = 'Commander - ' + formatPrice(total);
+    stickyButton.textContent = submitButton.textContent;
+  }
+
   function renderConfiguredFields() {
-    addConfiguredInput('phone', 'T\u00e9l\u00e9phone', 'tel');
+    addConfiguredInput('phone', fields.phone_label || 'Numéro WhatsApp', 'tel');
     addConfiguredInput('city', 'Ville', 'text');
     addConfiguredInput('address', 'Adresse de livraison', 'text');
+    if (fields.delivery_note === true) form.appendChild(makeTextarea('delivery_note', 'Heure de livraison souhaitée', true));
+    addCountryControl();
     addProductControls();
+    addShippingOptions();
 
     var submit = document.createElement('button');
     submit.type = 'submit';
     submit.className = 'submit';
-    submit.textContent = 'Valider ma commande';
+    submitButton = submit;
     form.appendChild(submit);
     form.appendChild(message);
+    updateSubmitTotal();
   }
 
   function openModal() {
@@ -212,16 +320,33 @@
   }
 
   function mountEmbedded() {
+    var cartForm = document.querySelector('form[action="/cart/add"]');
+    if (!cartForm) {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', mountEmbedded, { once: true });
+        return;
+      }
+      mountPopup(fields);
+      return;
+    }
+
     panel.classList.add('embedded');
     panel.appendChild(title);
     panel.appendChild(form);
     shadow.appendChild(panel);
     host.style.display = 'block';
     host.style.width = '100%';
-    if (script.parentNode) {
-      script.insertAdjacentElement('afterend', host);
-    } else {
-      (document.body || document.documentElement).appendChild(host);
+    cartForm.insertAdjacentElement('afterend', host);
+    shadow.appendChild(stickyButton);
+    stickyButton.addEventListener('click', function () {
+      panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    if ('IntersectionObserver' in window) {
+      var observer = new IntersectionObserver(function (entries) {
+        var visible = entries.some(function (entry) { return entry.isIntersecting; });
+        stickyButton.hidden = visible;
+      }, { threshold: 0.01 });
+      observer.observe(panel);
     }
   }
 
@@ -233,7 +358,7 @@
       return;
     }
 
-    var submit = form.querySelector('.submit');
+    var submit = submitButton;
     submit.disabled = true;
     submit.textContent = 'Envoi en cours...';
 
@@ -244,9 +369,13 @@
         quantity: fields.quantity === true ? Number(quantityInput.value) : 1
       }]
     };
+    var shippingIndex = selectedShippingOption();
+    if (shippingIndex !== null) payload.shipping_option = shippingIndex;
     if (fields.phone === true) payload.phone = readValue('phone');
     if (fields.city === true) payload.city = readValue('city');
     if (fields.address === true) payload.address = readValue('address');
+    if (fields.delivery_note === true) payload.delivery_note = readValue('delivery_note');
+    if (Array.isArray(fields.country) && fields.country.length) payload.country = readValue('country');
 
     fetch(apiBase + '/submit', {
       method: 'POST',
@@ -265,7 +394,7 @@
       setMessage(error.message || 'Une erreur est survenue. R\u00e9essayez.', 'error');
     }).finally(function () {
       submit.disabled = false;
-      submit.textContent = 'Valider ma commande';
+      updateSubmitTotal();
     });
   });
 

@@ -9,6 +9,10 @@ const DEFAULT_FIELDS_CONFIG = {
   quantity: true,
   button_text: 'Commander',
   button_color: '#00a6b2',
+  phone_label: 'Numéro WhatsApp',
+  delivery_note: false,
+  country: [],
+  shipping_options: [],
 };
 const DEFAULT_COD_GATEWAY_NAME = 'Cash on Delivery (COD)';
 const VALID_DISPLAY_MODES = new Set(['popup', 'embedded']);
@@ -19,11 +23,25 @@ function normalizeFieldsConfig(fieldsConfig = {}) {
   config.button_color = /^#[0-9a-fA-F]{6}$/.test(String(config.button_color))
     ? String(config.button_color)
     : DEFAULT_FIELDS_CONFIG.button_color;
+  config.phone_label = String(config.phone_label || DEFAULT_FIELDS_CONFIG.phone_label).trim().slice(0, 60) || DEFAULT_FIELDS_CONFIG.phone_label;
+  config.delivery_note = config.delivery_note === true;
+  config.country = (Array.isArray(config.country) ? config.country : []).slice(0, 100).map(option => {
+    const label = String(option?.label ?? option?.value ?? option ?? '').trim().slice(0, 100);
+    const value = String(option?.value ?? label).trim().slice(0, 100);
+    return label && value ? { label, value } : null;
+  }).filter(Boolean);
+  config.shipping_options = (Array.isArray(config.shipping_options) ? config.shipping_options : []).slice(0, 30).map(option => {
+    const label = String(option?.label || '').trim().slice(0, 100);
+    const price = Number(option?.price);
+    return label && Number.isFinite(price) && price >= 0
+      ? { label, price: Math.round(price * 100) / 100 }
+      : null;
+  }).filter(Boolean);
   return config;
 }
 
 class OrderForm {
-  static async create(ownerUserId, fieldsConfig = DEFAULT_FIELDS_CONFIG, codGatewayName = DEFAULT_COD_GATEWAY_NAME, displayMode = 'popup') {
+  static async create(ownerUserId, fieldsConfig = DEFAULT_FIELDS_CONFIG, codGatewayName = DEFAULT_COD_GATEWAY_NAME, displayMode = 'embedded') {
     const normalizedOwnerId = Number(ownerUserId);
     if (!Number.isInteger(normalizedOwnerId) || normalizedOwnerId <= 0) {
       throw new Error('ownerUserId invalide');
@@ -31,7 +49,7 @@ class OrderForm {
 
     const publicToken = crypto.randomBytes(32).toString('hex');
     const config = normalizeFieldsConfig(fieldsConfig);
-    const normalizedDisplayMode = VALID_DISPLAY_MODES.has(displayMode) ? displayMode : 'popup';
+    const normalizedDisplayMode = VALID_DISPLAY_MODES.has(displayMode) ? displayMode : 'embedded';
     const gatewayName = String(codGatewayName || '').trim();
     if (!gatewayName || gatewayName.length > 255) throw new Error('Nom du moyen de paiement COD invalide');
     const conn = await getConnection();
@@ -90,7 +108,7 @@ class OrderForm {
     }
   }
 
-  static async update(id, ownerUserId, fieldsConfig, codGatewayName = DEFAULT_COD_GATEWAY_NAME, displayMode = 'popup') {
+  static async update(id, ownerUserId, fieldsConfig, codGatewayName = DEFAULT_COD_GATEWAY_NAME, displayMode = 'embedded') {
     const normalizedId = Number(id);
     const normalizedOwnerId = Number(ownerUserId);
     if (!Number.isInteger(normalizedId) || normalizedId <= 0 || !Number.isInteger(normalizedOwnerId) || normalizedOwnerId <= 0) {

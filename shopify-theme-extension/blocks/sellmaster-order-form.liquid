@@ -1,0 +1,24 @@
+{% if block.settings.token != blank %}
+  <div class="sellmaster-app-embed" {{ block.shopify_attributes }}>
+    <script
+      async
+      src="https://sellmaster-1.onrender.com/widget.js?token={{ block.settings.token | strip | url_encode }}"
+    ></script>
+  </div>
+{% endif %}
+
+{% schema %}
+{
+  "name": "Sellmaster",
+  "target": "body",
+  "settings": [
+    {
+      "type": "text",
+      "id": "token",
+      "label": "Token du formulaire Sellmaster",
+      "info": "Collez le token généré dans le Form Builder Sellmaster. Le widget s'insère après le formulaire Ajouter au panier lorsqu'il existe.",
+      "placeholder": "Token de formulaire (64 caractères)"
+    }
+  ]
+}
+{% endschema %}
