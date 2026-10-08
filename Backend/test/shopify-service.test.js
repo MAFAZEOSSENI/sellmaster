@@ -39,6 +39,22 @@ assert.equal(
   'Rue de test, Cotonou, Bénin',
   'L’adresse doit être construite depuis billing_address',
 );
+
+const addressOnlyOrder = {
+  ...shopifyOrder,
+  shipping_address: null,
+  billing_address: null,
+  note_attributes: [
+    { name: 'Ville', value: 'Cotonou' },
+    { name: 'Adresse de livraison', value: 'Rue de test' },
+    { name: 'Heure de livraison souhaitée', value: '10' },
+  ],
+};
+assert.equal(
+  extractCustomerAddress(addressOnlyOrder),
+  'Rue de test, Cotonou',
+  'La ville et l’adresse doivent être reconstruites depuis les attributs Shopify',
+);
 assert.equal(
   extractShippingMethod(shopifyOrder),
   'Standard',

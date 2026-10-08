@@ -26,11 +26,22 @@ function extractCustomerAddress(shopifyOrder) {
     if (parts.length > 0) return parts.map((value) => String(value).trim()).join(', ');
   }
 
-  const noteAddress = shopifyOrder?.note_attributes?.find(
-    (attribute) => String(attribute?.name || '').toLowerCase().includes('address'),
+  const attributes = Array.isArray(shopifyOrder?.note_attributes)
+    ? shopifyOrder.note_attributes
+    : [];
+  const addressAttribute = attributes.find(
+    (attribute) => String(attribute?.name || '').toLowerCase().includes('adresse de livraison'),
   );
-  return noteAddress?.value
-    ? String(noteAddress.value).trim()
+  const cityAttribute = attributes.find(
+    (attribute) => String(attribute?.name || '').toLowerCase() === 'ville',
+  );
+  const parts = [
+    addressAttribute?.value,
+    cityAttribute?.value,
+  ].filter((value) => value && String(value).trim());
+
+  return parts.length > 0
+    ? parts.map((value) => String(value).trim()).join(', ')
     : 'Adresse de livraison non renseignée';
 }
 

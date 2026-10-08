@@ -102,6 +102,8 @@ class ShopifyService {
       shipping_lines: shippingOption ? [{ title: String(shippingOption.label), price: (Math.round(Number(shippingOption.price) * 100) / 100).toFixed(2) }] : [],
       note: 'Commande créée via le formulaire public Sellmaster',
       note_attributes: [
+        formData.city ? { name: 'Ville', value: String(formData.city).trim() } : null,
+        formData.address ? { name: 'Adresse de livraison', value: String(formData.address).trim() } : null,
         formData.delivery_note ? { name: 'Heure de livraison souhaitée', value: String(formData.delivery_note).trim() } : null,
         formData.country ? { name: 'Pays', value: String(formData.country.label || formData.country.value) } : null,
       ].filter(Boolean),

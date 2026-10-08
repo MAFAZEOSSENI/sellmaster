@@ -514,6 +514,28 @@ class DashboardPageState extends State<DashboardPage> {
                     color: Color(0xFF64748B),
                   ),
                 ),
+                if (order.isShopifyOrder) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    order.clientPhone,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
+                  if (order.clientAddress.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      order.clientAddress,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                  ],
+                ],
               ],
             ),
           ),
