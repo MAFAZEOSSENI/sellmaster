@@ -316,7 +316,15 @@
     overlay.classList.remove('open');
   }
 
+  function isProductPage() {
+    if (document.querySelector('form[action="/cart/add"]')) return true;
+    var productType = document.querySelector('meta[property="og:type"]');
+    if (productType && String(productType.content || '').toLowerCase() === 'product') return true;
+    return /\/products\/[^/]+/.test(window.location.pathname || '');
+  }
+
   function mountPopup(config) {
+    if (!isProductPage()) return;
     var buttonText = String(config.button_text || 'Commander').trim().slice(0, 60) || 'Commander';
     var buttonColor = /^#[0-9a-fA-F]{6}$/.test(config.button_color || '') ? config.button_color : '#00a6b2';
     launcher.textContent = buttonText;
@@ -346,6 +354,7 @@
         document.addEventListener('DOMContentLoaded', mountEmbedded, { once: true });
         return;
       }
+      if (!isProductPage()) return;
       mountPopup(fields);
       return;
     }
@@ -442,6 +451,7 @@
       }
     })
     .catch(function (error) {
+      if (!isProductPage()) return;
       setMessage(error.message || 'Formulaire indisponible.', 'error');
       panel.appendChild(title);
       panel.appendChild(message);
