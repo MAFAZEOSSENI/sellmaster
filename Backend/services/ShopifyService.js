@@ -1,6 +1,12 @@
 const ShopifyConfig = require('../models/ShopifyConfig');
 const Order = require('../models/Order');
 const axios = require('axios');
+const {
+  extractCustomerPhone,
+  extractCustomerAddress,
+  extractShippingMethod,
+  formatNotes,
+} = require('../utils/shopifyOrderNormalizer');
 
 const SHOPIFY_API_VERSION = '2026-07';
 
@@ -301,8 +307,8 @@ class ShopifyService {
   async saveOrderToDatabase(shopifyOrder, storeId) {
     // Extraire les données client
     const customerName = this.extractCustomerName(shopifyOrder);
-    const customerPhone = this.extractCustomerPhone(shopifyOrder);
-    const customerAddress = this.extractCustomerAddress(shopifyOrder);
+    const customerPhone = extractCustomerPhone(shopifyOrder);
+    const customerAddress = extractCustomerAddress(shopifyOrder);
     const customerEmail = this.extractCustomerEmail(shopifyOrder);
     
     // Extraire les données produit
@@ -319,8 +325,8 @@ class ShopifyService {
       currency: shopifyOrder.currency || 'XOF',
       status: this.mapShopifyStatus(shopifyOrder.financial_status),
       payment_method: this.extractPaymentMethod(shopifyOrder),
-      shipping_method: this.extractShippingMethod(shopifyOrder),
-      notes: this.formatNotes(shopifyOrder),
+      shipping_method: extractShippingMethod(shopifyOrder),
+      notes: formatNotes(shopifyOrder),
       products: JSON.stringify(products),
       shopify_order_id: shopifyOrder.id.toString(),
       shopify_store_id: storeId,
@@ -374,51 +380,11 @@ class ShopifyService {
   }
 
   extractCustomerPhone(shopifyOrder) {
-    // Chercher dans note_attributes
-    if (shopifyOrder.note_attributes && Array.isArray(shopifyOrder.note_attributes)) {
-      const phoneAttr = shopifyOrder.note_attributes.find(attr => 
-        attr.name && attr.name.toLowerCase().includes('phone')
-      );
-      if (phoneAttr && phoneAttr.value) {
-        return phoneAttr.value;
-      }
-    }
-    
-    // Chercher dans billing_address
-    if (shopifyOrder.billing_address && shopifyOrder.billing_address.phone) {
-      return shopifyOrder.billing_address.phone;
-    }
-    
-    return null;
+    return extractCustomerPhone(shopifyOrder);
   }
 
   extractCustomerAddress(shopifyOrder) {
-    // Construire depuis shipping_address
-    if (shopifyOrder.shipping_address) {
-      const addr = shopifyOrder.shipping_address;
-      const parts = [];
-      if (addr.address1) parts.push(addr.address1);
-      if (addr.address2) parts.push(addr.address2);
-      if (addr.city) parts.push(addr.city);
-      if (addr.province) parts.push(addr.province);
-      if (addr.country) parts.push(addr.country);
-      if (addr.zip) parts.push(addr.zip);
-      
-      const address = parts.join(', ').trim();
-      if (address && !/^\d{1,3}(?:\.\d{1,3}){3}$/.test(address)) return address;
-    }
-
-    // Ne jamais utiliser browser_ip ou un attribut IP comme adresse de livraison.
-    if (shopifyOrder.note_attributes && Array.isArray(shopifyOrder.note_attributes)) {
-      const addressAttr = shopifyOrder.note_attributes.find(attr => {
-        const name = String(attr.name || '').toLowerCase();
-        const value = String(attr.value || '').trim();
-        return name.includes('address') && !name.includes('ip') && !/^\d{1,3}(?:\.\d{1,3}){3}$/.test(value);
-      });
-      if (addressAttr?.value) return String(addressAttr.value).trim();
-    }
-    
-    return 'Adresse de livraison non renseignée';
+    return extractCustomerAddress(shopifyOrder);
   }
 
   extractCustomerEmail(shopifyOrder) {
@@ -527,36 +493,11 @@ class ShopifyService {
   }
 
   extractShippingMethod(shopifyOrder) {
-    if (shopifyOrder.shipping_lines && shopifyOrder.shipping_lines.length > 0) {
-      return shopifyOrder.shipping_lines[0].title || 'Livraison';
-    }
-    
-    return 'Standard';
+    return extractShippingMethod(shopifyOrder);
   }
 
   formatNotes(shopifyOrder) {
-    const notes = [];
-    
-    // Ajouter les note_attributes
-    if (shopifyOrder.note_attributes && Array.isArray(shopifyOrder.note_attributes)) {
-      shopifyOrder.note_attributes.forEach(attr => {
-        if (attr.name && attr.value) {
-          notes.push(`${attr.name}: ${attr.value}`);
-        }
-      });
-    }
-    
-    // Ajouter la note principale
-    if (shopifyOrder.note) {
-      notes.push(`Note: ${shopifyOrder.note}`);
-    }
-    
-    // Ajouter les tags
-    if (shopifyOrder.tags) {
-      notes.push(`Tags: ${shopifyOrder.tags}`);
-    }
-    
-    return notes.join(' | ');
+    return formatNotes(shopifyOrder);
   }
 
   // Obtenir les statistiques de synchronisation
@@ -566,56 +507,23 @@ class ShopifyService {
       if (!config) {
         throw new Error('Store non trouvé');
       }
-      
-      // Compter les commandes dans la base de données pour ce store
-      const dbOrders = await Order.findByShopifyStoreId(storeId, this.userId);
-      
-      return {
-        success: true,
-        store: config.shop_name,
-        last_sync: config.last_sync,
-        total_in_shopify: await this.getShopifyOrdersCount(storeId),
-        total_in_database: dbOrders.length,
-        sync_status: 'active'
-      };
-      
-    } catch (error) {
-      console.error(`❌ Erreur getSyncStats:`, error);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
 
-  // Compter les commandes Shopify
-  async getShopifyOrdersCount(storeId) {
-    try {
-      const config = await ShopifyConfig.findById(storeId, this.userId);
-      if (!config) {
-        return 0;
-      }
-      
-      let cleanShopName = config.shop_name;
-      if (cleanShopName.includes('.myshopify.com')) {
-        cleanShopName = cleanShopName.replace('.myshopify.com', '');
-      }
-      cleanShopName = cleanShopName.replace('https://', '').replace('http://', '').trim();
-      
+      const cleanShopName = String(config.shop_name || '')
+        .replace(/^https?:\/\//, '')
+        .replace(/\.myshopify\.com$/, '')
+        .trim();
       const url = `https://${cleanShopName}.myshopify.com/admin/api/${SHOPIFY_API_VERSION}/orders/count.json`;
-      
       const response = await axios.get(url, {
         headers: {
           'X-Shopify-Access-Token': config.access_token,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        timeout: 10000
+        timeout: 10000,
       });
-      
+
       return response.data.count || 0;
-      
     } catch (error) {
-      console.error(`❌ Erreur comptage commandes:`, error.message);
+      console.error('❌ Erreur comptage commandes:', error.message);
       return 0;
     }
   }
