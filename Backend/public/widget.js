@@ -412,13 +412,25 @@
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify(payload)
     }).then(function (response) {
-      return response.json().catch(function () { return {}; }).then(function (body) {
+        return response.json().catch(function () { return {}; }).then(function (body) {
         if (!response.ok) throw new Error(body.error || 'Impossible d\u2019envoyer la commande.');
         return body;
       });
-    }).then(function () {
+    }).then(function (result) {
       form.reset();
       if (quantityInput) quantityInput.value = '1';
+      var statusUrl = result && result.order && result.order.status_url;
+      if (statusUrl) {
+        try {
+          var parsedStatusUrl = new URL(statusUrl, window.location.href);
+          if (parsedStatusUrl.protocol === 'https:') {
+            window.location.assign(parsedStatusUrl.href);
+            return;
+          }
+        } catch (_) {
+          // Keep the inline confirmation when Shopify does not return a valid URL.
+        }
+      }
       setMessage('Merci, votre commande a bien \u00e9t\u00e9 envoy\u00e9e.', 'success');
     }).catch(function (error) {
       setMessage(error.message || 'Une erreur est survenue. R\u00e9essayez.', 'error');
