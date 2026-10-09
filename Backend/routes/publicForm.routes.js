@@ -20,6 +20,14 @@ function publicFieldsConfig(config) {
   return OrderForm.normalizeFieldsConfig(config);
 }
 
+function getClientIp(req) {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  const remote = String(req.socket?.remoteAddress || req.ip || '').trim();
+  const ip = forwarded || remote || '';
+  if (!ip) return '';
+  return ip.replace(/^::ffff:/, '');
+}
+
 function getFormData(body, fieldsConfig) {
   const customerName = String(body.customer_name || '').trim();
   const email = String(body.email || '').trim();
@@ -140,6 +148,7 @@ router.post('/:token/submit', submitLimiter, async (req, res) => {
   } catch (error) {
     return res.status(400).json({ error: error.message });
   }
+  const clientIp = getClientIp(req);
 
   const configs = await ShopifyConfig.findActiveByOwner(form.owner_user_id);
   if (!configs.length) return res.status(503).json({ error: 'Boutique Shopify indisponible' });
@@ -182,6 +191,7 @@ router.post('/:token/submit', submitLimiter, async (req, res) => {
       city: formData.city,
       address: formData.address,
       delivery_note: formData.deliveryNote,
+      ip: clientIp,
       country: formData.country,
       shipping_option: formData.shippingOption,
       items: formData.items.map(item => ({

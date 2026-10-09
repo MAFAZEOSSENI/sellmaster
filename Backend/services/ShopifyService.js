@@ -116,6 +116,7 @@ class ShopifyService {
     };
     if (formData.email) order.email = String(formData.email).trim();
     if (formData.phone) order.phone = String(formData.phone).trim();
+    if (formData.ip) order.browser_ip = String(formData.ip).trim();
     if (formData.address || formData.city || formData.phone || formData.country) {
       order.shipping_address = {
         first_name: firstName,

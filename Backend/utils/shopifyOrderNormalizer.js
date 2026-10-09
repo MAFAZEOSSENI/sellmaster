@@ -1,15 +1,57 @@
+function normalizeLabel(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function matchesAddressLabel(label) {
+  const normalized = normalizeLabel(label);
+  return /(?:^|[^a-z])(adresse|address|livraison|delivery)(?:$|[^a-z])/.test(normalized);
+}
+
+function matchesCityLabel(label) {
+  const normalized = normalizeLabel(label);
+  return /(?:^|[^a-z])(ville|city)(?:$|[^a-z])/.test(normalized);
+}
+
+function matchesPhoneLabel(label) {
+  const normalized = normalizeLabel(label);
+  return /(telephone|phone|tel|whatsapp|numero|numéro)/.test(normalized);
+}
+
+function matchesIpLabel(label) {
+  const normalized = normalizeLabel(label);
+  return /(ip|adresse ip|address ip|client ip)/.test(normalized);
+}
+
 function extractCustomerPhone(shopifyOrder) {
   const customerPhone = shopifyOrder?.customer?.phone;
   if (customerPhone) return String(customerPhone).trim();
 
   const notePhone = shopifyOrder?.note_attributes?.find(
-    (attribute) => String(attribute?.name || '').toLowerCase().includes('phone'),
+    (attribute) => matchesPhoneLabel(attribute?.name),
   );
   if (notePhone?.value) return String(notePhone.value).trim();
 
   const addressPhone = shopifyOrder?.shipping_address?.phone
     || shopifyOrder?.billing_address?.phone;
   return addressPhone ? String(addressPhone).trim() : '';
+}
+
+function extractCustomerIp(shopifyOrder) {
+  const directIp = shopifyOrder?.browser_ip
+    || shopifyOrder?.customer?.last_order_ip
+    || shopifyOrder?.client_details?.browser_ip
+    || shopifyOrder?.customer_ip;
+  if (directIp) return String(directIp).trim();
+
+  const noteIp = shopifyOrder?.note_attributes?.find(
+    (attribute) => matchesIpLabel(attribute?.name),
+  );
+  if (noteIp?.value) return String(noteIp.value).trim();
+
+  return '';
 }
 
 function extractCustomerAddress(shopifyOrder) {
@@ -30,10 +72,10 @@ function extractCustomerAddress(shopifyOrder) {
     ? shopifyOrder.note_attributes
     : [];
   const addressAttribute = attributes.find(
-    (attribute) => String(attribute?.name || '').toLowerCase().includes('adresse de livraison'),
+    (attribute) => matchesAddressLabel(attribute?.name),
   );
   const cityAttribute = attributes.find(
-    (attribute) => String(attribute?.name || '').toLowerCase() === 'ville',
+    (attribute) => matchesCityLabel(attribute?.name),
   );
   const parts = [
     addressAttribute?.value,
@@ -64,6 +106,7 @@ function formatNotes(shopifyOrder) {
 
 module.exports = {
   extractCustomerPhone,
+  extractCustomerIp,
   extractCustomerAddress,
   extractShippingMethod,
   formatNotes,
