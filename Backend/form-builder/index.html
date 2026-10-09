@@ -19,11 +19,871 @@
     .editor-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(275px,340px);gap:24px;align-items:start}.editor-settings{min-width:0}.preview{position:sticky;top:18px;min-width:0;border-left:1px solid var(--line);padding-left:20px}.preview-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}.preview-head h3{margin:0;font-size:15px}.preview-modes{display:flex;padding:3px;border:1px solid var(--line);border-radius:7px;background:#f5f8f8}.preview-mode{border:0;border-radius:4px;padding:5px 8px;background:transparent;color:var(--muted);font-size:12px;font-weight:700}.preview-mode.active{background:#fff;color:var(--ink);box-shadow:0 1px 3px #172b3220}.preview-canvas{width:100%;min-height:570px;padding:12px;background:repeating-linear-gradient(135deg,#f4f7f7 0,#f4f7f7 8px,#eef2f2 8px,#eef2f2 16px);display:flex;justify-content:center;align-items:flex-start;overflow:hidden;transition:background .2s}.preview-device{width:100%;max-width:100%;min-height:540px;padding:14px 12px;background:#fff;border:1px solid #dce6e5;border-radius:5px;box-shadow:0 8px 24px #172b3218;transition:max-width .2s,border-radius .2s}.preview-canvas.mobile{background:#e8eeee}.preview-canvas.mobile .preview-device{max-width:280px;min-height:500px;border:5px solid #243238;border-radius:24px;padding:18px 12px}.preview-store{margin:-14px -12px 15px;padding:10px 12px;border-bottom:1px solid var(--line);font-size:11px;font-weight:800;color:#41545a}.preview-product{height:82px;margin-bottom:12px;display:grid;place-items:center;background:#f1f5f4;color:#64777c;font-size:12px}.preview-form-title{margin:0 0 10px;font-size:17px;color:var(--ink)}.preview-urgency{margin:0 0 10px;padding:7px 9px;background:#fff1f0;color:#a93434;font-size:12px;font-weight:750}.preview-field{display:block;margin:8px 0}.preview-field span{display:block;margin-bottom:4px;color:#344054;font-size:11px;font-weight:700}.preview-field input,.preview-field select,.preview-field textarea{width:100%;height:34px;padding:7px 9px;border:1px solid #cfd8df;border-radius:5px;background:#fff;color:#7b8a90;font:12px system-ui,sans-serif}.preview-field textarea{height:42px;resize:none}.preview-option{display:flex;align-items:center;gap:7px;margin:7px 0;padding:8px;border:1px solid #dce6e5;border-radius:5px;color:#344054;font-size:11px}.preview-option input{margin:0}.preview-price{display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line);font-size:12px;font-weight:700}.preview-submit{width:100%;min-height:39px;border:0;border-radius:5px;color:#fff;font-size:12px;font-weight:800}.preview-caption{margin:9px 0 0;color:var(--muted);font-size:11px}
     @media(max-width:980px){.editor-grid{grid-template-columns:minmax(0,1fr) minmax(240px,290px);gap:16px}.preview{padding-left:16px}}
     @media(max-width:720px){.shell{margin-top:34px}.layout{grid-template-columns:1fr}.side{padding:13px}.form-list{grid-template-columns:1fr 1fr}.content{padding:18px}.content-head{display:block}.toolbar{margin-top:12px}.controls{grid-template-columns:1fr}.topbar{padding:0 16px}.editor-grid{grid-template-columns:1fr}.preview{position:static;border-left:0;border-top:1px solid var(--line);padding:18px 0 0}.preview-canvas{min-height:520px}.template-grid{grid-template-columns:1fr}.template-option:last-child{grid-column:auto}}
+
+    :root {
+      --brand:#0f8a8d;
+      --brand-strong:#0a6469;
+      --brand-soft:#eaf9f7;
+      --surface:#ffffff;
+      --ink:#16313a;
+      --muted:#4d636d;
+      --line:#dfeae8;
+      --warm:#ff7d5a;
+      --dark:#0a1d25;
+      --success:#14815e;
+      --shadow-soft:0 25px 70px rgba(10, 34, 42, 0.12);
+    }
+
+    body { background: linear-gradient(180deg,#f4fbfa 0%,#eef5f5 100%); }
+
+    .landing-shell {
+      width: min(1180px, calc(100% - 32px));
+      margin: 18px auto 72px;
+      color: var(--ink);
+    }
+
+    .landing-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 20px 0 12px;
+      border-bottom: 1px solid rgba(15,138,141,0.12);
+      margin-bottom: 36px;
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink);
+    }
+
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg,#0f8a8d,#0d5d62);
+      color: #fff;
+      font-size: 15px;
+      box-shadow: 0 12px 28px rgba(15,138,141,0.28);
+    }
+
+    .brand-sub {
+      font-size: 11px;
+      opacity: 0.7;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .nav a {
+      text-decoration: none;
+      color: var(--muted);
+      transition: color 0.2s ease;
+    }
+
+    .nav a:hover { color: var(--ink); }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .ghost-button, .primary-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      border-radius: 12px;
+      padding: 0 18px;
+      font-weight: 800;
+      border: 1px solid var(--line);
+      text-decoration: none;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .ghost-button {
+      background: rgba(255,255,255,0.7);
+      color: var(--ink);
+    }
+
+    .primary-button {
+      background: linear-gradient(135deg, var(--brand), var(--brand-strong));
+      color: white;
+      border: none;
+      box-shadow: 0 18px 34px rgba(15,138,141,0.25);
+    }
+
+    .ghost-button:hover, .primary-button:hover { transform: translateY(-1px); }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 38px;
+      align-items: center;
+      padding: 28px 0 8px;
+    }
+
+    .hero h1 {
+      margin: 12px 0 18px;
+      font-size: clamp(2.5rem, 4.5vw, 5rem);
+      line-height: 0.96;
+      letter-spacing: -0.06em;
+      max-width: 680px;
+    }
+
+    .hero p {
+      font-size: 1.1rem;
+      line-height: 1.7;
+      color: var(--muted);
+      max-width: 620px;
+      margin: 0 0 28px;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .hero-proof {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .hero-proof li {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hero-proof li::before {
+      content: "✓";
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      display: inline-grid;
+      place-items: center;
+      background: var(--brand-soft);
+      color: var(--brand-strong);
+      font-weight: 900;
+      font-size: 0.8rem;
+    }
+
+    .hero-panel {
+      position: relative;
+      min-height: 540px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hero-panel::before {
+      content: "";
+      position: absolute;
+      inset: 12% 8% 8% 16%;
+      border-radius: 32px;
+      background: radial-gradient(circle at top, rgba(15,138,141,0.18), transparent 55%);
+      filter: blur(18px);
+    }
+
+    .dashboard-card {
+      position: relative;
+      z-index: 1;
+      width: min(100%, 470px);
+      background: rgba(255,255,255,0.9);
+      border: 1px solid rgba(15,138,141,0.12);
+      border-radius: 28px;
+      padding: 22px;
+      box-shadow: var(--shadow-soft);
+      backdrop-filter: blur(8px);
+    }
+
+    .dashboard-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #ebf8f3;
+      color: var(--success);
+      border: 1px solid rgba(20,129,94,0.18);
+    }
+
+    .status-pill::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      display:block;
+    }
+
+    .order-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .order-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      background: #f7faf9;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px 16px;
+    }
+
+    .order-main {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: linear-gradient(135deg,#d8f5ee,#b9ece6);
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      color: var(--brand-strong);
+    }
+
+    .order-meta strong {
+      display: block;
+      font-size: 0.95rem;
+      color: var(--ink);
+    }
+
+    .order-meta span {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .tag {
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: #fff1eb;
+      color: #c7653b;
+      font-weight: 800;
+      font-size: 0.72rem;
+      white-space: nowrap;
+    }
+
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .kpi {
+      border: 1px solid var(--line);
+      background: #f9fbfb;
+      border-radius: 16px;
+      padding: 14px 12px;
+    }
+
+    .kpi strong {
+      display: block;
+      font-size: 1.1rem;
+      margin-bottom: 4px;
+      color: var(--ink);
+    }
+
+    .kpi span { color: var(--muted); font-size: 0.77rem; }
+
+    .stats-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin: 26px 0 48px;
+    }
+
+    .stat-box {
+      background: rgba(255,255,255,0.8);
+      border: 1px solid rgba(15,138,141,0.12);
+      border-radius: 20px;
+      padding: 22px 18px;
+      box-shadow: 0 10px 24px rgba(17,31,35,0.04);
+    }
+
+    .stat-box strong {
+      display: block;
+      font-size: clamp(1.6rem, 3vw, 2.4rem);
+      letter-spacing: -0.06em;
+      margin-bottom: 8px;
+      color: var(--ink);
+    }
+
+    .stat-box span {
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .section-block {
+      padding: 28px 0 16px;
+    }
+
+    .section-header {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 22px;
+    }
+
+    .section-header h2 {
+      margin: 0;
+      font-size: clamp(2rem, 3vw, 3rem);
+      line-height: 1.05;
+      letter-spacing: -0.05em;
+    }
+
+    .section-header p {
+      margin: 0;
+      max-width: 680px;
+      color: var(--muted);
+      font-size: 1.05rem;
+      line-height: 1.7;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .feature-card {
+      background: rgba(255,255,255,0.8);
+      border: 1px solid rgba(15,138,141,0.12);
+      border-radius: 22px;
+      padding: 20px 18px 18px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.02);
+    }
+
+    .feature-badge {
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      background: var(--brand-soft);
+      color: var(--brand-strong);
+      font-size: 1.2rem;
+      font-weight: 900;
+      margin-bottom: 14px;
+    }
+
+    .feature-card h3 {
+      margin: 0 0 10px;
+      font-size: 1.2rem;
+      line-height: 1.3;
+    }
+
+    .feature-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .process-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 20px;
+    }
+
+    .process-card {
+      background: rgba(255,255,255,0.8);
+      border: 1px solid rgba(15,138,141,0.12);
+      border-radius: 22px;
+      padding: 22px 18px;
+    }
+
+    .process-step {
+      display: inline-flex;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: #eaf7fb;
+      color: var(--brand-strong);
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .process-card h3 {
+      margin: 0 0 12px;
+      font-size: 1.35rem;
+      line-height: 1.2;
+    }
+
+    .process-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .testimonial-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .testimonial {
+      background: rgba(255,255,255,0.8);
+      border: 1px solid rgba(15,138,141,0.12);
+      border-radius: 22px;
+      padding: 20px 18px;
+    }
+
+    .person {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .person .avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #dff7ef, #c4efe1);
+      font-size: 0.9rem;
+    }
+
+    .person strong {
+      display: block;
+      font-size: 0.95rem;
+    }
+
+    .person span {
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .testimonial p {
+      margin: 0;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+
+    .faq-panel {
+      margin-top: 18px;
+      background: rgba(255,255,255,0.8);
+      border: 1px solid rgba(15,138,141,0.12);
+      border-radius: 22px;
+      padding: 10px 16px;
+    }
+
+    details {
+      border-top: 1px solid var(--line);
+      padding: 16px 4px;
+    }
+
+    details:first-child { border-top: none; }
+
+    summary {
+      cursor: pointer;
+      list-style: none;
+      font-weight: 800;
+      color: var(--ink);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+
+    summary::-webkit-details-marker { display: none; }
+
+    summary::after {
+      content: "+";
+      color: var(--brand-strong);
+      font-size: 1.5rem;
+      line-height: 1;
+    }
+
+    details[open] summary::after { content: "−"; }
+
+    details p {
+      margin: 14px 0 0;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .cta-band {
+      margin-top: 36px;
+      padding: 36px 28px;
+      border-radius: 28px;
+      background: linear-gradient(135deg,#0d1f27,#12363c 55%,#0f8a8d 130%);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      box-shadow: 0 26px 60px rgba(15,138,141,0.2);
+    }
+
+    .cta-band h3 {
+      margin: 0 0 10px;
+      font-size: clamp(1.8rem, 2.6vw, 3rem);
+      line-height: 1.1;
+      letter-spacing: -0.04em;
+    }
+
+    .cta-band p {
+      margin: 0;
+      color: rgba(255,255,255,0.8);
+      max-width: 600px;
+      line-height: 1.6;
+    }
+
+    .cta-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .light-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      border-radius: 12px;
+      padding: 0 18px;
+      font-weight: 800;
+      background: white;
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    .outline-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      border-radius: 12px;
+      padding: 0 18px;
+      font-weight: 800;
+      border: 1px solid rgba(255,255,255,0.28);
+      color: white;
+      text-decoration: none;
+    }
+
+    @media (max-width: 980px) {
+      .hero { grid-template-columns: 1fr; }
+      .feature-grid, .process-grid, .testimonial-grid { grid-template-columns: 1fr 1fr; }
+      .stats-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .nav { display:none; }
+      .cta-band { flex-direction: column; align-items: flex-start; }
+    }
+
+    @media (max-width: 640px) {
+      .landing-shell { width: min(100% - 20px, 1180px); }
+      .feature-grid, .process-grid, .testimonial-grid, .stats-strip { grid-template-columns: 1fr; }
+      .hero h1 { font-size: 2.8rem; }
+      .landing-topbar { margin-bottom: 18px; }
+      .brand-sub { display:none; }
+      .nav-actions { gap:8px; }
+      .ghost-button, .primary-button, .light-button, .outline-button { width: 100%; }
+      .hero-actions, .cta-actions { width: 100%; }
+    }
   </style>
 </head>
 <body>
-  <header class="topbar"><div class="brand"><span class="mark">S</span><span>SELLMASTER</span><span>/ Form Builder</span></div><button id="logout" class="logout hidden" type="button">Se déconnecter</button></header>
+  <main class="landing-shell">
+    <header class="landing-topbar">
+      <div class="brand-wrap">
+        <span class="brand-mark">S</span>
+        <span>Sellmaster</span>
+        <span class="brand-sub">Form builder</span>
+      </div>
+      <nav class="nav" aria-label="Navigation principale">
+        <a href="#features">Fonctionnalités</a>
+        <a href="#process">Processus</a>
+        <a href="#testimonials">Témoignages</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <div class="nav-actions">
+        <a class="ghost-button" href="#faq">Support</a>
+        <a class="primary-button" href="#start">Démarrer</a>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div>
+        <div class="eyebrow">Sellmaster / Logistique & commande</div>
+        <h1>Arrêtez de perdre 35% de vos bénéfices à cause d'une logistique chaotique.</h1>
+        <p>
+          Sellmaster centralise vos ventes, vos relances, vos régions de livraison et votre validation anti-fraude dans un seul espace.
+          Plus de commandes perdues, plus d'adresses douteuses, plus de stock dispersé : juste une machine de conversion plus propre.
+        </p>
+        <div class="hero-actions">
+          <a class="primary-button" href="#start">Démarrer l’essai gratuit</a>
+          <a class="ghost-button" href="#features">Découvrir les fonctionnalités</a>
+        </div>
+        <ul class="hero-proof">
+          <li>+67% panier moyen</li>
+          <li>Vérification OTP</li>
+          <li>Livraison par zone</li>
+        </ul>
+      </div>
+
+      <div class="hero-panel" aria-label="Vue de gestion des commandes">
+        <div class="dashboard-card">
+          <div class="dashboard-top">
+            <span>Commandes en attente</span>
+            <span class="status-pill">En ligne</span>
+          </div>
+          <div class="order-list">
+            <div class="order-item">
+              <div class="order-main">
+                <div class="avatar">A</div>
+                <div class="order-meta">
+                  <strong>Adrien M.</strong>
+                  <span>Cotonou · 27 000 F</span>
+                </div>
+              </div>
+              <span class="tag">À confirmer</span>
+            </div>
+            <div class="order-item">
+              <div class="order-main">
+                <div class="avatar">R</div>
+                <div class="order-meta">
+                  <strong>Rahim B.</strong>
+                  <span>Parakou · 39 500 F</span>
+                </div>
+              </div>
+              <span class="tag">OTP OK</span>
+            </div>
+            <div class="order-item">
+              <div class="order-main">
+                <div class="avatar">F</div>
+                <div class="order-meta">
+                  <strong>Fatou D.</strong>
+                  <span>Porto-Novo · 18 900 F</span>
+                </div>
+              </div>
+              <span class="tag">Zone validée</span>
+            </div>
+          </div>
+          <div class="kpi-row">
+            <div class="kpi">
+              <strong>94%</strong>
+              <span>Livraison</span>
+            </div>
+            <div class="kpi">
+              <strong>1.8k</strong>
+              <span>Ventes</span>
+            </div>
+            <div class="kpi">
+              <strong>12m</strong>
+              <span>Rappels</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats-strip" aria-label="Statistiques clés">
+      <div class="stat-box">
+        <strong>+67%</strong>
+        <span>Panier moyen avec upsells</span>
+      </div>
+      <div class="stat-box">
+        <strong>2x</strong>
+        <span>Moins de commandes rejetées</span>
+      </div>
+      <div class="stat-box">
+        <strong>24/7</strong>
+        <span>Relances automatiques</span>
+      </div>
+      <div class="stat-box">
+        <strong>10x</strong>
+        <span>Suivi de stock et de zones</span>
+      </div>
+    </section>
+
+    <section class="section-block" id="features">
+      <div class="section-header">
+        <div class="eyebrow">6 façons de gagner plus d’argent</div>
+        <h2>Optimisez chaque étape du tunnel de vente.</h2>
+        <p>De la commande jusqu’à la livraison, Sellmaster réduit les pertes, sécurise les remboursements et pousse les ventes additionnelles sans amplifier le bruit marketing.</p>
+      </div>
+      <div class="feature-grid">
+        <article class="feature-card">
+          <div class="feature-badge">01</div>
+          <h3>Vendez une deuxième fois sans dépenser en pub</h3>
+          <p>Relancez vos clients livrés directement depuis l’historique de commandes pour récupérer des ventes supplémentaires.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-badge">02</div>
+          <h3>Récupérez les paniers abandonnés</h3>
+          <p>Capturez les commandes à moitié perdues et donnez à votre équipe un accès rapide pour les relancer à chaud.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-badge">03</div>
+          <h3>Augmentez le panier moyen</h3>
+          <p>Ajoutez des offres groupées, packs et réductions sur quantité dès la commande pour créer plus de valeur.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-badge">04</div>
+          <h3>Sauvez les commandes annulées</h3>
+          <p>Automatisez les relances sur WhatsApp et organisez les suivis pour éviter les abandons ou les oublis.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-badge">05</div>
+          <h3>Améliorez la conformité des livraisons</h3>
+          <p>Vérifiez la ville, les zones et les numéros, puis sécurisez chaque livraison avec une validation claire.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-badge">06</div>
+          <h3>Éliminez le vol de caisse</h3>
+          <p>Suivez les livraisons, les frais et les devoirs d’équipe avec un reporting plus transparent pour chaque commande.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section-block" id="process">
+      <div class="section-header">
+        <div class="eyebrow">Gestion étape par étape</div>
+        <h2>Votre team de vente reçoit exactement la bonne commande au bon moment.</h2>
+      </div>
+      <div class="process-grid">
+        <article class="process-card">
+          <div class="process-step">Étape 1</div>
+          <h3>Réseau de commandes centralisé</h3>
+          <p>Les commandes Shopify arrivent dans votre espace sans tri manuel, avec une logique de distribution selon la zone ou l’équipe.</p>
+        </article>
+        <article class="process-card">
+          <div class="process-step">Étape 2</div>
+          <h3>Relances automatiques</h3>
+          <p>Quand un client hésite, Sellmaster a un suivi précis pour rappeler, confirmer et réduire les pertes de conversion.</p>
+        </article>
+        <article class="process-card">
+          <div class="process-step">Étape 3</div>
+          <h3>Traçabilité de livraison</h3>
+          <p>Chaque statut est visible, chaque motif d’échec est contrôlé et chaque livraison est suivie jusqu’au bout.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section-block" id="testimonials">
+      <div class="section-header">
+        <div class="eyebrow">Témoignages</div>
+        <h2>Des marques qui structurent leur logistique comme une vraie machine.</h2>
+      </div>
+      <div class="testimonial-grid">
+        <article class="testimonial">
+          <p>“Avant, nous perdions beaucoup de temps sur les commandes en attente. Maintenant, tout est visible, classé et relancé automatiquement.”</p>
+          <div class="person">
+            <div class="avatar">MR</div>
+            <div>
+              <strong>Mahdi K.</strong>
+              <span>Commerce Afrique</span>
+            </div>
+          </div>
+        </article>
+        <article class="testimonial">
+          <p>“Le système de validation de zones et d’OTP nous a évité des commandes douteuses. Plus de stress sur le COD.”</p>
+          <div class="person">
+            <div class="avatar">CL</div>
+            <div>
+              <strong>Cédric L.</strong>
+              <span>Shopify Sénégal</span>
+            </div>
+          </div>
+        </article>
+        <article class="testimonial">
+          <p>“L’upsell a été un vrai levier. Notre panier moyen a explosé sans devoir payer plus pour la acquisition.”</p>
+          <div class="person">
+            <div class="avatar">PR</div>
+            <div>
+              <strong>Priscille R.</strong>
+              <span>Sport & lifestyle</span>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section-block" id="faq">
+      <div class="section-header">
+        <div class="eyebrow">Support</div>
+        <h2>Des réponses claires pour une équipe qui veut avancer vite.</h2>
+      </div>
+      <div class="faq-panel">
+        <details open>
+          <summary>Comment connecter ma boutique Shopify ?</summary>
+          <p>Vous connectez votre boutique en quelques clics depuis le tableau de bord. La synchronisation des produits et des commandes est ensuite automatique.</p>
+        </details>
+        <details>
+          <summary>Est-ce que les zones de livraison sont sécurisées ?</summary>
+          <p>Oui. Vous définissez les villes autorisées, les filtres de livraison et la validation des numéros pour limiter les commandes frauduleuses.</p>
+        </details>
+        <details>
+          <summary>Le module upsell est-il compatible avec mon formulaire ?</summary>
+          <p>Oui, le formulaire peut proposer des packs, des offres groupées et des remises sur quantité directement dans le flux de commande client.</p>
+        </details>
+        <details>
+          <summary>Est-ce que la plateforme est adaptée à plusieurs pays ?</summary>
+          <p>Oui. Elle tient compte des pays, des villes et des options de livraison pour mieux contrôler chaque marché local.</p>
+        </details>
+      </div>
+    </section>
+
+    <section class="cta-band" id="start">
+      <div>
+        <h3>Commencez dès aujourd’hui et gérez vos commandes comme une marque premium.</h3>
+        <p>Le bon moment pour sécuriser votre conversion n’est pas après la commande, c’est au moment où elle est créée.</p>
+      </div>
+      <div class="cta-actions">
+        <a class="light-button" href="#">Démarrer l’essai</a>
+        <a class="outline-button" href="#">Voir la démo</a>
+      </div>
+    </section>
+  </main>
+
   <main class="shell">
+    <header class="topbar"><div class="brand"><span class="mark">S</span><span>SELLMASTER</span><span>/ Form Builder</span></div><button id="logout" class="logout hidden" type="button">Se déconnecter</button></header>
     <section id="login" class="login">
       <div class="eyebrow">Espace propriétaire</div>
       <h1>Connectez votre compte</h1>

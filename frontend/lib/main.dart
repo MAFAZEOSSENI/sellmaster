@@ -116,15 +116,78 @@ class _MyAppState extends State<MyApp> {
       ],
       child: MaterialApp(
         navigatorKey: _navigatorKey,
-        title: 'Gestion Commandes',
+        title: 'Sellmaster',
         theme: ThemeData(
-          primarySwatch: Colors.cyan,
-          scaffoldBackgroundColor: const Color(0xFFF5F7FA),
+          useMaterial3: true,
+          fontFamily: 'Inter',
+          primaryColor: const Color(0xFF0F8A8D),
+          scaffoldBackgroundColor: const Color(0xFFF4FBFA),
+          colorScheme: const ColorScheme.light(
+            primary: Color(0xFF0F8A8D),
+            secondary: Color(0xFF0A6469),
+            surface: Colors.white,
+            onPrimary: Colors.white,
+            onSurface: Color(0xFF16313A),
+          ),
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.white,
+            foregroundColor: Color(0xFF16313A),
+            elevation: 0,
+            centerTitle: false,
+            titleTextStyle: TextStyle(
+              color: Color(0xFF16313A),
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          cardTheme: CardTheme(
+            color: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: const BorderSide(color: Color(0xFFDDEAE7), width: 1),
+            ),
+          ),
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: Color(0xFFD7E5E3)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: Color(0xFFD7E5E3)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: Color(0xFF0F8A8D), width: 2),
+            ),
+            labelStyle: const TextStyle(color: Color(0xFF4D636D)),
+          ),
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0F8A8D),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              textStyle: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+              ),
+            ),
+          ),
           bottomNavigationBarTheme: const BottomNavigationBarThemeData(
             type: BottomNavigationBarType.fixed,
             backgroundColor: Colors.white,
-            selectedItemColor: Color(0xFF00BCD4),
+            selectedItemColor: Color(0xFF0F8A8D),
             unselectedItemColor: Color(0xFF64748B),
+            selectedLabelStyle: TextStyle(fontWeight: FontWeight.w600),
+            unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w500),
           ),
         ),
         debugShowCheckedModeBanner: false,
@@ -263,17 +326,39 @@ class MainNavigationPageState extends State<MainNavigationPage> {
       backgroundColor: Colors.white,
       elevation: 0,
       automaticallyImplyLeading: false,
-      title: _buildTimeWidget(),
-      centerTitle: true,
+      title: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F8A8D),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: const Text(
+              'S',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 16,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          _buildTimeWidget(),
+        ],
+      ),
+      centerTitle: false,
       actions: [
         Padding(
           padding: const EdgeInsets.only(top: 12, bottom: 12, right: 8),
           child: Chip(
             label: Text(
               _roleLabel(authProvider.primaryRole),
-              style: const TextStyle(fontSize: 11, color: Color(0xFF006064)),
+              style: const TextStyle(fontSize: 11, color: Color(0xFF0A6469)),
             ),
-            backgroundColor: const Color(0xFFE0F7FA),
+            backgroundColor: const Color(0xFFEAF9F7),
             side: BorderSide.none,
             visualDensity: VisualDensity.compact,
           ),

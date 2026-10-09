@@ -8,10 +8,15 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:gestion_commandes_app/main.dart';
+import 'package:gestion_commandes_app/services/notification_service.dart';
 
 void main() {
   testWidgets('affiche la connexion sans session active', (WidgetTester tester) async {
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(
+      MyApp(
+        notificationService: NotificationService(),
+      ),
+    );
 
     expect(find.text('Vérification de la session...'), findsOneWidget);
   });
