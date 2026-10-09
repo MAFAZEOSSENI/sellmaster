@@ -16,7 +16,9 @@
     .button{border:0;border-radius:9px;min-height:43px;padding:0 16px;background:var(--teal);color:#fff;font-weight:750}.button:hover{background:var(--teal-dark)}.button.secondary{background:#eef5f4;color:var(--teal-dark);border:1px solid var(--line)}.button.secondary:hover{background:#e4efed}.button:disabled{opacity:.6;cursor:wait}.wide{width:100%;margin-top:18px}
     .layout{display:grid;grid-template-columns:285px minmax(0,1fr);gap:20px;align-items:start}.surface{background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}.side{padding:16px}.side-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:14px;font-weight:800}.form-list{display:grid;gap:7px}.form-item{border:1px solid transparent;border-radius:9px;background:#f5f8f8;text-align:left;padding:11px 12px;color:var(--ink)}.form-item.active{background:var(--mint);border-color:#b5ded7}.form-item strong{display:block;font-size:13px}.form-item small{color:var(--muted)}.content{padding:24px}.content-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line);padding-bottom:17px;margin-bottom:19px}.content-head h2{margin:0;font-size:20px}.subtle{font-size:13px;color:var(--muted);margin-top:3px}.controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}.toggle{display:flex;align-items:center;gap:10px;min-height:51px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#fbfdfd;font-weight:650}.toggle input{accent-color:var(--teal);width:17px;height:17px}.section-title{margin:24px 0 10px;font-size:13px;font-weight:800}.snippet{position:relative;background:#122c33;color:#dbf2ed;border-radius:10px;padding:15px 115px 15px 15px;overflow-wrap:anywhere;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}.copy{position:absolute;right:9px;top:9px;min-height:33px;padding:0 10px;background:#e7f5f1;color:#075e64;font-size:12px}.instructions{margin:10px 0 0;color:var(--muted);font-size:13px}.instructions strong{color:var(--ink)}.toolbar{display:flex;gap:8px;flex-wrap:wrap}.status{display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border-radius:999px;background:#edf2f2;color:#52656b;font-size:12px;font-weight:750}.status.on{background:#e5f5ec;color:#157347}.dot{width:7px;height:7px;border-radius:50%;background:currentColor}.notice{min-height:22px;margin-top:12px;font-size:13px;color:var(--muted)}.notice.error{color:var(--red)}.notice.ok{color:#157347}.hidden{display:none!important}.logout{border:0;background:none;color:var(--muted);font-weight:700}.empty{padding:22px;border:1px dashed #c6d4d2;border-radius:10px;color:var(--muted);text-align:center}
     .template-picker h2{margin:0;font-size:21px}.template-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:18px}.template-option{display:flex;flex-direction:column;align-items:flex-start;min-height:140px;padding:15px;border:1px solid var(--line);border-radius:9px;background:#fbfdfd;color:var(--ink);text-align:left}.template-option:hover,.template-option:focus-visible{border-color:var(--teal);background:var(--mint);outline:none}.template-option strong{font-size:15px}.template-option span{margin-top:6px;color:var(--muted);font-size:13px}.template-option:last-child{grid-column:1/-1}
-    @media(max-width:720px){.shell{margin-top:34px}.layout{grid-template-columns:1fr}.side{padding:13px}.form-list{grid-template-columns:1fr 1fr}.content{padding:18px}.content-head{display:block}.toolbar{margin-top:12px}.controls{grid-template-columns:1fr}.topbar{padding:0 16px}}
+    .editor-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(275px,340px);gap:24px;align-items:start}.editor-settings{min-width:0}.preview{position:sticky;top:18px;min-width:0;border-left:1px solid var(--line);padding-left:20px}.preview-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}.preview-head h3{margin:0;font-size:15px}.preview-modes{display:flex;padding:3px;border:1px solid var(--line);border-radius:7px;background:#f5f8f8}.preview-mode{border:0;border-radius:4px;padding:5px 8px;background:transparent;color:var(--muted);font-size:12px;font-weight:700}.preview-mode.active{background:#fff;color:var(--ink);box-shadow:0 1px 3px #172b3220}.preview-canvas{width:100%;min-height:570px;padding:12px;background:repeating-linear-gradient(135deg,#f4f7f7 0,#f4f7f7 8px,#eef2f2 8px,#eef2f2 16px);display:flex;justify-content:center;align-items:flex-start;overflow:hidden;transition:background .2s}.preview-device{width:100%;max-width:100%;min-height:540px;padding:14px 12px;background:#fff;border:1px solid #dce6e5;border-radius:5px;box-shadow:0 8px 24px #172b3218;transition:max-width .2s,border-radius .2s}.preview-canvas.mobile{background:#e8eeee}.preview-canvas.mobile .preview-device{max-width:280px;min-height:500px;border:5px solid #243238;border-radius:24px;padding:18px 12px}.preview-store{margin:-14px -12px 15px;padding:10px 12px;border-bottom:1px solid var(--line);font-size:11px;font-weight:800;color:#41545a}.preview-product{height:82px;margin-bottom:12px;display:grid;place-items:center;background:#f1f5f4;color:#64777c;font-size:12px}.preview-form-title{margin:0 0 10px;font-size:17px;color:var(--ink)}.preview-urgency{margin:0 0 10px;padding:7px 9px;background:#fff1f0;color:#a93434;font-size:12px;font-weight:750}.preview-field{display:block;margin:8px 0}.preview-field span{display:block;margin-bottom:4px;color:#344054;font-size:11px;font-weight:700}.preview-field input,.preview-field select,.preview-field textarea{width:100%;height:34px;padding:7px 9px;border:1px solid #cfd8df;border-radius:5px;background:#fff;color:#7b8a90;font:12px system-ui,sans-serif}.preview-field textarea{height:42px;resize:none}.preview-option{display:flex;align-items:center;gap:7px;margin:7px 0;padding:8px;border:1px solid #dce6e5;border-radius:5px;color:#344054;font-size:11px}.preview-option input{margin:0}.preview-price{display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line);font-size:12px;font-weight:700}.preview-submit{width:100%;min-height:39px;border:0;border-radius:5px;color:#fff;font-size:12px;font-weight:800}.preview-caption{margin:9px 0 0;color:var(--muted);font-size:11px}
+    @media(max-width:980px){.editor-grid{grid-template-columns:minmax(0,1fr) minmax(240px,290px);gap:16px}.preview{padding-left:16px}}
+    @media(max-width:720px){.shell{margin-top:34px}.layout{grid-template-columns:1fr}.side{padding:13px}.form-list{grid-template-columns:1fr 1fr}.content{padding:18px}.content-head{display:block}.toolbar{margin-top:12px}.controls{grid-template-columns:1fr}.topbar{padding:0 16px}.editor-grid{grid-template-columns:1fr}.preview{position:static;border-left:0;border-top:1px solid var(--line);padding:18px 0 0}.preview-canvas{min-height:520px}.template-grid{grid-template-columns:1fr}.template-option:last-child{grid-column:auto}}
   </style>
 </head>
 <body>
@@ -61,6 +63,8 @@
               <div><h2>Champs du formulaire</h2><div class="subtle">Le nom du client est toujours demandé.</div></div>
               <div class="toolbar"><span id="publish-status" class="status"><span class="dot"></span><span>Non publié</span></span><button id="publish" class="button" type="button">Publier</button></div>
             </div>
+            <div class="editor-grid">
+            <div class="editor-settings">
             <div class="controls">
               <label class="toggle"><input type="checkbox" data-field="phone"> Téléphone</label>
               <label class="toggle"><input type="checkbox" data-field="city"> Ville</label>
@@ -111,6 +115,13 @@
             <div class="snippet"><code id="snippet">Le script apparaîtra après publication.</code><button id="copy" class="button copy" type="button" disabled>Copier</button></div>
             <p class="instructions">Dans Shopify : <strong>Admin Shopify &gt; Boutique en ligne &gt; Thèmes &gt; … &gt; Modifier le code</strong>, puis collez le script dans le modèle produit, avant <code>&lt;/body&gt;</code>.</p>
             <div id="builder-notice" class="notice" role="status"></div>
+            </div>
+            <aside class="preview" aria-label="Aperçu en direct du formulaire">
+              <div class="preview-head"><h3>Aperçu en direct</h3><div class="preview-modes" role="group" aria-label="Taille de l’aperçu"><button class="preview-mode active" type="button" data-preview-width="desktop" aria-pressed="true">Desktop</button><button class="preview-mode" type="button" data-preview-width="mobile" aria-pressed="false">Mobile</button></div></div>
+              <div id="preview-canvas" class="preview-canvas"><div id="preview-device" class="preview-device"></div></div>
+              <p class="preview-caption">Exemple visuel : les prix et le produit seront ceux de votre boutique Shopify.</p>
+            </aside>
+            </div>
           </div>
         </section>
       </div>
@@ -155,6 +166,74 @@
     if(!response.ok){if(response.status===401){logout();}throw new Error(data.error||'Erreur de communication avec Sellmaster.');}
     return data;
   }
+  function addPreviewField(device,label,type,placeholder){
+    const wrapper=document.createElement('label');wrapper.className='preview-field';
+    const caption=document.createElement('span');caption.textContent=label;wrapper.appendChild(caption);
+    const control=document.createElement(type==='select'?'select':type==='textarea'?'textarea':'input');
+    if(type==='input')control.type='text';
+    if(placeholder)control.placeholder=placeholder;
+    control.tabIndex=-1;control.setAttribute('aria-hidden','true');wrapper.appendChild(control);device.appendChild(wrapper);
+  }
+  function renderLivePreview(){
+    const device=document.getElementById('preview-device');
+    if(!device)return;
+    device.replaceChildren();
+    const store=document.createElement('div');store.className='preview-store';store.textContent='Votre boutique';device.appendChild(store);
+    const productImage=document.createElement('div');productImage.className='preview-product';productImage.textContent='Image du produit';device.appendChild(productImage);
+    const heading=document.createElement('h4');heading.className='preview-form-title';heading.textContent='Passer une commande';device.appendChild(heading);
+
+    const urgencyEnabled=document.getElementById('urgency-enabled').checked;
+    const urgencyText=document.getElementById('urgency-text').value.trim()||'Stock limité';
+    if(urgencyEnabled){const urgency=document.createElement('p');urgency.className='preview-urgency';urgency.textContent=urgencyText;device.appendChild(urgency);}
+
+    addPreviewField(device,'Nom complet','input','Votre nom');
+    const selectedFields=new Set(Array.from(document.querySelectorAll('[data-field]:checked')).map(input=>input.dataset.field));
+    if(selectedFields.has('phone'))addPreviewField(device,document.getElementById('phone-label').value.trim()||'Numéro WhatsApp','input','+229 ...');
+    if(selectedFields.has('city'))addPreviewField(device,'Ville','input','Votre ville');
+    if(selectedFields.has('address'))addPreviewField(device,'Adresse de livraison','input','Rue, quartier...');
+    if(selectedFields.has('delivery_note'))addPreviewField(device,'Heure de livraison souhaitée','textarea','Précisez une heure');
+
+    const countries=document.getElementById('country-options').value.split(/\r?\n/).map(line=>line.trim()).filter(Boolean).map(line=>line.split('|')[0].trim());
+    if(countries.length){
+      const wrapper=document.createElement('label');wrapper.className='preview-field';
+      const caption=document.createElement('span');caption.textContent='Pays';wrapper.appendChild(caption);
+      const select=document.createElement('select');select.tabIndex=-1;select.setAttribute('aria-hidden','true');
+      countries.forEach(country=>{const option=document.createElement('option');option.textContent=country;select.appendChild(option);});
+      wrapper.appendChild(select);device.appendChild(wrapper);
+    }
+    if(selectedFields.has('quantity'))addPreviewField(device,'Quantité','input','1');
+    if(selectedFields.has('otp_enabled')){
+      const otp=document.createElement('div');otp.className='preview-option';otp.textContent='Vérification du numéro par SMS';device.appendChild(otp);
+    }
+
+    const shipping=document.getElementById('shipping-options').value.split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
+    shipping.forEach(line=>{const option=document.createElement('div');option.className='preview-option';option.textContent=line.split('|')[0].trim();device.appendChild(option);});
+
+    const upsellLines=document.getElementById('upsell-list').value.split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
+    upsellLines.forEach(line=>{
+      const [title,,discount='0']=line.split('|');
+      const offer=document.createElement('div');offer.className='preview-option';
+      offer.textContent=(title&&title.trim()?title.trim():'Offre supplémentaire à configurer')+(Number(discount)>0?' (-'+Number(discount)+'%)':'');
+      device.appendChild(offer);
+    });
+
+    const quantityDiscount=document.getElementById('quantity-discount-enabled').checked;
+    if(quantityDiscount){
+      const promo=document.createElement('div');promo.className='preview-option';
+      promo.textContent='-'+(Number(document.getElementById('quantity-discount-percent').value)||0)+'% à partir de '+(Number(document.getElementById('quantity-discount-min').value)||2)+' articles';device.appendChild(promo);
+    }
+
+    const shippingLine=shipping[0]||'';
+    const shippingPrice=Number((shippingLine.split('|')[1]||'').trim())||0;
+    const summary=document.createElement('div');summary.className='preview-price';
+    const summaryLabel=document.createElement('span');summaryLabel.textContent='Total estimé';
+    const summaryPrice=document.createElement('span');summaryPrice.textContent=new Intl.NumberFormat('fr-FR').format(24900+shippingPrice)+' FCFA';
+    summary.append(summaryLabel,summaryPrice);device.appendChild(summary);
+
+    const submit=document.createElement('button');submit.className='preview-submit';submit.type='button';submit.textContent=document.getElementById('button-text').value.trim()||'Commander';
+    submit.style.backgroundColor=/^#[0-9a-fA-F]{6}$/.test(document.getElementById('button-color').value)?document.getElementById('button-color').value:'#00a6b2';
+    device.appendChild(submit);
+  }
   function showBuilder(){loginView.classList.add('hidden');builderView.classList.remove('hidden');logoutButton.classList.remove('hidden');}
   function logout(){authToken='';sessionStorage.removeItem(tokenKey);forms=[];selected=null;builderView.classList.add('hidden');logoutButton.classList.add('hidden');loginView.classList.remove('hidden');}
   function showTemplatePicker(){
@@ -191,6 +270,7 @@
     updatePublishUi();
     updateSnippet();
     renderForms();
+    renderLivePreview();
     loadUpsells(form.id);
   }
   async function loadUpsells(formId){
@@ -201,9 +281,11 @@
       document.getElementById('upsell-list').value=hasSavedUpsells
         ? currentUpsells.map(item=>[String(item.title||'').trim(), String(item.product_variant_id||'').trim(), String(item.discount_percent||0).trim()].join('|')).join('\n')
         : (draftUpsellFormIds.has(Number(formId))?'Offre supplémentaire||0':'');
+      if(selected&&Number(selected.id)===Number(formId))renderLivePreview();
     } catch (error) {
       currentUpsells=[];
       document.getElementById('upsell-list').value=draftUpsellFormIds.has(Number(formId))?'Offre supplémentaire||0':'';
+      if(selected&&Number(selected.id)===Number(formId))renderLivePreview();
     }
   }
   function updatePublishUi(){
@@ -251,6 +333,15 @@
     finally{button.disabled=false;}
   });
   document.getElementById('new-form').addEventListener('click',showTemplatePicker);
+  document.getElementById('editor').addEventListener('input',renderLivePreview);
+  document.getElementById('editor').addEventListener('change',renderLivePreview);
+  document.querySelectorAll('[data-preview-width]').forEach(button=>button.addEventListener('click',()=>{
+    const mobile=button.dataset.previewWidth==='mobile';
+    document.getElementById('preview-canvas').classList.toggle('mobile',mobile);
+    document.querySelectorAll('[data-preview-width]').forEach(option=>{
+      const active=option===button;option.classList.toggle('active',active);option.setAttribute('aria-pressed',String(active));
+    });
+  }));
   document.querySelectorAll('[data-template]').forEach(button=>button.addEventListener('click',async()=>{
     const templateName=button.dataset.template;
     const fields_config=templateConfigs[templateName];
