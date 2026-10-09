@@ -15,6 +15,7 @@
     label.field-label{display:block;font-size:13px;font-weight:700;margin:14px 0 6px}.text-input{width:100%;height:46px;border:1px solid #cbd8d7;border-radius:9px;padding:0 12px;background:#fff;color:var(--ink);outline:none}.text-input:focus{border-color:var(--teal);box-shadow:0 0 0 3px #087f831a}.text-input.textarea{height:auto;min-height:86px;padding:10px 12px;resize:vertical}
     .button{border:0;border-radius:9px;min-height:43px;padding:0 16px;background:var(--teal);color:#fff;font-weight:750}.button:hover{background:var(--teal-dark)}.button.secondary{background:#eef5f4;color:var(--teal-dark);border:1px solid var(--line)}.button.secondary:hover{background:#e4efed}.button:disabled{opacity:.6;cursor:wait}.wide{width:100%;margin-top:18px}
     .layout{display:grid;grid-template-columns:285px minmax(0,1fr);gap:20px;align-items:start}.surface{background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}.side{padding:16px}.side-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:14px;font-weight:800}.form-list{display:grid;gap:7px}.form-item{border:1px solid transparent;border-radius:9px;background:#f5f8f8;text-align:left;padding:11px 12px;color:var(--ink)}.form-item.active{background:var(--mint);border-color:#b5ded7}.form-item strong{display:block;font-size:13px}.form-item small{color:var(--muted)}.content{padding:24px}.content-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line);padding-bottom:17px;margin-bottom:19px}.content-head h2{margin:0;font-size:20px}.subtle{font-size:13px;color:var(--muted);margin-top:3px}.controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}.toggle{display:flex;align-items:center;gap:10px;min-height:51px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#fbfdfd;font-weight:650}.toggle input{accent-color:var(--teal);width:17px;height:17px}.section-title{margin:24px 0 10px;font-size:13px;font-weight:800}.snippet{position:relative;background:#122c33;color:#dbf2ed;border-radius:10px;padding:15px 115px 15px 15px;overflow-wrap:anywhere;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}.copy{position:absolute;right:9px;top:9px;min-height:33px;padding:0 10px;background:#e7f5f1;color:#075e64;font-size:12px}.instructions{margin:10px 0 0;color:var(--muted);font-size:13px}.instructions strong{color:var(--ink)}.toolbar{display:flex;gap:8px;flex-wrap:wrap}.status{display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border-radius:999px;background:#edf2f2;color:#52656b;font-size:12px;font-weight:750}.status.on{background:#e5f5ec;color:#157347}.dot{width:7px;height:7px;border-radius:50%;background:currentColor}.notice{min-height:22px;margin-top:12px;font-size:13px;color:var(--muted)}.notice.error{color:var(--red)}.notice.ok{color:#157347}.hidden{display:none!important}.logout{border:0;background:none;color:var(--muted);font-weight:700}.empty{padding:22px;border:1px dashed #c6d4d2;border-radius:10px;color:var(--muted);text-align:center}
+    .template-picker h2{margin:0;font-size:21px}.template-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:18px}.template-option{display:flex;flex-direction:column;align-items:flex-start;min-height:140px;padding:15px;border:1px solid var(--line);border-radius:9px;background:#fbfdfd;color:var(--ink);text-align:left}.template-option:hover,.template-option:focus-visible{border-color:var(--teal);background:var(--mint);outline:none}.template-option strong{font-size:15px}.template-option span{margin-top:6px;color:var(--muted);font-size:13px}.template-option:last-child{grid-column:1/-1}
     @media(max-width:720px){.shell{margin-top:34px}.layout{grid-template-columns:1fr}.side{padding:13px}.form-list{grid-template-columns:1fr 1fr}.content{padding:18px}.content-head{display:block}.toolbar{margin-top:12px}.controls{grid-template-columns:1fr}.topbar{padding:0 16px}}
   </style>
 </head>
@@ -43,7 +44,18 @@
           <div id="form-list" class="form-list"></div>
         </aside>
         <section class="surface content">
-          <div id="editor-empty" class="empty">Créez un formulaire pour commencer.</div>
+          <div id="template-picker" class="template-picker hidden">
+            <h2>Choisir un template</h2>
+            <p class="subtle">Chaque modèle est un point de départ. Tous les réglages restent modifiables avant publication.</p>
+            <div class="template-grid">
+              <button class="template-option" type="button" data-template="standard"><strong>Standard COD</strong><span>Nom, téléphone, ville, adresse et quantité. OTP désactivé, bouton « Commander ».</span></button>
+              <button class="template-option" type="button" data-template="antifraud"><strong>Anti-fraude renforcé</strong><span>Champs complets, vérification OTP et villes de livraison à configurer.</span></button>
+              <button class="template-option" type="button" data-template="conversion"><strong>Conversion maximale</strong><span>Upsell à compléter, remise de 10 % dès 2 unités, message « Stock limité » et bouton rouge.</span></button>
+              <button class="template-option" type="button" data-template="minimal"><strong>Minimaliste rapide</strong><span>Téléphone et ville, pour réduire les champs au minimum.</span></button>
+              <button class="template-option" type="button" data-template="multicountry"><strong>Multi-pays</strong><span>Sélecteur prérempli : Bénin, Togo, Côte d’Ivoire et Sénégal.</span></button>
+            </div>
+          </div>
+          <div id="editor-empty" class="empty hidden">Créez un formulaire pour commencer.</div>
           <div id="editor" class="hidden">
             <div class="content-head">
               <div><h2>Champs du formulaire</h2><div class="subtle">Le nom du client est toujours demandé.</div></div>
@@ -74,6 +86,16 @@
             <textarea class="text-input textarea" id="shipping-options" placeholder="Standard|1500&#10;Express|3000"></textarea>
             <label class="field-label" for="upsell-list">Upsells actifs (une ligne : Titre|variant_id|remise %)</label>
             <textarea class="text-input textarea" id="upsell-list" placeholder="Pack batterie|123456789012345|15&#10;Service garantie|987654321098765|10"></textarea>
+            <div class="controls">
+              <label class="toggle"><input type="checkbox" id="quantity-discount-enabled"> Remise sur quantité</label>
+              <label class="field-label" for="quantity-discount-min">Quantité minimale</label>
+              <input class="text-input" id="quantity-discount-min" type="number" min="2" max="100" step="1" value="2">
+              <label class="field-label" for="quantity-discount-percent">Remise (%)</label>
+              <input class="text-input" id="quantity-discount-percent" type="number" min="0" max="100" step="1" value="10">
+              <label class="toggle"><input type="checkbox" id="urgency-enabled"> Message d’urgence</label>
+              <label class="field-label" for="urgency-text">Texte d’urgence</label>
+              <input class="text-input" id="urgency-text" maxlength="80" value="Stock limité">
+            </div>
             <div class="controls">
               <label class="field-label" for="button-text">Texte du bouton popup</label>
               <input class="text-input" id="button-text" maxlength="60" value="Commander">
@@ -107,12 +129,22 @@
   const formList=document.getElementById('form-list');
   const editor=document.getElementById('editor');
   const editorEmpty=document.getElementById('editor-empty');
+  const templatePicker=document.getElementById('template-picker');
   const snippet=document.getElementById('snippet');
   const copyButton=document.getElementById('copy');
   let authToken=sessionStorage.getItem(tokenKey)||'';
   let forms=[];
   let currentUpsells=[];
+  let draftUpsellFormIds=new Set();
   let selected=null;
+
+  const templateConfigs={
+    standard:{phone:true,city:true,address:true,product_variant:true,quantity:true,delivery_note:false,otp_enabled:false,allowed_cities:[],button_text:'Commander',button_color:'#00a6b2',phone_label:'Numéro WhatsApp',country:[],shipping_options:[]},
+    antifraud:{phone:true,city:true,address:true,product_variant:true,quantity:true,delivery_note:false,otp_enabled:true,allowed_cities:[],button_text:'Commander',button_color:'#00a6b2',phone_label:'Numéro WhatsApp',country:[],shipping_options:[]},
+    conversion:{phone:true,city:true,address:true,product_variant:true,quantity:true,delivery_note:false,otp_enabled:false,allowed_cities:[],button_text:'ACHETER MAINTENANT',button_color:'#c62828',phone_label:'Numéro WhatsApp',country:[],shipping_options:[],quantity_discount_enabled:true,quantity_discount_min:2,quantity_discount_percent:10,urgency_enabled:true,urgency_text:'Stock limité'},
+    minimal:{phone:true,city:true,address:false,product_variant:true,quantity:false,delivery_note:false,otp_enabled:false,allowed_cities:[],button_text:'Commander',button_color:'#00a6b2',phone_label:'Numéro WhatsApp',country:[],shipping_options:[]},
+    multicountry:{phone:true,city:true,address:true,product_variant:true,quantity:true,delivery_note:false,otp_enabled:false,allowed_cities:[],button_text:'Commander',button_color:'#00a6b2',phone_label:'Numéro WhatsApp',country:[{label:'Bénin',value:'BJ'},{label:'Togo',value:'TG'},{label:'Côte d’Ivoire',value:'CI'},{label:'Sénégal',value:'SN'}],shipping_options:[]}
+  };
 
   function notice(node,text,kind){node.textContent=text||'';node.className='notice'+(kind?' '+kind:'');}
   async function request(path,options){
@@ -125,11 +157,20 @@
   }
   function showBuilder(){loginView.classList.add('hidden');builderView.classList.remove('hidden');logoutButton.classList.remove('hidden');}
   function logout(){authToken='';sessionStorage.removeItem(tokenKey);forms=[];selected=null;builderView.classList.add('hidden');logoutButton.classList.add('hidden');loginView.classList.remove('hidden');}
+  function showTemplatePicker(){
+    selected=null;
+    editor.classList.add('hidden');
+    editorEmpty.classList.add('hidden');
+    templatePicker.classList.remove('hidden');
+    renderForms();
+    notice(builderNotice,'');
+  }
   function setEditor(form){
     selected=form;
     editor.classList.toggle('hidden',!form);
-    editorEmpty.classList.toggle('hidden',Boolean(form));
-    if(!form)return;
+    editorEmpty.classList.add('hidden');
+    templatePicker.classList.toggle('hidden',Boolean(form));
+    if(!form){templatePicker.classList.remove('hidden');return;}
     currentUpsells=[];
     const config=form.fields_config||{};
     document.querySelectorAll('[data-field]').forEach(input=>{input.checked=config[input.dataset.field]===true;});
@@ -141,6 +182,11 @@
     document.getElementById('country-options').value=(Array.isArray(config.country)?config.country:[]).map(item=>item.label+(item.value&&item.value!==item.label?'|'+item.value:'')).join('\n');
     document.getElementById('shipping-options').value=(Array.isArray(config.shipping_options)?config.shipping_options:[]).map(item=>item.label+'|'+item.price).join('\n');
     document.getElementById('upsell-list').value='';
+    document.getElementById('quantity-discount-enabled').checked=config.quantity_discount_enabled===true;
+    document.getElementById('quantity-discount-min').value=Number(config.quantity_discount_min)||2;
+    document.getElementById('quantity-discount-percent').value=Number(config.quantity_discount_percent)||0;
+    document.getElementById('urgency-enabled').checked=config.urgency_enabled===true;
+    document.getElementById('urgency-text').value=config.urgency_text||'Stock limité';
     document.getElementById('cod-gateway-name').value=form.cod_gateway_name||'Cash on Delivery (COD)';
     updatePublishUi();
     updateSnippet();
@@ -151,10 +197,13 @@
     try {
       const data=await request('/order-forms/'+formId+'/upsells');
       currentUpsells=data.upsells||[];
-      document.getElementById('upsell-list').value=currentUpsells.map(item=>[String(item.title||'').trim(), String(item.product_variant_id||'').trim(), String(item.discount_percent||0).trim()].join('|')).filter(Boolean).join('\n');
+      const hasSavedUpsells=currentUpsells.length>0;
+      document.getElementById('upsell-list').value=hasSavedUpsells
+        ? currentUpsells.map(item=>[String(item.title||'').trim(), String(item.product_variant_id||'').trim(), String(item.discount_percent||0).trim()].join('|')).join('\n')
+        : (draftUpsellFormIds.has(Number(formId))?'Offre supplémentaire||0':'');
     } catch (error) {
       currentUpsells=[];
-      document.getElementById('upsell-list').value='';
+      document.getElementById('upsell-list').value=draftUpsellFormIds.has(Number(formId))?'Offre supplémentaire||0':'';
     }
   }
   function updatePublishUi(){
@@ -201,10 +250,25 @@
     }catch(error){notice(loginNotice,error.message,'error');}
     finally{button.disabled=false;}
   });
-  document.getElementById('new-form').addEventListener('click',async()=>{
-    try{notice(builderNotice,'Création du formulaire...');const data=await request('/order-forms',{method:'POST',body:JSON.stringify({fields_config:{phone:true,city:true,address:true,product_variant:true,quantity:true,delivery_note:false,otp_enabled:false,allowed_cities:[],button_text:'Commander',button_color:'#00a6b2',phone_label:'Numéro WhatsApp',country:[],shipping_options:[]},cod_gateway_name:'Cash on Delivery (COD)',display_mode:'embedded'})});forms.unshift(data.form);setEditor(data.form);notice(builderNotice,'Formulaire créé. Configurez les champs puis publiez-le.','ok');}
-    catch(error){notice(builderNotice,error.message,'error');}
-  });
+  document.getElementById('new-form').addEventListener('click',showTemplatePicker);
+  document.querySelectorAll('[data-template]').forEach(button=>button.addEventListener('click',async()=>{
+    const templateName=button.dataset.template;
+    const fields_config=templateConfigs[templateName];
+    if(!fields_config)return;
+    document.querySelectorAll('[data-template]').forEach(option=>{option.disabled=true;});
+    try{
+      notice(builderNotice,'Création du formulaire...');
+      const data=await request('/order-forms',{method:'POST',body:JSON.stringify({fields_config,cod_gateway_name:'Cash on Delivery (COD)',display_mode:'embedded'})});
+      forms.unshift(data.form);
+      if(templateName==='conversion')draftUpsellFormIds.add(Number(data.form.id));
+      setEditor(data.form);
+      notice(builderNotice,'Formulaire créé depuis le template. Vous pouvez tout modifier avant publication.','ok');
+    }catch(error){
+      notice(builderNotice,error.message,'error');
+    }finally{
+      document.querySelectorAll('[data-template]').forEach(option=>{option.disabled=false;});
+    }
+  }));
   document.getElementById('save-fields').addEventListener('click',async()=>{
     if(!selected)return;
     const fields_config={};document.querySelectorAll('[data-field]').forEach(input=>{fields_config[input.dataset.field]=input.checked;});
@@ -214,6 +278,11 @@
     fields_config.allowed_cities=document.getElementById('allowed-cities').value.split(',').map(city=>city.trim()).filter(Boolean);
     fields_config.country=document.getElementById('country-options').value.split(/\r?\n/).map(line=>line.trim()).filter(Boolean).map(line=>{const [label,...valueParts]=line.split('|');return {label:label.trim(),value:valueParts.join('|').trim()||label.trim()};});
     fields_config.shipping_options=document.getElementById('shipping-options').value.split(/\r?\n/).map(line=>line.trim()).filter(Boolean).map(line=>{const [label,...priceParts]=line.split('|');return {label:label.trim(),price:Number(priceParts.join('|').trim())};});
+    fields_config.quantity_discount_enabled=document.getElementById('quantity-discount-enabled').checked;
+    fields_config.quantity_discount_min=Number(document.getElementById('quantity-discount-min').value)||2;
+    fields_config.quantity_discount_percent=Number(document.getElementById('quantity-discount-percent').value)||0;
+    fields_config.urgency_enabled=document.getElementById('urgency-enabled').checked;
+    fields_config.urgency_text=document.getElementById('urgency-text').value.trim()||'Stock limité';
     const display_mode=document.getElementById('display-mode').value;
     const cod_gateway_name=document.getElementById('cod-gateway-name').value.trim();
     if(!cod_gateway_name){notice(builderNotice,'Le nom du moyen de paiement COD est obligatoire.','error');return;}
@@ -237,6 +306,7 @@
         await request('/order-forms/'+selected.id+'/upsells',{method:'POST',body:JSON.stringify({title:normalizedTitle,product_variant_id:normalizedVariantId,discount_percent:normalizedDiscount,position:index,is_active:true})});
       }
       await loadUpsells(selected.id);
+      draftUpsellFormIds.delete(Number(selected.id));
       notice(builderNotice,'Upsells enregistrés.','ok');
     } catch (error) {
       notice(builderNotice,error.message,'error');
