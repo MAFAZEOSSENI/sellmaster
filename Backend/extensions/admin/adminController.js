@@ -64,6 +64,11 @@ const adminController = {
     try {
       const currentUserId = Number(req.userId);
       const fixedRole = await User.getFixedRole(currentUserId);
+      const includePending = String(req.query.includePending || '').toLowerCase() === 'true';
+
+      if (includePending && fixedRole !== 'owner') {
+        return res.status(403).json({ error: 'Seul le propriétaire peut consulter les invitations en attente.' });
+      }
       const conn = await getConnection();
 
       try {
@@ -207,6 +212,16 @@ const adminController = {
       try {
         await ensureExclusiveOwnerRoleAssignment(conn, { memberUserId, ownerUserId, roleName });
 
+        const [activeMemberships] = await conn.query(
+          `SELECT id FROM team_memberships
+           WHERE owner_user_id = $1 AND member_user_id = $2 AND status = 'active'
+           LIMIT 1`,
+          [ownerUserId, memberUserId]
+        );
+        if (activeMemberships.length > 0) {
+          return res.status(409).json({ error: 'Cet utilisateur est déjà membre actif de votre équipe.' });
+        }
+
         await conn.query(
           `INSERT INTO team_memberships (owner_user_id, member_user_id, role_name, status, invited_by)
            VALUES ($1, $2, $3, 'pending', $4)
@@ -241,6 +256,11 @@ const adminController = {
       const requestedOwnerId = Number(req.query.ownerId || req.userId);
       const currentUserId = Number(req.userId);
       const fixedRole = await User.getFixedRole(currentUserId);
+      const includePending = String(req.query.includePending || '').toLowerCase() === 'true';
+
+      if (includePending && fixedRole !== 'owner') {
+        return res.status(403).json({ error: 'Seul le propriétaire peut consulter les invitations en attente.' });
+      }
 
       const targetIsCurrentOwner = requestedOwnerId === currentUserId;
       const isActiveTeamMember = await User.isActiveWorkingTeamMemberForOwner(currentUserId, requestedOwnerId);
@@ -258,9 +278,9 @@ const adminController = {
           FROM team_memberships tm
           JOIN app_users u ON u.id = tm.member_user_id
           WHERE tm.owner_user_id = $2
-            AND tm.status = 'active'
-            AND tm.is_working = TRUE
-          ORDER BY tm.created_at DESC`, [currentUserId, requestedOwnerId]);
+            AND ((tm.status = 'active' AND tm.is_working = TRUE)
+              OR ($3 = TRUE AND tm.status = 'pending'))
+          ORDER BY tm.created_at DESC`, [currentUserId, requestedOwnerId, includePending]);
 
         res.json({ members: rows });
       } finally {
@@ -556,10 +576,18 @@ const adminController = {
         }
 
         const membership = rows[0];
-        await conn.query(
-          `UPDATE team_memberships SET status = 'active', confirmed_at = NOW() WHERE id = $1`,
-          [membershipId]
-        );
+        if (membership.status === 'rejected') {
+          return res.status(409).json({ error: 'Cette invitation a été refusée et ne peut pas être réactivée.' });
+        }
+
+        if (membership.status === 'pending') {
+          await conn.query(
+            `UPDATE team_memberships
+             SET status = 'active', confirmed_at = NOW()
+             WHERE id = $1 AND member_user_id = $2 AND status = 'pending'`,
+            [membershipId, req.userId]
+          );
+        }
 
       } finally {
         conn.release();

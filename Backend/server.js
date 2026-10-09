@@ -681,8 +681,9 @@ app.patch('/api/orders/:id/assign', authMiddleware, async (req, res) => {
     }
 
     const ownerUserId = Number(order.user_id);
-    const hasActiveMembership = await User.isActiveTeamMemberForOwner(currentUserId, ownerUserId);
-    const hasWorkingMembership = await User.isActiveWorkingTeamMemberForOwner(currentUserId, ownerUserId);
+    const isOrderOwner = currentRole === 'owner' && currentUserId === ownerUserId;
+    const hasActiveMembership = isOrderOwner || await User.isActiveTeamMemberForOwner(currentUserId, ownerUserId);
+    const hasWorkingMembership = isOrderOwner || await User.isActiveWorkingTeamMemberForOwner(currentUserId, ownerUserId);
 
     if (!hasActiveMembership || !hasWorkingMembership) {
       return res.status(403).json({
