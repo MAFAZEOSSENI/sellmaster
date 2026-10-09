@@ -6,6 +6,7 @@ const ShopifyConfig = require('../models/ShopifyConfig');
 const ShopifyService = require('../services/ShopifyService');
 const License = require('../models/License');
 const User = require('../models/User');
+const FormUpsell = require('../models/FormUpsell');
 const { getConnection } = require('../config/database');
 
 const router = express.Router();
@@ -191,6 +192,18 @@ router.get('/:token', async (req, res) => {
        ORDER BY name ASC`,
       [form.owner_user_id, storeIds]
     );
+    const [upsellRows] = await conn.query(
+      `SELECT fu.id, fu.product_variant_id, fu.title, fu.discount_percent, fu.position,
+              p.price AS product_price
+       FROM form_upsells fu
+       LEFT JOIN products p
+         ON p.user_id = $1
+        AND p.shopify_variant_id = fu.product_variant_id
+       WHERE fu.order_form_id = $2
+         AND fu.is_active = TRUE
+       ORDER BY fu.position ASC, fu.id ASC`,
+      [form.owner_user_id, form.id]
+    );
     return res.json({
       fields_config: publicFieldsConfig(form.fields_config),
       display_mode: form.display_mode === 'popup' ? 'popup' : 'embedded',
@@ -200,6 +213,15 @@ router.get('/:token', async (req, res) => {
         price: Number(product.price || 0),
         shopify_product_id: product.shopify_product_id == null ? null : String(product.shopify_product_id),
         shopify_variant_id: product.shopify_variant_id == null ? null : String(product.shopify_variant_id),
+      })),
+      upsells: upsellRows.map((upsell) => ({
+        id: Number(upsell.id),
+        title: String(upsell.title || '').trim(),
+        product_variant_id: String(upsell.product_variant_id || '').trim(),
+        discount_percent: Number(upsell.discount_percent || 0),
+        position: Number(upsell.position || 0),
+        product_id: null,
+        price: Number(upsell.product_price || 0),
       })),
     });
   } finally {
@@ -358,6 +380,67 @@ router.post('/:token/submit', submitLimiter, async (req, res) => {
   const config = configs.find(item => Number(item.id) === [...storeIds][0]);
   if (!config) return res.status(503).json({ error: 'Boutique Shopify indisponible' });
 
+  const selectedUpsells = Array.isArray(req.body?.upsells) ? req.body.upsells : [];
+  const upsellItems = [];
+
+  if (selectedUpsells.length) {
+    const variantIds = selectedUpsells
+      .map(({ product_variant_id, variant_id }) => String(product_variant_id ?? variant_id ?? '').trim())
+      .filter(Boolean);
+
+    if (!variantIds.length) {
+      return res.status(400).json({ error: 'Offres supplémentaires invalides' });
+    }
+
+    const upsellConn = await getConnection();
+    try {
+      const [upsellRows] = await upsellConn.query(
+        `SELECT id, product_variant_id, title, discount_percent
+         FROM form_upsells
+         WHERE order_form_id = $1
+           AND is_active = TRUE
+           AND product_variant_id = ANY($2::text[])`,
+        [form.id, variantIds]
+      );
+
+      const upsellsByVariant = new Map(upsellRows.map((upsell) => [String(upsell.product_variant_id), upsell]));
+      const [variantRows] = await upsellConn.query(
+        `SELECT id, name, price, shopify_variant_id, shopify_store_id
+         FROM products
+         WHERE user_id = $1
+           AND shopify_variant_id = ANY($2::text[])
+           AND shopify_store_id = ANY($3::int[])`,
+        [form.owner_user_id, variantIds, configs.map((item) => Number(item.id))]
+      );
+      const productsByVariantId = new Map(variantRows.map((product) => [String(product.shopify_variant_id), product]));
+
+      for (const entry of selectedUpsells) {
+        const variantId = String(entry?.product_variant_id ?? entry?.variant_id ?? '').trim();
+        const quantity = Number(entry?.quantity ?? 1);
+        const upsell = upsellsByVariant.get(variantId);
+        const product = productsByVariantId.get(variantId);
+
+        if (!upsell || !product) {
+          return res.status(400).json({ error: 'Une offre supplémentaire n’est pas disponible' });
+        }
+
+        if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100) {
+          return res.status(400).json({ error: 'Quantité d’upsell invalide' });
+        }
+
+        const basePrice = Number(product.price || 0);
+        const discountedPrice = FormUpsell.calculateDiscountedPrice(basePrice, Number(upsell.discount_percent || 0));
+        upsellItems.push({
+          variantId: String(product.shopify_variant_id),
+          quantity,
+          unitPrice: discountedPrice,
+        });
+      }
+    } finally {
+      upsellConn.release();
+    }
+  }
+
   const service = new ShopifyService(form.owner_user_id);
   try {
     const createdOrder = await service.createOrderFromForm({ ...config, cod_gateway_name: form.cod_gateway_name }, {
@@ -370,11 +453,11 @@ router.post('/:token/submit', submitLimiter, async (req, res) => {
       ip: clientIp,
       country: formData.country,
       shipping_option: formData.shippingOption,
-      items: formData.items.map(item => ({
+      items: [...formData.items.map(item => ({
         variantId: productsById.get(item.productId).shopify_variant_id,
         quantity: item.quantity,
         unitPrice: Number(productsById.get(item.productId).price || 0),
-      })),
+      })), ...upsellItems],
     });
     return res.status(201).json({ success: true, order: createdOrder });
   } catch (error) {

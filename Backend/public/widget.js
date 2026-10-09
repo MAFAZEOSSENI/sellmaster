@@ -85,6 +85,7 @@
 
   var fields = null;
   var products = [];
+  var upsells = [];
   var cartForm = null;
   var selectedProduct = null;
   var productSummary = null;
@@ -255,6 +256,61 @@
     form.appendChild(wrapper);
   }
 
+  function addUpsellOffers() {
+    if (!Array.isArray(upsells) || !upsells.length) return;
+
+    var wrapper = document.createElement('fieldset');
+    wrapper.style.border = '0';
+    wrapper.style.padding = '0';
+    wrapper.style.margin = '12px 0 0';
+    var legend = document.createElement('legend');
+    legend.textContent = 'Offres supplémentaires';
+    legend.style.font = '600 13px system-ui,sans-serif';
+    wrapper.appendChild(legend);
+
+    upsells.forEach(function (upsell) {
+      var price = Number(upsell.price || 0) || 0;
+      var discountPercent = Number(upsell.discount_percent || 0) || 0;
+      if (discountPercent > 0) price = price * (1 - discountPercent / 100);
+
+      var label = document.createElement('label');
+      label.className = 'shipping-option';
+      var checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.name = 'upsell_' + String(upsell.id || upsell.product_variant_id || '');
+      checkbox.value = String(upsell.product_variant_id || upsell.id || '');
+      checkbox.addEventListener('change', updateSubmitTotal);
+
+      var text = document.createElement('span');
+      text.textContent = String(upsell.title || 'Offre supplémentaire') + ' - ' + formatPrice(price);
+      if (discountPercent > 0) {
+        text.textContent += ' (-' + discountPercent + '%)';
+      }
+
+      label.appendChild(checkbox);
+      label.appendChild(text);
+      wrapper.appendChild(label);
+    });
+
+    form.appendChild(wrapper);
+  }
+
+  function readSelectedUpsells() {
+    if (!Array.isArray(upsells) || !upsells.length) return [];
+    return upsells.filter(function (upsell) {
+      var key = 'upsell_' + String(upsell.id || upsell.product_variant_id || '');
+      var input = form.elements.namedItem(key);
+      return !!(input && input.checked);
+    }).map(function (upsell) {
+      return {
+        product_variant_id: String(upsell.product_variant_id || ''),
+        quantity: 1,
+      };
+    }).filter(function (upsell) {
+      return !!upsell.product_variant_id;
+    });
+  }
+
   function formatPrice(value) {
     var amount = Number(value);
     if (!Number.isFinite(amount)) amount = 0;
@@ -401,7 +457,17 @@
     var deliveryPrice = selectedIndex !== null && shippingOptions[selectedIndex]
       ? Number(shippingOptions[selectedIndex].price) || 0
       : 0;
-    var total = product ? (Number(product.price) || 0) * quantity + deliveryPrice : 0;
+    var upsellTotal = readSelectedUpsells().reduce(function (sum, upsell) {
+      var selectedUpsell = upsells.find(function (item) {
+        return String(item.product_variant_id || '') === String(upsell.product_variant_id || '');
+      });
+      if (!selectedUpsell) return sum;
+      var price = Number(selectedUpsell.price || 0) || 0;
+      var discountPercent = Number(selectedUpsell.discount_percent || 0) || 0;
+      if (discountPercent > 0) price = price * (1 - discountPercent / 100);
+      return sum + price * (Number(upsell.quantity) || 1);
+    }, 0);
+    var total = product ? (Number(product.price) || 0) * quantity + deliveryPrice + upsellTotal : 0;
     if (productSummary) {
       productSummary.textContent = product
         ? product.name + ' - ' + formatPrice(product.price)
@@ -426,6 +492,7 @@
     addCountryControl();
     addProductControls();
     addShippingOptions();
+    addUpsellOffers();
 
     var submit = document.createElement('button');
     submit.type = 'submit';
@@ -534,6 +601,8 @@
         quantity: fields.quantity === true ? Number(quantityInput.value) : 1
       }]
     };
+    var selectedUpsells = readSelectedUpsells();
+    if (selectedUpsells.length) payload.upsells = selectedUpsells;
     var shippingIndex = selectedShippingOption();
     if (shippingIndex !== null) payload.shipping_option = shippingIndex;
     if (fields.phone === true) payload.phone = readValue('phone');
@@ -588,6 +657,7 @@
     .then(function (config) {
       fields = config.fields_config || {};
       products = Array.isArray(config.products) ? config.products : [];
+      upsells = Array.isArray(config.upsells) ? config.upsells : [];
       watchPageProduct();
       renderConfiguredFields();
       setMessage('', '');

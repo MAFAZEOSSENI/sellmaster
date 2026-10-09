@@ -72,12 +72,15 @@
             <textarea class="text-input textarea" id="country-options" placeholder="Bénin|BJ&#10;Togo|TG&#10;Côte d’Ivoire|CI"></textarea>
             <label class="field-label" for="shipping-options">Options de livraison (une ligne : Libellé|prix en FCFA)</label>
             <textarea class="text-input textarea" id="shipping-options" placeholder="Standard|1500&#10;Express|3000"></textarea>
+            <label class="field-label" for="upsell-list">Upsells actifs (une ligne : Titre|variant_id|remise %)</label>
+            <textarea class="text-input textarea" id="upsell-list" placeholder="Pack batterie|123456789012345|15&#10;Service garantie|987654321098765|10"></textarea>
             <div class="controls">
               <label class="field-label" for="button-text">Texte du bouton popup</label>
               <input class="text-input" id="button-text" maxlength="60" value="Commander">
               <label class="field-label" for="button-color">Couleur du bouton popup</label>
               <input id="button-color" type="color" value="#00a6b2" aria-label="Couleur du bouton popup">
             </div>
+            <button id="save-upsells" class="button secondary" type="button" style="margin-top:14px">Enregistrer les upsells</button>
             <label class="field-label" for="cod-gateway-name">Nom du moyen de paiement à la livraison</label>
             <input class="text-input" id="cod-gateway-name" maxlength="255" value="Cash on Delivery (COD)" required>
             <p class="instructions">Ce nom doit correspondre EXACTEMENT au moyen de paiement manuel que vous avez créé dans Shopify (Réglages &gt; Paiements).</p>
@@ -108,6 +111,7 @@
   const copyButton=document.getElementById('copy');
   let authToken=sessionStorage.getItem(tokenKey)||'';
   let forms=[];
+  let currentUpsells=[];
   let selected=null;
 
   function notice(node,text,kind){node.textContent=text||'';node.className='notice'+(kind?' '+kind:'');}
@@ -126,6 +130,7 @@
     editor.classList.toggle('hidden',!form);
     editorEmpty.classList.toggle('hidden',Boolean(form));
     if(!form)return;
+    currentUpsells=[];
     const config=form.fields_config||{};
     document.querySelectorAll('[data-field]').forEach(input=>{input.checked=config[input.dataset.field]===true;});
     document.getElementById('display-mode').value=form.display_mode==='popup'?'popup':'embedded';
@@ -135,10 +140,22 @@
     document.getElementById('allowed-cities').value=Array.isArray(config.allowed_cities)?config.allowed_cities.join(', '):'';
     document.getElementById('country-options').value=(Array.isArray(config.country)?config.country:[]).map(item=>item.label+(item.value&&item.value!==item.label?'|'+item.value:'')).join('\n');
     document.getElementById('shipping-options').value=(Array.isArray(config.shipping_options)?config.shipping_options:[]).map(item=>item.label+'|'+item.price).join('\n');
+    document.getElementById('upsell-list').value='';
     document.getElementById('cod-gateway-name').value=form.cod_gateway_name||'Cash on Delivery (COD)';
     updatePublishUi();
     updateSnippet();
     renderForms();
+    loadUpsells(form.id);
+  }
+  async function loadUpsells(formId){
+    try {
+      const data=await request('/order-forms/'+formId+'/upsells');
+      currentUpsells=data.upsells||[];
+      document.getElementById('upsell-list').value=currentUpsells.map(item=>[String(item.title||'').trim(), String(item.product_variant_id||'').trim(), String(item.discount_percent||0).trim()].join('|')).filter(Boolean).join('\n');
+    } catch (error) {
+      currentUpsells=[];
+      document.getElementById('upsell-list').value='';
+    }
   }
   function updatePublishUi(){
     if(!selected)return;
@@ -202,6 +219,28 @@
     if(!cod_gateway_name){notice(builderNotice,'Le nom du moyen de paiement COD est obligatoire.','error');return;}
     try{notice(builderNotice,'Enregistrement...');const data=await request('/order-forms/'+selected.id,{method:'PUT',body:JSON.stringify({fields_config,cod_gateway_name,display_mode})});selected=data.form;forms=forms.map(form=>Number(form.id)===Number(selected.id)?selected:form);updateSnippet();renderForms();notice(builderNotice,'Configuration enregistrée.','ok');}
     catch(error){notice(builderNotice,error.message,'error');}
+  });
+  document.getElementById('save-upsells').addEventListener('click',async()=>{
+    if(!selected)return;
+    try {
+      notice(builderNotice,'Enregistrement des upsells...');
+      const lines=document.getElementById('upsell-list').value.split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
+      for (const item of currentUpsells) {
+        await request('/order-forms/'+selected.id+'/upsells/'+item.id,{method:'DELETE'});
+      }
+      for (let index=0; index < lines.length; index++) {
+        const [title, productVariantId, discountPercent='0'] = lines[index].split('|');
+        const normalizedTitle = String(title || '').trim();
+        const normalizedVariantId = String(productVariantId || '').trim();
+        const normalizedDiscount = Number(discountPercent || 0);
+        if (!normalizedTitle || !normalizedVariantId) continue;
+        await request('/order-forms/'+selected.id+'/upsells',{method:'POST',body:JSON.stringify({title:normalizedTitle,product_variant_id:normalizedVariantId,discount_percent:normalizedDiscount,position:index,is_active:true})});
+      }
+      await loadUpsells(selected.id);
+      notice(builderNotice,'Upsells enregistrés.','ok');
+    } catch (error) {
+      notice(builderNotice,error.message,'error');
+    }
   });
   document.getElementById('publish').addEventListener('click',async()=>{
     if(!selected)return;

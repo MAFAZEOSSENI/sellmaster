@@ -4,6 +4,7 @@ const { requireRole } = require('../middleware/rbacMiddleware');
 const User = require('../models/User');
 const License = require('../models/License');
 const OrderForm = require('../models/OrderForm');
+const FormUpsell = require('../models/FormUpsell');
 const ShopifyConfig = require('../models/ShopifyConfig');
 
 const router = express.Router();
@@ -37,6 +38,93 @@ router.get('/', async (req, res) => {
   } catch (error) {
     console.error('[Order forms] List failed:', error);
     return res.status(500).json({ error: 'Impossible de charger les formulaires.' });
+  }
+});
+
+async function findOwnedFormById(req, res) {
+  const formId = Number(req.params.id || req.params.formId || req.params.orderFormId);
+  const forms = await OrderForm.findByOwner(Number(req.userId));
+  const form = forms.find((item) => Number(item.id) === Number(formId));
+  if (!form) {
+    res.status(404).json({ error: 'Formulaire introuvable.' });
+    return null;
+  }
+  return form;
+}
+
+router.get('/:id/upsells', async (req, res) => {
+  try {
+    const form = await findOwnedFormById(req, res);
+    if (!form) return;
+    return res.json({ upsells: await FormUpsell.findByFormId(form.id) });
+  } catch (error) {
+    console.error('[Order forms] Upsells list failed:', error);
+    return res.status(500).json({ error: 'Impossible de charger les upsells.' });
+  }
+});
+
+router.post('/:id/upsells', async (req, res) => {
+  try {
+    const form = await findOwnedFormById(req, res);
+    if (!form) return;
+
+    const payload = req.body || {};
+    const upsell = await FormUpsell.create({
+      orderFormId: form.id,
+      productVariantId: payload.product_variant_id ?? payload.productVariantId,
+      title: payload.title,
+      discountPercent: payload.discount_percent ?? payload.discountPercent ?? 0,
+      position: payload.position ?? 0,
+      isActive: payload.is_active !== false,
+    });
+
+    return res.status(201).json({ upsell });
+  } catch (error) {
+    console.error('[Order forms] Upsell create failed:', error);
+    return res.status(400).json({ error: error.message || 'Impossible de créer l’upsell.' });
+  }
+});
+
+router.put('/:id/upsells/:upsellId', async (req, res) => {
+  try {
+    const form = await findOwnedFormById(req, res);
+    if (!form) return;
+
+    const current = await FormUpsell.findById(req.params.upsellId);
+    if (!current || Number(current.order_form_id) !== Number(form.id)) {
+      return res.status(404).json({ error: 'Upsell introuvable.' });
+    }
+
+    const updated = await FormUpsell.update(
+      req.params.upsellId,
+      form.id,
+      {
+        title: req.body?.title ?? current.title,
+        product_variant_id: req.body?.product_variant_id ?? req.body?.productVariantId ?? current.product_variant_id,
+        discount_percent: req.body?.discount_percent ?? req.body?.discountPercent ?? current.discount_percent,
+        position: req.body?.position ?? current.position,
+        is_active: req.body?.is_active ?? current.is_active,
+      }
+    );
+
+    return res.json({ upsell: updated });
+  } catch (error) {
+    console.error('[Order forms] Upsell update failed:', error);
+    return res.status(400).json({ error: error.message || 'Impossible de mettre à jour l’upsell.' });
+  }
+});
+
+router.delete('/:id/upsells/:upsellId', async (req, res) => {
+  try {
+    const form = await findOwnedFormById(req, res);
+    if (!form) return;
+
+    const deleted = await FormUpsell.delete(req.params.upsellId, form.id);
+    if (!deleted) return res.status(404).json({ error: 'Upsell introuvable.' });
+    return res.json({ upsell: deleted, deleted: true });
+  } catch (error) {
+    console.error('[Order forms] Upsell delete failed:', error);
+    return res.status(400).json({ error: error.message || 'Impossible de supprimer l’upsell.' });
   }
 });
 

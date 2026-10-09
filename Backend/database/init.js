@@ -162,6 +162,20 @@ async function createTables() {
     await conn.query(`CREATE INDEX IF NOT EXISTS form_otp_codes_public_token_phone_idx ON "form_otp_codes" (public_token, phone, created_at DESC)`);
 
     await conn.query(`
+      CREATE TABLE IF NOT EXISTS "form_upsells" (
+        id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        order_form_id INT NOT NULL REFERENCES "order_forms"(id) ON DELETE CASCADE,
+        product_variant_id VARCHAR(64) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        discount_percent DECIMAL(5,2) NULL DEFAULT 0,
+        position INT NOT NULL DEFAULT 0,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await conn.query(`CREATE INDEX IF NOT EXISTS form_upsells_order_form_position_idx ON "form_upsells" (order_form_id, position, is_active)`);
+
+    await conn.query(`
       CREATE TABLE IF NOT EXISTS "licenses" (
         id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         license_key VARCHAR(255) NOT NULL UNIQUE,
