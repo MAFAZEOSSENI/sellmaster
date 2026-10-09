@@ -55,6 +55,7 @@
               <label class="toggle"><input type="checkbox" data-field="address"> Adresse de livraison</label>
               <label class="toggle"><input type="checkbox" data-field="quantity"> Quantité</label>
               <label class="toggle"><input type="checkbox" data-field="delivery_note"> Heure de livraison souhaitée</label>
+              <label class="toggle"><input type="checkbox" data-field="otp_enabled"> Vérification OTP</label>
             </div>
             <p class="instructions">Le produit et sa variante sont détectés automatiquement depuis la fiche Shopify affichée. Le client n’a rien à sélectionner.</p>
             <label class="field-label" for="display-mode">Mode d’affichage <span title="Le même script généré fonctionne pour les deux modes. Seul l’endroit où vous le collez change : n’importe où pour le popup global, ou dans la description produit pour l’afficher à cet endroit précis." aria-label="Le même script généré fonctionne pour les deux modes. Seul l’endroit où vous le collez change : n’importe où pour le popup global, ou dans la description produit pour l’afficher à cet endroit précis.">ⓘ</span></label>
@@ -65,6 +66,8 @@
             <p class="instructions">Le même script généré fonctionne dans les deux modes. Collez-le n’importe où pour un popup global, ou dans la description produit pour afficher le formulaire à cet endroit précis.</p>
             <label class="field-label" for="phone-label">Libellé du téléphone</label>
             <input class="text-input" id="phone-label" maxlength="60" value="Numéro WhatsApp">
+            <label class="field-label" for="allowed-cities">Villes autorisées (séparées par des virgules)</label>
+            <textarea class="text-input textarea" id="allowed-cities" placeholder="Cotonou, Porto-Novo, Parakou"></textarea>
             <label class="field-label" for="country-options">Pays proposés (une ligne par pays : Nom|code ISO facultatif)</label>
             <textarea class="text-input textarea" id="country-options" placeholder="Bénin|BJ&#10;Togo|TG&#10;Côte d’Ivoire|CI"></textarea>
             <label class="field-label" for="shipping-options">Options de livraison (une ligne : Libellé|prix en FCFA)</label>
@@ -129,6 +132,7 @@
     document.getElementById('button-text').value=config.button_text||'Commander';
     document.getElementById('button-color').value=/^#[0-9a-fA-F]{6}$/.test(config.button_color||'')?config.button_color:'#00a6b2';
     document.getElementById('phone-label').value=config.phone_label||'Numéro WhatsApp';
+    document.getElementById('allowed-cities').value=Array.isArray(config.allowed_cities)?config.allowed_cities.join(', '):'';
     document.getElementById('country-options').value=(Array.isArray(config.country)?config.country:[]).map(item=>item.label+(item.value&&item.value!==item.label?'|'+item.value:'')).join('\n');
     document.getElementById('shipping-options').value=(Array.isArray(config.shipping_options)?config.shipping_options:[]).map(item=>item.label+'|'+item.price).join('\n');
     document.getElementById('cod-gateway-name').value=form.cod_gateway_name||'Cash on Delivery (COD)';
@@ -181,7 +185,7 @@
     finally{button.disabled=false;}
   });
   document.getElementById('new-form').addEventListener('click',async()=>{
-    try{notice(builderNotice,'Création du formulaire...');const data=await request('/order-forms',{method:'POST',body:JSON.stringify({fields_config:{phone:true,city:true,address:true,product_variant:true,quantity:true,delivery_note:false,button_text:'Commander',button_color:'#00a6b2',phone_label:'Numéro WhatsApp',country:[],shipping_options:[]},cod_gateway_name:'Cash on Delivery (COD)',display_mode:'embedded'})});forms.unshift(data.form);setEditor(data.form);notice(builderNotice,'Formulaire créé. Configurez les champs puis publiez-le.','ok');}
+    try{notice(builderNotice,'Création du formulaire...');const data=await request('/order-forms',{method:'POST',body:JSON.stringify({fields_config:{phone:true,city:true,address:true,product_variant:true,quantity:true,delivery_note:false,otp_enabled:false,allowed_cities:[],button_text:'Commander',button_color:'#00a6b2',phone_label:'Numéro WhatsApp',country:[],shipping_options:[]},cod_gateway_name:'Cash on Delivery (COD)',display_mode:'embedded'})});forms.unshift(data.form);setEditor(data.form);notice(builderNotice,'Formulaire créé. Configurez les champs puis publiez-le.','ok');}
     catch(error){notice(builderNotice,error.message,'error');}
   });
   document.getElementById('save-fields').addEventListener('click',async()=>{
@@ -190,6 +194,7 @@
     fields_config.button_text=document.getElementById('button-text').value.trim()||'Commander';
     fields_config.button_color=document.getElementById('button-color').value;
     fields_config.phone_label=document.getElementById('phone-label').value.trim()||'Numéro WhatsApp';
+    fields_config.allowed_cities=document.getElementById('allowed-cities').value.split(',').map(city=>city.trim()).filter(Boolean);
     fields_config.country=document.getElementById('country-options').value.split(/\r?\n/).map(line=>line.trim()).filter(Boolean).map(line=>{const [label,...valueParts]=line.split('|');return {label:label.trim(),value:valueParts.join('|').trim()||label.trim()};});
     fields_config.shipping_options=document.getElementById('shipping-options').value.split(/\r?\n/).map(line=>line.trim()).filter(Boolean).map(line=>{const [label,...priceParts]=line.split('|');return {label:label.trim(),price:Number(priceParts.join('|').trim())};});
     const display_mode=document.getElementById('display-mode').value;

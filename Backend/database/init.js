@@ -149,6 +149,19 @@ async function createTables() {
     await ensureColumnExists(conn, 'order_forms', 'cod_gateway_name', `ADD COLUMN "cod_gateway_name" VARCHAR(255) NOT NULL DEFAULT 'Cash on Delivery (COD)'`);
 
     await conn.query(`
+      CREATE TABLE IF NOT EXISTS "form_otp_codes" (
+        id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        public_token VARCHAR(64) NOT NULL,
+        phone VARCHAR(50) NOT NULL,
+        code VARCHAR(6) NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        verified BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await conn.query(`CREATE INDEX IF NOT EXISTS form_otp_codes_public_token_phone_idx ON "form_otp_codes" (public_token, phone, created_at DESC)`);
+
+    await conn.query(`
       CREATE TABLE IF NOT EXISTS "licenses" (
         id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         license_key VARCHAR(255) NOT NULL UNIQUE,

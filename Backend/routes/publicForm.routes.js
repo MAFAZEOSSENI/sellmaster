@@ -1,4 +1,5 @@
 const express = require('express');
+const axios = require('axios');
 const { rateLimit } = require('express-rate-limit');
 const OrderForm = require('../models/OrderForm');
 const ShopifyConfig = require('../models/ShopifyConfig');
@@ -26,6 +27,77 @@ function getClientIp(req) {
   const ip = forwarded || remote || '';
   if (!ip) return '';
   return ip.replace(/^::ffff:/, '');
+}
+
+function generateOtpCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function sanitizePhone(phone) {
+  return String(phone || '').replace(/\s+/g, '').trim();
+}
+
+async function sendTwilioOtp(phone, code) {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const fromNumber = process.env.TWILIO_PHONE_NUMBER || process.env.TWILIO_FROM;
+
+  if (!accountSid || !authToken || !fromNumber) {
+    console.warn('[OTP] Twilio non configuré. Code généré mais non envoyé:', { phone, code });
+    return true;
+  }
+
+  const body = new URLSearchParams({
+    To: phone,
+    From: fromNumber,
+    Body: `Votre code Sellmaster est: ${code}`,
+  });
+
+  await axios.post(
+    `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+    body.toString(),
+    {
+      auth: {
+        username: accountSid,
+        password: authToken,
+      },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      timeout: 20000,
+    }
+  );
+
+  return true;
+}
+
+async function hasVerifiedPhoneInLastMinutes(publicToken, phone, minutes) {
+  const conn = await getConnection();
+  try {
+    const [rows] = await conn.query(
+      `SELECT id
+       FROM form_otp_codes
+       WHERE public_token = $1
+         AND phone = $2
+         AND verified = TRUE
+         AND created_at > NOW() - ($3::int * INTERVAL '1 minute')
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [publicToken, phone, Number(minutes)]
+    );
+    return rows.length > 0;
+  } finally {
+    conn.release();
+  }
+}
+
+function matchesAllowedCity(city, allowedCities) {
+  const haystack = `${String(city || '')} ${String(city || '')}`.toLowerCase();
+  const normalized = (allowedCities || [])
+    .map((item) => String(item || '').trim().toLowerCase())
+    .filter(Boolean);
+  if (!normalized.length) return true;
+  return normalized.some((allowedCity) => haystack.includes(allowedCity));
 }
 
 function getFormData(body, fieldsConfig) {
@@ -135,6 +207,91 @@ router.get('/:token', async (req, res) => {
   }
 });
 
+router.post('/:token/send-otp', submitLimiter, async (req, res) => {
+  const form = await resolvePublishedForm(req.params.token);
+  if (!form) return res.status(404).json({ error: 'Formulaire introuvable' });
+
+  const phone = sanitizePhone(req.body?.phone || '');
+  if (!phone) return res.status(400).json({ error: 'Téléphone requis' });
+
+  const conn = await getConnection();
+  try {
+    const [rateLimitRows] = await conn.query(
+      `SELECT COUNT(*) AS sends
+       FROM form_otp_codes
+       WHERE public_token = $1
+         AND phone = $2
+         AND created_at > NOW() - INTERVAL '1 hour'`,
+      [form.public_token, phone]
+    );
+
+    if (Number(rateLimitRows?.sends || 0) >= 3) {
+      return res.status(429).json({ error: 'Trop de demandes de code. Réessayez plus tard.' });
+    }
+
+    const code = generateOtpCode();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    await conn.query(
+      `INSERT INTO form_otp_codes (public_token, phone, code, expires_at, verified, created_at)
+       VALUES ($1, $2, $3, $4, FALSE, NOW())`,
+      [form.public_token, phone, code, expiresAt]
+    );
+
+    await sendTwilioOtp(phone, code);
+
+    return res.status(200).json({ success: true, message: 'Code envoyé' });
+  } catch (error) {
+    console.error('[Public order form] OTP send failed:', error.message);
+    return res.status(500).json({ error: 'Impossible d’envoyer le code OTP.' });
+  } finally {
+    conn.release();
+  }
+});
+
+router.post('/:token/verify-otp', submitLimiter, async (req, res) => {
+  const form = await resolvePublishedForm(req.params.token);
+  if (!form) return res.status(404).json({ error: 'Formulaire introuvable' });
+
+  const phone = sanitizePhone(req.body?.phone || '');
+  const code = String(req.body?.code || '').trim();
+  if (!phone || !code) return res.status(400).json({ error: 'Téléphone et code requis' });
+
+  const conn = await getConnection();
+  try {
+    const [rows] = await conn.query(
+      `SELECT id, code, expires_at, verified
+       FROM form_otp_codes
+       WHERE public_token = $1
+         AND phone = $2
+       ORDER BY created_at DESC
+       LIMIT 20`,
+      [form.public_token, phone]
+    );
+
+    const validEntry = rows.find((entry) => {
+      const expiresAt = new Date(entry.expires_at);
+      return String(entry.code) === code && expiresAt > new Date();
+    });
+
+    if (!validEntry) {
+      return res.status(400).json({ error: 'Code OTP invalide ou expiré' });
+    }
+
+    await conn.query(
+      `UPDATE form_otp_codes SET verified = TRUE WHERE id = $1`,
+      [validEntry.id]
+    );
+
+    return res.status(200).json({ success: true, message: 'Numéro vérifié' });
+  } catch (error) {
+    console.error('[Public order form] OTP validation failed:', error.message);
+    return res.status(500).json({ error: 'Impossible de vérifier le code OTP.' });
+  } finally {
+    conn.release();
+  }
+});
+
 router.post('/:token/submit', submitLimiter, async (req, res) => {
   const form = await resolvePublishedForm(req.params.token);
   if (!form) return res.status(404).json({ error: 'Formulaire introuvable' });
@@ -148,6 +305,25 @@ router.post('/:token/submit', submitLimiter, async (req, res) => {
   } catch (error) {
     return res.status(400).json({ error: error.message });
   }
+
+  const formConfig = publicFieldsConfig(form.fields_config || {});
+  if (formConfig.otp_enabled === true) {
+    const normalizedPhone = sanitizePhone(formData.phone);
+    const isVerified = await hasVerifiedPhoneInLastMinutes(form.public_token, normalizedPhone, 15);
+    if (!isVerified) {
+      return res.status(403).json({ error: 'Numéro non vérifié' });
+    }
+  }
+
+  if (Array.isArray(formConfig.allowed_cities) && formConfig.allowed_cities.length > 0) {
+    const allowedCities = formConfig.allowed_cities.map((city) => String(city || '').trim().toLowerCase()).filter(Boolean);
+    const zoneText = `${String(formData.city || '')} ${String(formData.address || '')}`.toLowerCase();
+    const matchesZone = allowedCities.some((allowedCity) => zoneText.includes(allowedCity));
+    if (!matchesZone) {
+      return res.status(422).json({ error: 'Livraison non disponible dans cette zone' });
+    }
+  }
+
   const clientIp = getClientIp(req);
 
   const configs = await ShopifyConfig.findActiveByOwner(form.owner_user_id);

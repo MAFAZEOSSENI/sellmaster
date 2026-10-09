@@ -11,6 +11,8 @@ const DEFAULT_FIELDS_CONFIG = {
   button_color: '#00a6b2',
   phone_label: 'Numéro WhatsApp',
   delivery_note: false,
+  otp_enabled: false,
+  allowed_cities: [],
   country: [],
   shipping_options: [],
 };
@@ -25,6 +27,12 @@ function normalizeFieldsConfig(fieldsConfig = {}) {
     : DEFAULT_FIELDS_CONFIG.button_color;
   config.phone_label = String(config.phone_label || DEFAULT_FIELDS_CONFIG.phone_label).trim().slice(0, 60) || DEFAULT_FIELDS_CONFIG.phone_label;
   config.delivery_note = config.delivery_note === true;
+  config.otp_enabled = config.otp_enabled === true;
+  config.allowed_cities = (Array.isArray(config.allowed_cities) ? config.allowed_cities : [])
+    .map((city) => String(city || '').trim())
+    .filter(Boolean)
+    .slice(0, 200)
+    .map((city) => city.replace(/\s*[,;]+\s*/g, ',').trim());
   config.country = (Array.isArray(config.country) ? config.country : []).slice(0, 100).map(option => {
     const label = String(option?.label ?? option?.value ?? option ?? '').trim().slice(0, 100);
     const value = String(option?.value ?? label).trim().slice(0, 100);

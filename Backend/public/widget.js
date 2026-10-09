@@ -91,6 +91,15 @@
   var quantityInput = null;
   var shippingOptions = [];
   var submitButton = null;
+  var otpState = {
+    enabled: false,
+    verified: false,
+    phoneInput: null,
+    codeInput: null,
+    sendButton: null,
+    verifyButton: null,
+    wrapper: null
+  };
 
   function makeInput(name, labelText, type, required) {
     var wrapper = document.createElement('div');
@@ -252,6 +261,123 @@
     return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(amount) + ' FCFA';
   }
 
+  function addOtpVerification() {
+    otpState.phoneInput = form.elements.namedItem('phone');
+    if (!otpState.phoneInput) return;
+
+    otpState.wrapper = document.createElement('div');
+    otpState.wrapper.style.marginTop = '12px';
+    otpState.wrapper.style.display = 'grid';
+    otpState.wrapper.style.gap = '8px';
+
+    otpState.sendButton = document.createElement('button');
+    otpState.sendButton.type = 'button';
+    otpState.sendButton.textContent = 'Vérifier mon numéro';
+    otpState.sendButton.className = 'submit';
+    otpState.sendButton.style.marginTop = '0';
+    otpState.sendButton.style.width = '100%';
+    otpState.sendButton.disabled = !otpState.phoneInput.value;
+
+    var codeRow = document.createElement('div');
+    codeRow.style.display = 'grid';
+    codeRow.style.gridTemplateColumns = '1fr auto';
+    codeRow.style.gap = '8px';
+    codeRow.style.marginTop = '4px';
+    otpState.codeInput = document.createElement('input');
+    otpState.codeInput.type = 'text';
+    otpState.codeInput.inputMode = 'numeric';
+    otpState.codeInput.maxLength = 6;
+    otpState.codeInput.placeholder = 'Code OTP';
+    otpState.codeInput.setAttribute('aria-label', 'Code OTP');
+
+    otpState.verifyButton = document.createElement('button');
+    otpState.verifyButton.type = 'button';
+    otpState.verifyButton.textContent = 'Valider';
+    otpState.verifyButton.disabled = true;
+
+    codeRow.appendChild(otpState.codeInput);
+    codeRow.appendChild(otpState.verifyButton);
+    otpState.wrapper.appendChild(otpState.sendButton);
+    otpState.wrapper.appendChild(codeRow);
+    form.appendChild(otpState.wrapper);
+
+    otpState.phoneInput.addEventListener('input', function () {
+      otpState.verified = false;
+      otpState.sendButton.disabled = !otpState.phoneInput.value.trim();
+      otpState.verifyButton.disabled = true;
+      if (submitButton) updateSubmitTotal();
+    });
+
+    otpState.codeInput.addEventListener('input', function () {
+      otpState.verifyButton.disabled = !(otpState.codeInput.value.trim().length === 6);
+    });
+
+    otpState.sendButton.addEventListener('click', function () {
+      var phone = otpState.phoneInput.value.trim();
+      if (!phone) {
+        setMessage('Saisissez votre numéro de téléphone avant de demander le code.', 'error');
+        return;
+      }
+      otpState.sendButton.disabled = true;
+      otpState.sendButton.textContent = 'Envoi...';
+      setMessage('', '');
+      fetch(apiBase + '/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ phone: phone })
+      }).then(function (response) {
+        return response.json().catch(function () { return {}; }).then(function (body) {
+          if (!response.ok) throw new Error(body.error || 'Impossible d’envoyer le code OTP.');
+          return body;
+        });
+      }).then(function () {
+        otpState.codeInput.value = '';
+        otpState.verifyButton.disabled = true;
+        otpState.codeInput.focus();
+        setMessage('Code envoyé. Vérifiez votre téléphone.', 'success');
+      }).catch(function (error) {
+        setMessage(error.message || 'Impossible d’envoyer le code OTP.', 'error');
+      }).finally(function () {
+        otpState.sendButton.disabled = false;
+        otpState.sendButton.textContent = 'Vérifier mon numéro';
+      });
+    });
+
+    otpState.verifyButton.addEventListener('click', function () {
+      var phone = otpState.phoneInput.value.trim();
+      var code = otpState.codeInput.value.trim();
+      if (!phone || !code) {
+        setMessage('Saisissez le code reçu par SMS.', 'error');
+        return;
+      }
+      otpState.verifyButton.disabled = true;
+      otpState.verifyButton.textContent = 'Vérification...';
+      fetch(apiBase + '/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ phone: phone, code: code })
+      }).then(function (response) {
+        return response.json().catch(function () { return {}; }).then(function (body) {
+          if (!response.ok) throw new Error(body.error || 'Code OTP invalide.');
+          return body;
+        });
+      }).then(function () {
+        otpState.verified = true;
+        setMessage('Numéro vérifié.', 'success');
+        otpState.wrapper.style.opacity = '0.8';
+        otpState.verifyButton.textContent = 'Vérifié';
+        otpState.codeInput.disabled = true;
+        if (submitButton) updateSubmitTotal();
+      }).catch(function (error) {
+        otpState.verified = false;
+        setMessage(error.message || 'Impossible de vérifier le code.', 'error');
+        otpState.verifyButton.textContent = 'Valider';
+        otpState.verifyButton.disabled = false;
+        if (submitButton) updateSubmitTotal();
+      });
+    });
+  }
+
   function setMessage(text, state) {
     message.textContent = text || '';
     message.className = 'message' + (state ? ' ' + state : '');
@@ -282,17 +408,21 @@
         : 'Produit non reconnu ou non synchronisé. Ouvrez une fiche produit synchronisée Shopify.';
       productSummary.className = 'message ' + (product ? 'success' : 'error');
     }
+    var otpRequired = fields && fields.otp_enabled === true;
+    var otpBlocked = otpRequired && !otpState.verified;
     submitButton.textContent = 'Commander - ' + formatPrice(total);
-    submitButton.disabled = !product;
+    submitButton.disabled = !product || otpBlocked;
     stickyButton.textContent = submitButton.textContent;
-    stickyButton.disabled = !product;
+    stickyButton.disabled = !product || otpBlocked;
   }
 
   function renderConfiguredFields() {
+    otpState.enabled = fields.otp_enabled === true;
     addConfiguredInput('phone', fields.phone_label || 'Numéro WhatsApp', 'tel');
     addConfiguredInput('city', 'Ville', 'text');
     addConfiguredInput('address', 'Adresse de livraison', 'text');
     if (fields.delivery_note === true) form.appendChild(makeTextarea('delivery_note', 'Heure de livraison souhaitée', true));
+    if (otpState.enabled) addOtpVerification();
     addCountryControl();
     addProductControls();
     addShippingOptions();
@@ -391,6 +521,11 @@
     var submit = submitButton;
     submit.disabled = true;
     submit.textContent = 'Envoi en cours...';
+
+    if (fields && fields.otp_enabled === true && !otpState.verified) {
+      setMessage('Vous devez vérifier votre numéro avant de valider la commande.', 'error');
+      return;
+    }
 
     var payload = {
       customer_name: readValue('customer_name'),
