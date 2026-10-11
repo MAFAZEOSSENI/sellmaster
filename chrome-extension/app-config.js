@@ -1,0 +1,1 @@
+globalThis.SELLMASTER_WEB_URL = 'https://www.sellmaster.site/';

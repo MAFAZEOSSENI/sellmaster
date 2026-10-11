@@ -12,7 +12,8 @@
     "storage"
   ],
   "host_permissions": [
-    "https://sellmaster-1.onrender.com/*"
+    "https://sellmaster-1.onrender.com/*",
+    "https://www.sellmaster.site/*"
   ],
   "action": {
     "default_title": "Sellmaster",
@@ -36,7 +37,7 @@
         "*://admin.shopify.com/store/*",
         "*://*.myshopify.com/admin*"
       ],
-      "js": ["panel.js"],
+      "js": ["app-config.js", "panel.js"],
       "run_at": "document_idle"
     },
     {

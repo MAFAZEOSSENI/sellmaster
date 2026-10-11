@@ -19,6 +19,7 @@
     @media(max-width:480px){.panel{right:12px;bottom:68px}.launcher{right:12px;bottom:12px}}
   `;
   style.textContent += '.setup-app{width:100%;min-height:40px;margin-top:10px;border:1px solid #cbd9d7;border-radius:8px;background:#f3f8f7;color:#075e64;font:700 12px system-ui,sans-serif;cursor:pointer}.setup-app:disabled{opacity:.6;cursor:wait}';
+  style.textContent += '.message a{display:inline-block;margin-top:5px;color:#075e64;font-weight:700;text-decoration:underline}';
 
   const panel = document.createElement('section');
   panel.className = 'panel hidden';
@@ -74,6 +75,20 @@
   function notify(text, type) {
     message.textContent = text || '';
     message.className = `message${type ? ` ${type}` : ''}`;
+  }
+
+  function showOAuthResult(result) {
+    if (result.outcome === 'connected') {
+      notify(`Boutique ${result.store} connectée avec succès.`, 'success');
+      const link = document.createElement('a');
+      link.href = result.dashboardUrl || `${globalThis.SELLMASTER_WEB_URL}?shopify=connected&store=${encodeURIComponent(result.store)}`;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = 'Ouvrir la boutique dans Sellmaster';
+      message.append(document.createElement('br'), link);
+      return;
+    }
+    notify(result.outcome === 'cancelled' ? 'La connexion Shopify a été annulée.' : 'La connexion Shopify a échoué.', result.outcome === 'cancelled' ? '' : 'error');
   }
 
   function sendToBackground(payload) {
@@ -181,6 +196,12 @@
       notify(error.message || 'La connexion Shopify n’a pas pu démarrer.', 'error');
     } finally {
       connectButton.disabled = false;
+    }
+  });
+
+  chrome.runtime.onMessage.addListener(messageFromBackground => {
+    if (messageFromBackground?.type === 'SELLMASTER_OAUTH_RESULT') {
+      showOAuthResult(messageFromBackground);
     }
   });
 

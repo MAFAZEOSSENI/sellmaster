@@ -1,5 +1,6 @@
 const API_BASE = 'https://sellmaster-1.onrender.com/api';
 const TOKEN_KEY = 'sellmaster_jwt';
+const OAUTH_TABS_KEY = 'sellmaster_oauth_tabs';
 
 function sendApi(path, method, body, sendResponse) {
   const allowed = path === '/shopify/auth/start' || path === '/shopify/register-store-credentials';
@@ -39,7 +40,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (url.protocol !== 'https:' || !/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(url.hostname) || url.pathname !== '/admin/oauth/authorize') {
         throw new Error('URL Shopify refusée.');
       }
-      chrome.tabs.create({ url: url.toString() }).then(() => sendResponse({ ok: true })).catch(error => sendResponse({ ok: false, error: error.message }));
+      chrome.tabs.create({ url: url.toString() }).then(async tab => {
+        const stored = await chrome.storage.session.get(OAUTH_TABS_KEY);
+        const oauthTabs = stored[OAUTH_TABS_KEY] || {};
+        oauthTabs[tab.id] = { sourceTabId: sender.tab?.id, shop: url.hostname };
+        await chrome.storage.session.set({ [OAUTH_TABS_KEY]: oauthTabs });
+        sendResponse({ ok: true });
+      }).catch(error => sendResponse({ ok: false, error: error.message }));
     } catch (error) {
       sendResponse({ ok: false, error: error.message });
     }
@@ -69,4 +76,33 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   return false;
+});
+
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (changeInfo.status !== 'complete') return;
+  let destination;
+  try {
+    destination = new URL(changeInfo.url || tab.url);
+  } catch (_) {
+    return;
+  }
+  if (destination.origin !== 'https://www.sellmaster.site') return;
+
+  const stored = await chrome.storage.session.get(OAUTH_TABS_KEY);
+  const oauthTabs = stored[OAUTH_TABS_KEY] || {};
+  const oauth = oauthTabs[tabId];
+  if (!oauth) return;
+
+  const outcome = destination.searchParams.get('shopify');
+  if (!['connected', 'cancelled', 'error'].includes(outcome)) return;
+  delete oauthTabs[tabId];
+  await chrome.storage.session.set({ [OAUTH_TABS_KEY]: oauthTabs });
+  if (!oauth.sourceTabId) return;
+
+  chrome.tabs.sendMessage(oauth.sourceTabId, {
+    type: 'SELLMASTER_OAUTH_RESULT',
+    outcome,
+    store: destination.searchParams.get('store') || oauth.shop,
+    dashboardUrl: destination.toString(),
+  }).catch(() => {});
 });

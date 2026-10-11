@@ -72,4 +72,10 @@ document.getElementById('logout').addEventListener('click', async () => {
   showMessage('Session supprimée de cette extension.', 'success');
 });
 
+document.getElementById('open-dashboard').addEventListener('click', async () => {
+  const stored = await chrome.storage.local.get('sellmaster_shopify_config');
+  const appUrl = stored.sellmaster_shopify_config?.appUrl || globalThis.SELLMASTER_WEB_URL;
+  await chrome.tabs.create({ url: new URL(appUrl).toString() });
+});
+
 restoreSession();

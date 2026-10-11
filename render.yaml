@@ -5,3 +5,6 @@ services:
     rootDir: Backend
     buildCommand: npm ci
     startCommand: npm start
+    envVars:
+      - key: SHOPIFY_FRONTEND_URL
+        value: https://www.sellmaster.site/

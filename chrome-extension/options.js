@@ -3,12 +3,11 @@ const appUrlInput = document.getElementById('app-url');
 const redirectInput = document.getElementById('redirect-uri');
 const status = document.getElementById('status');
 
-const DEFAULT_APP_URL = 'https://sellmaster-1ca2f.web.app';
 const DEFAULT_REDIRECT_URI = 'https://sellmaster-1.onrender.com/api/shopify/auth/callback';
 
 chrome.storage.local.get(CONFIG_KEY).then(result => {
   const config = result[CONFIG_KEY] || {};
-  appUrlInput.value = config.appUrl || DEFAULT_APP_URL;
+  appUrlInput.value = config.appUrl || globalThis.SELLMASTER_WEB_URL;
   redirectInput.value = config.redirectUri || DEFAULT_REDIRECT_URI;
 });
 

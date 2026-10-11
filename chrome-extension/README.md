@@ -17,9 +17,11 @@ Chrome Manifest V3 extension source.
 
 The extension calls the production API at `https://sellmaster-1.onrender.com/api`. Update `API_BASE` in `popup.js` and `background.js` together if the backend host changes.
 
+The dashboard URL is centralized in `app-config.js` (`SELLMASTER_WEB_URL`) and can also be overridden from the extension options. The popup dashboard button and Shopify OAuth success link use that URL.
+
 ## Dedicated app setup
 
-1. Open the extension options and set the Shopify **App URL** and the fixed Sellmaster **Redirect URI**.
+1. Open the extension options and set the Shopify **App URL** (defaults to `https://www.sellmaster.site/`) and the fixed Sellmaster **Redirect URI**.
 2. On the target Shopify admin page, choose **Auto** and click **Créer une app dédiée automatiquement**. The extension opens the Shopify developer dashboard without assuming an organization.
 3. Select your organization in Shopify Developer. The extension detects its ID from the current URL and navigates to `https://dev.shopify.com/dashboard/{orgId}/apps/new`.
 4. Click **Auto-remplir**. The extension continues through app creation, scopes, URLs, publication, then registers the Client ID and generated secret with Sellmaster and opens the store grant page.
