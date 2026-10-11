@@ -16,6 +16,7 @@ class DashboardPage extends StatefulWidget {
 class DashboardPageState extends State<DashboardPage> {
   List<Order> orders = [];
   List<Product> products = [];
+  Map<String, dynamic>? _dashboardStats;
   bool isLoading = true;
   int? _selectedOwnerId;
 
@@ -28,21 +29,21 @@ class DashboardPageState extends State<DashboardPage> {
   Future<void> loadDashboardData({int? ownerId}) async {
     try {
       final targetOwnerId = ownerId ?? _selectedOwnerId;
-      final results = await Future.wait([
+      final statsFuture = targetOwnerId == null
+          ? ApiService.getDashboardStats().catchError((_) => <String, dynamic>{})
+          : Future.value(<String, dynamic>{});
+      final results = await Future.wait<Object>([
         ApiService.getOrders(ownerId: targetOwnerId),
         ApiService.getProducts(ownerId: targetOwnerId),
+        statsFuture,
       ]);
 
       setState(() {
         _selectedOwnerId = targetOwnerId;
         orders = results[0] as List<Order>;
         products = results[1] as List<Product>;
-        isLoading = false;
-      });
-
-      setState(() {
-        orders = results[0] as List<Order>;
-        products = results[1] as List<Product>;
+        final stats = results[2] as Map<String, dynamic>;
+        _dashboardStats = stats.isEmpty ? null : stats;
         isLoading = false;
       });
     } catch (e) {
@@ -54,12 +55,25 @@ class DashboardPageState extends State<DashboardPage> {
   }
 
   double getRealRevenue() {
+    final reportedRevenue = double.tryParse(_dashboardStats?['revenue']?.toString() ?? '');
+    if (reportedRevenue != null) return reportedRevenue;
     return orders
         .where((order) => order.status == 'livree')
         .fold(0.0, (sum, order) => sum + order.totalAmount);
   }
 
   int getOrdersCount(String status) {
+    final apiKey = switch (status) {
+      'dashboard' => 'total_orders',
+      'livree' => 'delivered',
+      'annulee' => 'cancelled',
+      'reportee' => 'postponed',
+      _ => null,
+    };
+    final reportedCount = apiKey == null
+        ? null
+        : int.tryParse(_dashboardStats?[apiKey]?.toString() ?? '');
+    if (reportedCount != null) return reportedCount;
     return orders.where((order) => order.status == status).length;
   }
 
@@ -110,12 +124,13 @@ class DashboardPageState extends State<DashboardPage> {
   }
 
   int getTotalOrders() {
-    return orders.length;
+    return int.tryParse(_dashboardStats?['total_orders']?.toString() ?? '') ?? orders.length;
   }
 
   double getDeliveryRate() {
-    if (orders.isEmpty) return 0.0;
-    return (getOrdersCount('livree') / orders.length) * 100;
+    final totalOrders = getTotalOrders();
+    if (totalOrders == 0) return 0.0;
+    return (getOrdersCount('livree') / totalOrders) * 100;
   }
 
   List<Product> getTopProducts() {
@@ -129,13 +144,13 @@ class DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFBFC),
+      backgroundColor: const Color(0xFFF6F7FB),
       body: isLoading
           ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF00ACC1)))
+              child: CircularProgressIndicator(color: Color(0xFF3959DF)))
           : RefreshIndicator(
               onRefresh: loadDashboardData,
-              color: const Color(0xFF00ACC1),
+              color: const Color(0xFF3959DF),
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 child: Column(
@@ -193,6 +208,10 @@ class DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildHeader() {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final accountName = (user?['full_name'] ?? user?['email']?.toString().split('@').first ?? 'Utilisateur').toString();
+    final firstName = accountName.split(' ').first;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 60, 20, 20),
@@ -217,10 +236,10 @@ class DashboardPageState extends State<DashboardPage> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    'Manager',
-                    style: TextStyle(
-                      color: Color(0xFF1A1A1A),
+                  Text(
+                    firstName,
+                    style: const TextStyle(
+                      color: Color(0xFF171A27),
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                     ),
@@ -232,7 +251,7 @@ class DashboardPageState extends State<DashboardPage> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF5F7FA),
+                      color: const Color(0xFFF6F7FB),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
@@ -246,13 +265,13 @@ class DashboardPageState extends State<DashboardPage> {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF00ACC1),
+                      color: const Color(0xFF3959DF),
                       borderRadius: BorderRadius.circular(22),
                     ),
-                    child: const Icon(
-                      Icons.person,
-                      color: Colors.white,
-                      size: 24,
+                    alignment: Alignment.center,
+                    child: Text(
+                      accountName.substring(0, 1).toUpperCase(),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18),
                     ),
                   ),
                 ],
@@ -266,7 +285,7 @@ class DashboardPageState extends State<DashboardPage> {
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFF00ACC1),
+              color: const Color(0xFF3959DF),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Column(
@@ -285,7 +304,7 @@ class DashboardPageState extends State<DashboardPage> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      '${getRealRevenue().toStringAsFixed(0)}',
+                      getRealRevenue().toStringAsFixed(0),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 32,
@@ -342,8 +361,8 @@ class DashboardPageState extends State<DashboardPage> {
           const Color(0xFFC2185B),
         ),
         _buildStatCard(
-          'En Attente',
-          '${getOrdersCount("en_attente")}',
+          'Annulées / reportées',
+          '${getOrdersCount("annulee") + getOrdersCount("reportee")}',
           Icons.pending_actions_rounded,
           const Color(0xFFE8F5E8),
           const Color(0xFF2E7D32),
@@ -365,7 +384,7 @@ class DashboardPageState extends State<DashboardPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8ECF4)),
+        border: Border.all(color: const Color(0xFFE3E7F0)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -387,7 +406,7 @@ class DashboardPageState extends State<DashboardPage> {
               style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF1A1A1A),
+                color: Color(0xFF171A27),
               ),
             ),
             const SizedBox(height: 4),
@@ -395,7 +414,7 @@ class DashboardPageState extends State<DashboardPage> {
               title,
               style: const TextStyle(
                 fontSize: 12,
-                color: Color(0xFF64748B),
+                color: Color(0xFF70798A),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -413,7 +432,7 @@ class DashboardPageState extends State<DashboardPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8ECF4)),
+        border: Border.all(color: const Color(0xFFE3E7F0)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -428,7 +447,7 @@ class DashboardPageState extends State<DashboardPage> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF1A1A1A),
+                    color: Color(0xFF171A27),
                   ),
                 ),
                 Container(
@@ -503,7 +522,7 @@ class DashboardPageState extends State<DashboardPage> {
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF1A1A1A),
+                    color: Color(0xFF171A27),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -511,7 +530,7 @@ class DashboardPageState extends State<DashboardPage> {
                   _formatDate(order.createdAt),
                   style: const TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF64748B),
+                    color: Color(0xFF70798A),
                   ),
                 ),
                 if (order.isShopifyOrder) ...[
@@ -547,7 +566,7 @@ class DashboardPageState extends State<DashboardPage> {
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF00ACC1),
+                  color: Color(0xFF3959DF),
                 ),
               ),
               const SizedBox(height: 4),
@@ -583,7 +602,7 @@ class DashboardPageState extends State<DashboardPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8ECF4)),
+        border: Border.all(color: const Color(0xFFE3E7F0)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -595,14 +614,14 @@ class DashboardPageState extends State<DashboardPage> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF1A1A1A),
+                color: Color(0xFF171A27),
               ),
             ),
             const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
-                  child: _buildQueueMetric('Assignées', '$assignedCount', const Color(0xFFE0F7FA), const Color(0xFF00ACC1)),
+                  child: _buildQueueMetric('Assignées', '$assignedCount', const Color(0xFFEDF0FF), const Color(0xFF3959DF)),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -643,7 +662,7 @@ class DashboardPageState extends State<DashboardPage> {
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF1A1A1A),
+                                color: Color(0xFF171A27),
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -651,7 +670,7 @@ class DashboardPageState extends State<DashboardPage> {
                               order.clientName,
                               style: const TextStyle(
                                 fontSize: 12,
-                                color: Color(0xFF64748B),
+                                color: Color(0xFF70798A),
                               ),
                             ),
                           ],
@@ -665,7 +684,7 @@ class DashboardPageState extends State<DashboardPage> {
                             decoration: BoxDecoration(
                               color: order.assignedTo == null
                                   ? const Color(0xFFFFF3E0)
-                                  : const Color(0xFFE0F7FA),
+                                  : const Color(0xFFEDF0FF),
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
@@ -673,7 +692,7 @@ class DashboardPageState extends State<DashboardPage> {
                               style: TextStyle(
                                 color: order.assignedTo == null
                                     ? const Color(0xFFF57C00)
-                                    : const Color(0xFF00ACC1),
+                                    : const Color(0xFF3959DF),
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -685,7 +704,7 @@ class DashboardPageState extends State<DashboardPage> {
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF00ACC1),
+                              color: Color(0xFF3959DF),
                             ),
                           ),
                         ],
@@ -741,12 +760,12 @@ class DashboardPageState extends State<DashboardPage> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE8ECF4)),
+          border: Border.all(color: const Color(0xFFE3E7F0)),
         ),
         child: const Text(
           'Aucune commande assignée pour le moment.',
           style: TextStyle(
-            color: Color(0xFF64748B),
+            color: Color(0xFF70798A),
             fontSize: 14,
           ),
         ),
@@ -758,7 +777,7 @@ class DashboardPageState extends State<DashboardPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8ECF4)),
+        border: Border.all(color: const Color(0xFFE3E7F0)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -770,7 +789,7 @@ class DashboardPageState extends State<DashboardPage> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF1A1A1A),
+                color: Color(0xFF171A27),
               ),
             ),
             const SizedBox(height: 16),
@@ -794,12 +813,12 @@ class DashboardPageState extends State<DashboardPage> {
                       width: 42,
                       height: 42,
                       decoration: const BoxDecoration(
-                        color: Color(0xFFE0F7FA),
+                        color: Color(0xFFEDF0FF),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
                         Icons.person_outline,
-                        color: Color(0xFF00ACC1),
+                        color: Color(0xFF3959DF),
                         size: 20,
                       ),
                     ),
@@ -813,7 +832,7 @@ class DashboardPageState extends State<DashboardPage> {
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF1A1A1A),
+                              color: Color(0xFF171A27),
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -821,7 +840,7 @@ class DashboardPageState extends State<DashboardPage> {
                             '$total tâche(s) active(s) · $inProgress en cours · $delivered livrées · $reported reportées',
                             style: const TextStyle(
                               fontSize: 12,
-                              color: Color(0xFF64748B),
+                              color: Color(0xFF70798A),
                             ),
                           ),
                         ],
@@ -860,7 +879,7 @@ class DashboardPageState extends State<DashboardPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8ECF4)),
+        border: Border.all(color: const Color(0xFFE3E7F0)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -875,7 +894,7 @@ class DashboardPageState extends State<DashboardPage> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF1A1A1A),
+                    color: Color(0xFF171A27),
                   ),
                 ),
                 Container(
@@ -950,7 +969,7 @@ class DashboardPageState extends State<DashboardPage> {
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF1A1A1A),
+                    color: Color(0xFF171A27),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -958,7 +977,7 @@ class DashboardPageState extends State<DashboardPage> {
                   '${product.price} FCFA',
                   style: const TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF00ACC1),
+                    color: Color(0xFF3959DF),
                     fontWeight: FontWeight.w600,
                   ),
                 ),

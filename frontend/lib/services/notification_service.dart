@@ -175,7 +175,7 @@ class NotificationService extends ChangeNotifier {
       AppNotificationType.success => Colors.green,
       AppNotificationType.warning => Colors.orange,
       AppNotificationType.error => Colors.red,
-      AppNotificationType.info => const Color(0xFF00BCD4),
+      AppNotificationType.info => const Color(0xFF4869F2),
     };
 
     ScaffoldMessenger.of(context).showSnackBar(

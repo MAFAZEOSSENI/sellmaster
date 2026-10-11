@@ -117,7 +117,7 @@ class ProductsPageState extends State<ProductsPage> {
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A1A1A),
+                  color: Color(0xFF171A27),
                 ),
               ),
               const SizedBox(height: 8),
@@ -125,7 +125,7 @@ class ProductsPageState extends State<ProductsPage> {
                 'Êtes-vous sûr de vouloir supprimer "${product.name}" ?',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  color: Color(0xFF64748B),
+                  color: Color(0xFF70798A),
                   fontSize: 14,
                 ),
               ),
@@ -140,12 +140,12 @@ class ProductsPageState extends State<ProductsPage> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        side: const BorderSide(color: Color(0xFFE8ECF4)),
+                        side: const BorderSide(color: Color(0xFFE3E7F0)),
                       ),
                       child: const Text(
                         'Annuler',
                         style: TextStyle(
-                          color: Color(0xFF64748B),
+                          color: Color(0xFF70798A),
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -213,14 +213,14 @@ class ProductsPageState extends State<ProductsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: const Color(0xFFF6F7FB),
       appBar: AppBar(
         title: const Text(
           'Produits',
           style: TextStyle(
             fontWeight: FontWeight.w700,
             fontSize: 24,
-            color: Color(0xFF1A1A1A),
+            color: Color(0xFF171A27),
           ),
         ),
         backgroundColor: Colors.white,
@@ -237,7 +237,7 @@ class ProductsPageState extends State<ProductsPage> {
             height: 36,
             margin: const EdgeInsets.only(right: 20),
             decoration: BoxDecoration(
-              color: const Color(0xFF00BCD4),
+              color: const Color(0xFF4869F2),
               borderRadius: BorderRadius.circular(18),
             ),
             child: const Icon(Icons.person, color: Colors.white, size: 20),
@@ -252,13 +252,13 @@ class ProductsPageState extends State<ProductsPage> {
             child: TextField(
               decoration: InputDecoration(
                 hintText: 'Rechercher un produit...',
-                prefixIcon: const Icon(Icons.search, color: Color(0xFF64748B)),
+                prefixIcon: const Icon(Icons.search, color: Color(0xFF70798A)),
                 border: OutlineInputBorder(
-                  borderSide: const BorderSide(color: Color(0xFFE8ECF4)),
+                  borderSide: const BorderSide(color: Color(0xFFE3E7F0)),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: Color(0xFF00BCD4), width: 1),
+                  borderSide: const BorderSide(color: Color(0xFF4869F2), width: 1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -278,7 +278,7 @@ class ProductsPageState extends State<ProductsPage> {
                   Text(
                     '${filteredProducts.length} produit(s) trouvé(s)',
                     style: const TextStyle(
-                      color: Color(0xFF64748B),
+                      color: Color(0xFF70798A),
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
@@ -289,13 +289,13 @@ class ProductsPageState extends State<ProductsPage> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF00BCD4).withOpacity(0.1),
+                        color: const Color(0xFF4869F2).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Text(
                         'Effacer',
                         style: TextStyle(
-                          color: Color(0xFF00BCD4),
+                          color: Color(0xFF4869F2),
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -310,7 +310,7 @@ class ProductsPageState extends State<ProductsPage> {
             child: isLoading
                 ? const Center(
                     child: CircularProgressIndicator(
-                      color: Color(0xFF00BCD4),
+                      color: Color(0xFF4869F2),
                     ),
                   )
                 : filteredProducts.isEmpty
@@ -321,7 +321,7 @@ class ProductsPageState extends State<ProductsPage> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddProductDialog,
-        backgroundColor: const Color(0xFF00BCD4),
+        backgroundColor: const Color(0xFF4869F2),
         elevation: 4,
         icon: const Icon(Icons.add, color: Colors.white, size: 20),
         label: const Text(
@@ -349,7 +349,7 @@ class ProductsPageState extends State<ProductsPage> {
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: const Color(0xFFF5F7FA),
+                color: const Color(0xFFF6F7FB),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -363,7 +363,7 @@ class ProductsPageState extends State<ProductsPage> {
               searchQuery.isEmpty ? 'Aucun produit' : 'Aucun produit trouvé',
               style: const TextStyle(
                 fontSize: 20,
-                color: Color(0xFF1A1A1A),
+                color: Color(0xFF171A27),
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -373,7 +373,7 @@ class ProductsPageState extends State<ProductsPage> {
                   ? 'Commencez par ajouter vos premiers produits'
                   : 'Essayez avec d\'autres termes de recherche',
               style: const TextStyle(
-                color: Color(0xFF64748B),
+                color: Color(0xFF70798A),
                 fontSize: 14,
               ),
               textAlign: TextAlign.center,
@@ -388,7 +388,7 @@ class ProductsPageState extends State<ProductsPage> {
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00BCD4),
+                  backgroundColor: const Color(0xFF4869F2),
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -445,7 +445,7 @@ class ProductCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE8ECF4)),
+          border: Border.all(color: const Color(0xFFE3E7F0)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.05),
@@ -480,7 +480,7 @@ class ProductCard extends StatelessWidget {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF5F7FA),
+                          color: const Color(0xFFF6F7FB),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -503,7 +503,7 @@ class ProductCard extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF1A1A1A),
+                      color: Color(0xFF171A27),
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -514,7 +514,7 @@ class ProductCard extends StatelessWidget {
                     '${product.price} FCFA',
                     style: const TextStyle(
                       fontSize: 14,
-                      color: Color(0xFF00BCD4),
+                      color: Color(0xFF4869F2),
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -537,8 +537,8 @@ class ProductCard extends StatelessWidget {
                         'Stock: ${product.stock}',
                         style: TextStyle(
                           fontSize: 12,
-                          color: product.stock > 0 
-                              ? const Color(0xFF64748B) 
+                            color: product.stock > 0
+                              ? const Color(0xFF70798A)
                               : const Color(0xFFEF5350),
                           fontWeight: FontWeight.w500,
                         ),
@@ -663,13 +663,13 @@ class EditProductDialogState extends State<EditProductDialog> {
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF1A1A1A),
+                        color: Color(0xFF171A27),
                       ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.close, size: 20),
                       onPressed: () => Navigator.of(context).pop(),
-                      color: const Color(0xFF64748B),
+                      color: const Color(0xFF70798A),
                     ),
                   ],
                 ),
@@ -677,7 +677,7 @@ class EditProductDialogState extends State<EditProductDialog> {
                 const Text(
                   'Modifiez les informations du produit',
                   style: TextStyle(
-                    color: Color(0xFF64748B),
+                    color: Color(0xFF70798A),
                     fontSize: 14,
                   ),
                 ),
@@ -688,14 +688,14 @@ class EditProductDialogState extends State<EditProductDialog> {
                   decoration: const InputDecoration(
                     labelText: 'Nom du produit *',
                     border: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFFE8ECF4)),
+                      borderSide: BorderSide(color: Color(0xFFE3E7F0)),
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF00BCD4), width: 1),
+                      borderSide: BorderSide(color: Color(0xFF4869F2), width: 1),
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
-                    floatingLabelStyle: TextStyle(color: Color(0xFF00BCD4)),
+                    floatingLabelStyle: TextStyle(color: Color(0xFF4869F2)),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -711,14 +711,14 @@ class EditProductDialogState extends State<EditProductDialog> {
                   decoration: const InputDecoration(
                     labelText: 'Prix (FCFA) *',
                     border: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFFE8ECF4)),
+                      borderSide: BorderSide(color: Color(0xFFE3E7F0)),
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF00BCD4), width: 1),
+                      borderSide: BorderSide(color: Color(0xFF4869F2), width: 1),
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
-                    floatingLabelStyle: TextStyle(color: Color(0xFF00BCD4)),
+                    floatingLabelStyle: TextStyle(color: Color(0xFF4869F2)),
                   ),
                   keyboardType: TextInputType.number,
                   validator: (value) {
@@ -747,14 +747,14 @@ class EditProductDialogState extends State<EditProductDialog> {
                   decoration: const InputDecoration(
                     labelText: 'Stock *',
                     border: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFFE8ECF4)),
+                      borderSide: BorderSide(color: Color(0xFFE3E7F0)),
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF00BCD4), width: 1),
+                      borderSide: BorderSide(color: Color(0xFF4869F2), width: 1),
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
-                    floatingLabelStyle: TextStyle(color: Color(0xFF00BCD4)),
+                    floatingLabelStyle: TextStyle(color: Color(0xFF4869F2)),
                   ),
                   keyboardType: TextInputType.number,
                   validator: (value) {
@@ -774,14 +774,14 @@ class EditProductDialogState extends State<EditProductDialog> {
                   decoration: const InputDecoration(
                     labelText: 'Description (optionnel)',
                     border: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFFE8ECF4)),
+                      borderSide: BorderSide(color: Color(0xFFE3E7F0)),
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF00BCD4), width: 1),
+                      borderSide: BorderSide(color: Color(0xFF4869F2), width: 1),
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
-                    floatingLabelStyle: TextStyle(color: Color(0xFF00BCD4)),
+                    floatingLabelStyle: TextStyle(color: Color(0xFF4869F2)),
                   ),
                   maxLines: 3,
                 ),
@@ -797,12 +797,12 @@ class EditProductDialogState extends State<EditProductDialog> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          side: const BorderSide(color: Color(0xFFE8ECF4)),
+                          side: const BorderSide(color: Color(0xFFE3E7F0)),
                         ),
                         child: const Text(
                           'Annuler',
                           style: TextStyle(
-                            color: Color(0xFF64748B),
+                            color: Color(0xFF70798A),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -813,7 +813,7 @@ class EditProductDialogState extends State<EditProductDialog> {
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _updateProduct,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF00BCD4),
+                          backgroundColor: const Color(0xFF4869F2),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -972,13 +972,13 @@ class AddProductDialogState extends State<AddProductDialog> {
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF1A1A1A),
+                        color: Color(0xFF171A27),
                       ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.close, size: 20),
                       onPressed: () => Navigator.of(context).pop(),
-                      color: const Color(0xFF64748B),
+                      color: const Color(0xFF70798A),
                     ),
                   ],
                 ),
@@ -986,7 +986,7 @@ class AddProductDialogState extends State<AddProductDialog> {
                 const Text(
                   'Remplissez les informations du nouveau produit',
                   style: TextStyle(
-                    color: Color(0xFF64748B),
+                    color: Color(0xFF70798A),
                     fontSize: 14,
                   ),
                 ),
@@ -1002,7 +1002,7 @@ class AddProductDialogState extends State<AddProductDialog> {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: const Color(0xFFE8ECF4),
+                        color: const Color(0xFFE3E7F0),
                         style: BorderStyle.solid,
                         width: 2,
                       ),
@@ -1022,7 +1022,7 @@ class AddProductDialogState extends State<AddProductDialog> {
                                 width: 48,
                                 height: 48,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF5F7FA),
+                                  color: const Color(0xFFF6F7FB),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
@@ -1035,7 +1035,7 @@ class AddProductDialogState extends State<AddProductDialog> {
                               const Text(
                                 'Ajouter une image',
                                 style: TextStyle(
-                                  color: Color(0xFF64748B),
+                                  color: Color(0xFF70798A),
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -1050,14 +1050,14 @@ class AddProductDialogState extends State<AddProductDialog> {
                   decoration: const InputDecoration(
                     labelText: 'Nom du produit *',
                     border: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFFE8ECF4)),
+                      borderSide: BorderSide(color: Color(0xFFE3E7F0)),
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF00BCD4), width: 1),
+                      borderSide: BorderSide(color: Color(0xFF4869F2), width: 1),
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
-                    floatingLabelStyle: TextStyle(color: Color(0xFF00BCD4)),
+                    floatingLabelStyle: TextStyle(color: Color(0xFF4869F2)),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -1073,14 +1073,14 @@ class AddProductDialogState extends State<AddProductDialog> {
                   decoration: const InputDecoration(
                     labelText: 'Prix (FCFA) *',
                     border: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFFE8ECF4)),
+                      borderSide: BorderSide(color: Color(0xFFE3E7F0)),
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF00BCD4), width: 1),
+                      borderSide: BorderSide(color: Color(0xFF4869F2), width: 1),
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
-                    floatingLabelStyle: TextStyle(color: Color(0xFF00BCD4)),
+                    floatingLabelStyle: TextStyle(color: Color(0xFF4869F2)),
                   ),
                   keyboardType: TextInputType.number,
                   validator: (value) {
@@ -1110,14 +1110,14 @@ class AddProductDialogState extends State<AddProductDialog> {
                   decoration: const InputDecoration(
                     labelText: 'Stock initial *',
                     border: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFFE8ECF4)),
+                      borderSide: BorderSide(color: Color(0xFFE3E7F0)),
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF00BCD4), width: 1),
+                      borderSide: BorderSide(color: Color(0xFF4869F2), width: 1),
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
-                    floatingLabelStyle: TextStyle(color: Color(0xFF00BCD4)),
+                    floatingLabelStyle: TextStyle(color: Color(0xFF4869F2)),
                   ),
                   keyboardType: TextInputType.number,
                   validator: (value) {
@@ -1138,14 +1138,14 @@ class AddProductDialogState extends State<AddProductDialog> {
                   decoration: const InputDecoration(
                     labelText: 'Description (optionnel)',
                     border: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFFE8ECF4)),
+                      borderSide: BorderSide(color: Color(0xFFE3E7F0)),
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF00BCD4), width: 1),
+                      borderSide: BorderSide(color: Color(0xFF4869F2), width: 1),
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
-                    floatingLabelStyle: TextStyle(color: Color(0xFF00BCD4)),
+                    floatingLabelStyle: TextStyle(color: Color(0xFF4869F2)),
                   ),
                   maxLines: 3,
                 ),
@@ -1161,12 +1161,12 @@ class AddProductDialogState extends State<AddProductDialog> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          side: const BorderSide(color: Color(0xFFE8ECF4)),
+                          side: const BorderSide(color: Color(0xFFE3E7F0)),
                         ),
                         child: const Text(
                           'Annuler',
                           style: TextStyle(
-                            color: Color(0xFF64748B),
+                            color: Color(0xFF70798A),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -1177,7 +1177,7 @@ class AddProductDialogState extends State<AddProductDialog> {
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _addProduct,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF00BCD4),
+                          backgroundColor: const Color(0xFF4869F2),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),

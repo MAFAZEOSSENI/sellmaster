@@ -138,7 +138,7 @@ class _ProfitabilityPageState extends State<ProfitabilityPage> {
                       const SizedBox(height: 8),
                       Text(
                         'CA ${_number(global['revenue']).toStringAsFixed(2)} FCFA - coûts produits ${_number(global['product_cost']).toStringAsFixed(2)} FCFA - commissions ${_number(global['closer_commissions']).toStringAsFixed(2)} FCFA - livraison ${_number(global['delivery_fees']).toStringAsFixed(2)} FCFA - publicité ${_number(global['advertising_cost']).toStringAsFixed(2)} FCFA',
-                        style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                        style: const TextStyle(color: Color(0xFF70798A), fontSize: 12),
                       ),
                       const SizedBox(height: 24),
                       _sectionTitle('Marge brute par produit'),
@@ -147,7 +147,7 @@ class _ProfitabilityPageState extends State<ProfitabilityPage> {
                       _sectionTitle('Bénéfice net estimé par produit'),
                       const Text(
                         'Estimation: commissions et frais de livraison répartis au prorata du montant de chaque produit dans la commande.',
-                        style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                        style: TextStyle(color: Color(0xFF70798A), fontSize: 12),
                       ),
                       const SizedBox(height: 8),
                       _productList(estimatedProducts, (item) => _number(item['estimated_net_profit'])),
@@ -174,7 +174,7 @@ class _ProfitabilityPageState extends State<ProfitabilityPage> {
 
   Widget _productList(List<Map<String, dynamic>> items, double Function(Map<String, dynamic>) value) {
     if (items.isEmpty) {
-      return const Text('Aucune commande livrée pour le moment.', style: TextStyle(color: Color(0xFF64748B)));
+      return const Text('Aucune commande livrée pour le moment.', style: TextStyle(color: Color(0xFF70798A)));
     }
     return Column(
       children: items.map((item) => Card(

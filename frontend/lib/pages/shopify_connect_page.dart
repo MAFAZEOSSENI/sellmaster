@@ -60,11 +60,11 @@ class _ShopifyConnectPageState extends State<ShopifyConnectPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: const Color(0xFFF6F7FB),
       appBar: AppBar(
         title: const Text('Connecter Shopify'),
         backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1A1A1A),
+        foregroundColor: const Color(0xFF171A27),
         elevation: 0,
       ),
       body: Center(
@@ -78,7 +78,7 @@ class _ShopifyConnectPageState extends State<ShopifyConnectPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(Icons.storefront, color: Color(0xFF00BCD4), size: 52),
+                  const Icon(Icons.storefront, color: Color(0xFF4869F2), size: 52),
                   const SizedBox(height: 20),
                   const Text(
                     'Connecte ta boutique Shopify',
@@ -89,7 +89,7 @@ class _ShopifyConnectPageState extends State<ShopifyConnectPage> {
                   const Text(
                     'Tu seras redirige vers Shopify pour autoriser Sellmaster. Aucun token ou mot de passe ne sera demande ici.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Color(0xFF64748B)),
+                    style: TextStyle(color: Color(0xFF70798A)),
                   ),
                   const SizedBox(height: 24),
                   TextField(
@@ -119,7 +119,7 @@ class _ShopifyConnectPageState extends State<ShopifyConnectPage> {
                         : const Icon(Icons.login),
                     label: const Text('Continuer avec Shopify'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF00BCD4),
+                      backgroundColor: const Color(0xFF4869F2),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),

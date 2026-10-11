@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:app_links/app_links.dart';
 import 'pages/dashboard_page.dart';
@@ -119,23 +120,45 @@ class _MyAppState extends State<MyApp> {
         title: 'Sellmaster',
         theme: ThemeData(
           useMaterial3: true,
-          fontFamily: 'Inter',
-          primaryColor: const Color(0xFF0F8A8D),
-          scaffoldBackgroundColor: const Color(0xFFF4FBFA),
+          textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme).copyWith(
+            headlineLarge: GoogleFonts.poppins(
+              fontSize: 36,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF171A27),
+            ),
+            headlineMedium: GoogleFonts.poppins(
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF171A27),
+            ),
+            titleLarge: GoogleFonts.poppins(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF252B3B),
+            ),
+            bodyMedium: GoogleFonts.inter(
+              fontSize: 14,
+              color: const Color(0xFF70798A),
+            ),
+          ),
+          primaryColor: const Color(0xFF4869F2),
+          scaffoldBackgroundColor: const Color(0xFFF6F7FB),
           colorScheme: const ColorScheme.light(
-            primary: Color(0xFF0F8A8D),
-            secondary: Color(0xFF0A6469),
+            primary: Color(0xFF4869F2),
+            secondary: Color(0xFF3959DF),
             surface: Colors.white,
             onPrimary: Colors.white,
-            onSurface: Color(0xFF16313A),
+            onSurface: Color(0xFF171A27),
+            outline: Color(0xFFE3E7F0),
+            error: Color(0xFFA43C2E),
           ),
           appBarTheme: const AppBarTheme(
             backgroundColor: Colors.white,
-            foregroundColor: Color(0xFF16313A),
+            foregroundColor: Color(0xFF171A27),
             elevation: 0,
             centerTitle: false,
             titleTextStyle: TextStyle(
-              color: Color(0xFF16313A),
+              color: Color(0xFF171A27),
               fontSize: 18,
               fontWeight: FontWeight.w700,
             ),
@@ -144,8 +167,8 @@ class _MyAppState extends State<MyApp> {
             color: Colors.white,
             elevation: 0,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: const BorderSide(color: Color(0xFFDDEAE7), width: 1),
+              borderRadius: BorderRadius.circular(8),
+              side: const BorderSide(color: Color(0xFFE3E7F0), width: 1),
             ),
           ),
           inputDecorationTheme: InputDecorationTheme(
@@ -153,27 +176,27 @@ class _MyAppState extends State<MyApp> {
             fillColor: Colors.white,
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: Color(0xFFD7E5E3)),
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFFD9DEEB)),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: Color(0xFFD7E5E3)),
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFFD9DEEB)),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: Color(0xFF0F8A8D), width: 2),
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0xFF4869F2), width: 2),
             ),
             labelStyle: const TextStyle(color: Color(0xFF4D636D)),
           ),
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0F8A8D),
+              backgroundColor: const Color(0xFF4869F2),
               foregroundColor: Colors.white,
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(7),
               ),
               textStyle: const TextStyle(
                 fontWeight: FontWeight.w700,
@@ -183,9 +206,9 @@ class _MyAppState extends State<MyApp> {
           ),
           bottomNavigationBarTheme: const BottomNavigationBarThemeData(
             type: BottomNavigationBarType.fixed,
-            backgroundColor: Colors.white,
-            selectedItemColor: Color(0xFF0F8A8D),
-            unselectedItemColor: Color(0xFF64748B),
+            backgroundColor: Color(0xFF171A29),
+            selectedItemColor: Color(0xFFAAB9FF),
+            unselectedItemColor: Color(0xFF9AA3C1),
             selectedLabelStyle: TextStyle(fontWeight: FontWeight.w600),
             unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w500),
           ),
@@ -226,7 +249,7 @@ class AuthWrapper extends StatelessWidget {
                   Text(
                     'Vérification de la session...',
                     style: TextStyle(
-                      color: Color(0xFF64748B),
+                      color: Color(0xFF70798A),
                       fontSize: 16,
                     ),
                   ),
@@ -328,22 +351,11 @@ class MainNavigationPageState extends State<MainNavigationPage> {
       automaticallyImplyLeading: false,
       title: Row(
         children: [
-          Container(
+          Image.asset(
+            'assets/sellmaster-mark.png',
             width: 32,
             height: 32,
-            decoration: BoxDecoration(
-              color: const Color(0xFF0F8A8D),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            alignment: Alignment.center,
-            child: const Text(
-              'S',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
-                fontSize: 16,
-              ),
-            ),
+            fit: BoxFit.contain,
           ),
           const SizedBox(width: 10),
           _buildTimeWidget(),
@@ -356,7 +368,7 @@ class MainNavigationPageState extends State<MainNavigationPage> {
           child: Chip(
             label: Text(
               _roleLabel(authProvider.primaryRole),
-              style: const TextStyle(fontSize: 11, color: Color(0xFF0A6469)),
+              style: const TextStyle(fontSize: 11, color: Color(0xFF3959DF)),
             ),
             backgroundColor: const Color(0xFFEAF9F7),
             side: BorderSide.none,
@@ -370,13 +382,13 @@ class MainNavigationPageState extends State<MainNavigationPage> {
               margin: const EdgeInsets.only(right: 8, top: 8),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFFF5F7FA),
+                color: const Color(0xFFF6F7FB),
               ),
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.notifications_outlined, color: Color(0xFF1A1A1A)),
+                    icon: const Icon(Icons.notifications_outlined, color: Color(0xFF171A27)),
                     onPressed: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
@@ -425,16 +437,16 @@ class MainNavigationPageState extends State<MainNavigationPage> {
                 },
                 child: CircleAvatar(
                   radius: 18,
-                  backgroundColor: const Color(0xFFE0F7FA),
+                  backgroundColor: const Color(0xFFEDF0FF),
                   child: authProvider.isAuthenticated && authProvider.user?['email'] != null
                       ? Text(
                           authProvider.user!['email']!.substring(0, 1).toUpperCase(),
                           style: const TextStyle(
-                            color: Color(0xFF00BCD4),
+                            color: Color(0xFF4869F2),
                             fontWeight: FontWeight.bold,
                           ),
                         )
-                      : const Icon(Icons.person_outline, size: 18, color: Color(0xFF64748B)),
+                      : const Icon(Icons.person_outline, size: 18, color: Color(0xFF70798A)),
                 ),
               ),
               
@@ -445,7 +457,7 @@ class MainNavigationPageState extends State<MainNavigationPage> {
                   width: 12,
                   height: 12,
                   decoration: BoxDecoration(
-                    color: authProvider.isAuthenticated ? const Color(0xFF4CAF50) : const Color(0xFF64748B),
+                    color: authProvider.isAuthenticated ? const Color(0xFF4CAF50) : const Color(0xFF70798A),
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 2),
                   ),
@@ -467,7 +479,7 @@ class MainNavigationPageState extends State<MainNavigationPage> {
         return Text(
           timeString,
           style: const TextStyle(
-            color: Color(0xFF1A1A1A),
+            color: Color(0xFF171A27),
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -490,7 +502,7 @@ class MainNavigationPageState extends State<MainNavigationPage> {
         ],
         border: Border(
           top: BorderSide(
-            color: const Color(0xFFE8ECF4),
+            color: const Color(0xFFE3E7F0),
             width: 1,
           ),
         ),
@@ -498,8 +510,8 @@ class MainNavigationPageState extends State<MainNavigationPage> {
       child: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,
-        selectedItemColor: const Color(0xFF00BCD4),
-        unselectedItemColor: const Color(0xFF64748B),
+        selectedItemColor: const Color(0xFF4869F2),
+        unselectedItemColor: const Color(0xFF70798A),
         currentIndex: _currentIndex,
         onTap: (index) {
           setState(() {

@@ -139,7 +139,7 @@ class Order {
       case 'reportee':
         return const Color(0xFFFF9800);
       default:
-        return const Color(0xFF00BCD4);
+        return const Color(0xFF4869F2);
     }
   }
 

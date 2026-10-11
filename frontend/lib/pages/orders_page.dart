@@ -119,7 +119,7 @@ class OrdersPageState extends State<OrdersPage> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: const Color(0xFFE8ECF4),
+                color: const Color(0xFFE3E7F0),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -129,14 +129,14 @@ class OrdersPageState extends State<OrdersPage> {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF1A1A1A),
+                color: Color(0xFF171A27),
               ),
             ),
             const SizedBox(height: 16),
             Text(
               '${order.customOrderNumber}', // 🆕 MODIFIÉ: customOrderNumber au lieu de id
               style: const TextStyle(
-                color: Color(0xFF64748B),
+                color: Color(0xFF70798A),
                 fontSize: 14,
               ),
             ),
@@ -148,7 +148,7 @@ class OrdersPageState extends State<OrdersPage> {
                   order,
                   'dashboard',
                   'En attente',
-                  const Color(0xFF00BCD4),
+                  const Color(0xFF4869F2),
                   Icons.pending_actions,
                 ),
                 const SizedBox(height: 12),
@@ -190,12 +190,12 @@ class OrdersPageState extends State<OrdersPage> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  side: const BorderSide(color: Color(0xFFE8ECF4)),
+                  side: const BorderSide(color: Color(0xFFE3E7F0)),
                 ),
                 child: const Text(
                   'Fermer',
                   style: TextStyle(
-                    color: Color(0xFF64748B),
+                    color: Color(0xFF70798A),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -251,7 +251,7 @@ class OrdersPageState extends State<OrdersPage> {
       case 'reportee':
         return const Color(0xFFFF9800);
       default:
-        return const Color(0xFF00BCD4);
+        return const Color(0xFF4869F2);
     }
   }
 
@@ -271,14 +271,14 @@ class OrdersPageState extends State<OrdersPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: const Color(0xFFF6F7FB),
       appBar: AppBar(
         title: const Text(
           'Commandes',
           style: TextStyle(
             fontWeight: FontWeight.w700,
             fontSize: 24,
-            color: Color(0xFF1A1A1A),
+            color: Color(0xFF171A27),
           ),
         ),
         backgroundColor: Colors.white,
@@ -295,7 +295,7 @@ class OrdersPageState extends State<OrdersPage> {
             height: 36,
             margin: const EdgeInsets.only(right: 20),
             decoration: BoxDecoration(
-              color: const Color(0xFF00BCD4),
+              color: const Color(0xFF4869F2),
               borderRadius: BorderRadius.circular(18),
             ),
             child: const Icon(Icons.person, color: Colors.white, size: 20),
@@ -326,9 +326,9 @@ class OrdersPageState extends State<OrdersPage> {
                       label: Text(
                         filter,
                         style: TextStyle(
-                          color: _currentFilter == filter 
-                              ? const Color(0xFF00ACC1) 
-                              : const Color(0xFF64748B),
+                            color: _currentFilter == filter
+                              ? const Color(0xFF3959DF)
+                              : const Color(0xFF70798A),
                           fontWeight: FontWeight.w500,
                           fontSize: 13,
                         ),
@@ -339,15 +339,15 @@ class OrdersPageState extends State<OrdersPage> {
                           _currentFilter = filter;
                         });
                       },
-                      selectedColor: const Color(0xFFE0F7FA),
+                      selectedColor: const Color(0xFFEDF0FF),
                       backgroundColor: Colors.white,
-                      checkmarkColor: const Color(0xFF00ACC1),
+                      checkmarkColor: const Color(0xFF3959DF),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
                         side: BorderSide(
-                          color: _currentFilter == filter 
-                              ? const Color(0xFF00BCD4) 
-                              : const Color(0xFFE8ECF4),
+                            color: _currentFilter == filter
+                              ? const Color(0xFF4869F2)
+                              : const Color(0xFFE3E7F0),
                         ),
                       ),
                       elevation: 0,
@@ -364,14 +364,14 @@ class OrdersPageState extends State<OrdersPage> {
             child: isLoading
                 ? const Center(
                     child: CircularProgressIndicator(
-                      color: Color(0xFF00BCD4),
+                      color: Color(0xFF4869F2),
                     ),
                   )
                 : filteredOrders.isEmpty
                     ? _buildEmptyState()
                     : RefreshIndicator(
                         onRefresh: loadOrders,
-                        color: const Color(0xFF00BCD4),
+                        color: const Color(0xFF4869F2),
                         child: ListView.builder(
                           padding: const EdgeInsets.all(20),
                           itemCount: filteredOrders.length,
@@ -394,7 +394,7 @@ class OrdersPageState extends State<OrdersPage> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showCreateOrderDialog,
-        backgroundColor: const Color(0xFF00BCD4),
+        backgroundColor: const Color(0xFF4869F2),
         elevation: 4,
         icon: const Icon(Icons.add, color: Colors.white, size: 20),
         label: const Text(
@@ -422,7 +422,7 @@ class OrdersPageState extends State<OrdersPage> {
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: const Color(0xFFF5F7FA),
+                color: const Color(0xFFF6F7FB),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -436,7 +436,7 @@ class OrdersPageState extends State<OrdersPage> {
               'Aucune commande trouvée',
               style: TextStyle(
                 fontSize: 20,
-                color: Color(0xFF1A1A1A),
+                color: Color(0xFF171A27),
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -446,7 +446,7 @@ class OrdersPageState extends State<OrdersPage> {
                   ? 'Commencez par créer votre première commande'
                   : 'Aucune commande avec ce filtre',
               style: const TextStyle(
-                color: Color(0xFF64748B),
+                color: Color(0xFF70798A),
                 fontSize: 14,
               ),
               textAlign: TextAlign.center,
@@ -461,7 +461,7 @@ class OrdersPageState extends State<OrdersPage> {
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00BCD4),
+                  backgroundColor: const Color(0xFF4869F2),
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -502,7 +502,7 @@ class OrderCard extends StatelessWidget {
       case 'reportee':
         return const Color(0xFFFF9800);
       default:
-        return const Color(0xFF00BCD4);
+        return const Color(0xFF4869F2);
     }
   }
 
@@ -513,7 +513,7 @@ class OrderCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8ECF4)),
+        border: Border.all(color: const Color(0xFFE3E7F0)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -533,7 +533,7 @@ class OrderCard extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF1A1A1A),
+                        color: Color(0xFF171A27),
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -613,14 +613,14 @@ class OrderCard extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF00BCD4),
+                    color: Color(0xFF4869F2),
                   ),
                 ),
                 Text(
                   _formatDate(order.createdAt),
                   style: const TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF64748B),
+                    color: Color(0xFF70798A),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -643,10 +643,10 @@ class OrderCard extends StatelessWidget {
           width: 32,
           height: 32,
           decoration: BoxDecoration(
-            color: const Color(0xFFF5F7FA),
+            color: const Color(0xFFF6F7FB),
             shape: BoxShape.circle,
           ),
-          child: Icon(icon, size: 16, color: const Color(0xFF64748B)),
+          child: Icon(icon, size: 16, color: const Color(0xFF70798A)),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -654,7 +654,7 @@ class OrderCard extends StatelessWidget {
             text,
             style: const TextStyle(
               fontSize: 14,
-              color: Color(0xFF1A1A1A),
+              color: Color(0xFF171A27),
               fontWeight: FontWeight.w500,
             ),
             overflow: TextOverflow.ellipsis,
@@ -894,13 +894,13 @@ class CreateOrderDialogState extends State<CreateOrderDialog> {
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF1A1A1A),
+                        color: Color(0xFF171A27),
                       ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.close, size: 20),
                       onPressed: () => Navigator.of(context).pop(),
-                      color: const Color(0xFF64748B),
+                      color: const Color(0xFF70798A),
                     ),
                   ],
                 ),
@@ -908,7 +908,7 @@ class CreateOrderDialogState extends State<CreateOrderDialog> {
                 const Text(
                   'Remplissez les informations pour créer une nouvelle commande',
                   style: TextStyle(
-                    color: Color(0xFF64748B),
+                    color: Color(0xFF70798A),
                     fontSize: 14,
                   ),
                 ),
@@ -920,7 +920,7 @@ class CreateOrderDialogState extends State<CreateOrderDialog> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF1A1A1A),
+                    color: Color(0xFF171A27),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -930,14 +930,14 @@ class CreateOrderDialogState extends State<CreateOrderDialog> {
                   decoration: const InputDecoration(
                     labelText: 'Nom du client *',
                     border: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFFE8ECF4)),
+                      borderSide: BorderSide(color: Color(0xFFE3E7F0)),
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF00BCD4)),
+                      borderSide: BorderSide(color: Color(0xFF4869F2)),
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
-                    floatingLabelStyle: TextStyle(color: Color(0xFF00BCD4)),
+                    floatingLabelStyle: TextStyle(color: Color(0xFF4869F2)),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -953,14 +953,14 @@ class CreateOrderDialogState extends State<CreateOrderDialog> {
                   decoration: const InputDecoration(
                     labelText: 'Téléphone *',
                     border: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFFE8ECF4)),
+                      borderSide: BorderSide(color: Color(0xFFE3E7F0)),
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF00BCD4)),
+                      borderSide: BorderSide(color: Color(0xFF4869F2)),
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
-                    floatingLabelStyle: TextStyle(color: Color(0xFF00BCD4)),
+                    floatingLabelStyle: TextStyle(color: Color(0xFF4869F2)),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -976,14 +976,14 @@ class CreateOrderDialogState extends State<CreateOrderDialog> {
                   decoration: const InputDecoration(
                     labelText: 'Adresse de livraison *',
                     border: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFFE8ECF4)),
+                      borderSide: BorderSide(color: Color(0xFFE3E7F0)),
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF00BCD4)),
+                      borderSide: BorderSide(color: Color(0xFF4869F2)),
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
-                    floatingLabelStyle: TextStyle(color: Color(0xFF00BCD4)),
+                    floatingLabelStyle: TextStyle(color: Color(0xFF4869F2)),
                   ),
                   maxLines: 2,
                   validator: (value) {
@@ -1000,14 +1000,14 @@ class CreateOrderDialogState extends State<CreateOrderDialog> {
                   decoration: const InputDecoration(
                     labelText: 'Notes (optionnel)',
                     border: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFFE8ECF4)),
+                      borderSide: BorderSide(color: Color(0xFFE3E7F0)),
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF00BCD4)),
+                      borderSide: BorderSide(color: Color(0xFF4869F2)),
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                     ),
-                    floatingLabelStyle: TextStyle(color: Color(0xFF00BCD4)),
+                    floatingLabelStyle: TextStyle(color: Color(0xFF4869F2)),
                   ),
                   maxLines: 2,
                 ),
@@ -1018,7 +1018,7 @@ class CreateOrderDialogState extends State<CreateOrderDialog> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF1A1A1A),
+                    color: Color(0xFF171A27),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -1026,13 +1026,13 @@ class CreateOrderDialogState extends State<CreateOrderDialog> {
                 Container(
                   height: 150,
                   decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFFE8ECF4)),
+                    border: Border.all(color: const Color(0xFFE3E7F0)),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: products.isEmpty
                       ? const Center(
                           child: CircularProgressIndicator(
-                            color: Color(0xFF00BCD4),
+                            color: Color(0xFF4869F2),
                           ),
                         )
                       : ListView.builder(
@@ -1044,12 +1044,12 @@ class CreateOrderDialogState extends State<CreateOrderDialog> {
                                 width: 40,
                                 height: 40,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF00BCD4).withOpacity(0.1),
+                                  color: const Color(0xFF4869F2).withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Icon(
                                   Icons.shopping_bag,
-                                  color: const Color(0xFF00BCD4),
+                                  color: const Color(0xFF4869F2),
                                   size: 20,
                                 ),
                               ),
@@ -1057,13 +1057,13 @@ class CreateOrderDialogState extends State<CreateOrderDialog> {
                                 product.name,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w500,
-                                  color: Color(0xFF1A1A1A),
+                                  color: Color(0xFF171A27),
                                 ),
                               ),
                               subtitle: Text(
                                 '${product.price} FCFA - Stock: ${product.stock}',
                                 style: const TextStyle(
-                                  color: Color(0xFF64748B),
+                                  color: Color(0xFF70798A),
                                   fontSize: 12,
                                 ),
                               ),
@@ -1073,12 +1073,12 @@ class CreateOrderDialogState extends State<CreateOrderDialog> {
                                   decoration: BoxDecoration(
                                     color: product.stock > 0 
                                         ? const Color(0xFF4CAF50) 
-                                        : const Color(0xFFE8ECF4),
+                                        : const Color(0xFFE3E7F0),
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(
                                     Icons.add,
-                                    color: product.stock > 0 ? Colors.white : const Color(0xFF64748B),
+                                    color: product.stock > 0 ? Colors.white : const Color(0xFF70798A),
                                     size: 16,
                                   ),
                                 ),
@@ -1097,7 +1097,7 @@ class CreateOrderDialogState extends State<CreateOrderDialog> {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF1A1A1A),
+                    color: Color(0xFF171A27),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -1106,14 +1106,14 @@ class CreateOrderDialogState extends State<CreateOrderDialog> {
                     ? Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF5F7FA),
+                          color: const Color(0xFFF6F7FB),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFE8ECF4)),
+                          border: Border.all(color: const Color(0xFFE3E7F0)),
                         ),
                         child: const Center(
                           child: Text(
                             'Aucun produit sélectionné',
-                            style: TextStyle(color: Color(0xFF64748B)),
+                            style: TextStyle(color: Color(0xFF70798A)),
                           ),
                         ),
                       )
@@ -1125,9 +1125,9 @@ class CreateOrderDialogState extends State<CreateOrderDialog> {
                             margin: const EdgeInsets.only(bottom: 8),
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF5F7FA),
+                              color: const Color(0xFFF6F7FB),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xFFE8ECF4)),
+                              border: Border.all(color: const Color(0xFFE3E7F0)),
                             ),
                             child: Row(
                               children: [
@@ -1141,13 +1141,13 @@ class CreateOrderDialogState extends State<CreateOrderDialog> {
                                         item['productName'],
                                         style: const TextStyle(
                                           fontWeight: FontWeight.w500,
-                                          color: Color(0xFF1A1A1A),
+                                          color: Color(0xFF171A27),
                                         ),
                                       ),
                                       Text(
                                         '${item['unitPrice']} FCFA x ${item['quantity']}',
                                         style: const TextStyle(
-                                          color: Color(0xFF64748B),
+                                          color: Color(0xFF70798A),
                                           fontSize: 12,
                                         ),
                                       ),
@@ -1160,27 +1160,27 @@ class CreateOrderDialogState extends State<CreateOrderDialog> {
                                     IconButton(
                                       icon: const Icon(Icons.remove, size: 18),
                                       onPressed: () => _updateQuantity(index, item['quantity'] - 1),
-                                      color: const Color(0xFF64748B),
+                                      color: const Color(0xFF70798A),
                                     ),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
                                         color: Colors.white,
                                         borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(color: const Color(0xFFE8ECF4)),
+                                        border: Border.all(color: const Color(0xFFE3E7F0)),
                                       ),
                                       child: Text(
                                         '${item['quantity']}',
                                         style: const TextStyle(
                                           fontWeight: FontWeight.w600,
-                                          color: Color(0xFF1A1A1A),
+                                          color: Color(0xFF171A27),
                                         ),
                                       ),
                                     ),
                                     IconButton(
                                       icon: const Icon(Icons.add, size: 18),
                                       onPressed: () => _updateQuantity(index, item['quantity'] + 1),
-                                      color: const Color(0xFF00BCD4),
+                                      color: const Color(0xFF4869F2),
                                     ),
                                     IconButton(
                                       icon: const Icon(Icons.delete_outline, size: 18),
@@ -1211,7 +1211,7 @@ class CreateOrderDialogState extends State<CreateOrderDialog> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF1A1A1A),
+                          color: Color(0xFF171A27),
                         ),
                       ),
                       Text(
@@ -1237,12 +1237,12 @@ class CreateOrderDialogState extends State<CreateOrderDialog> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          side: const BorderSide(color: Color(0xFFE8ECF4)),
+                          side: const BorderSide(color: Color(0xFFE3E7F0)),
                         ),
                         child: const Text(
                           'Annuler',
                           style: TextStyle(
-                            color: Color(0xFF64748B),
+                            color: Color(0xFF70798A),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -1253,7 +1253,7 @@ class CreateOrderDialogState extends State<CreateOrderDialog> {
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _createOrder,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF00BCD4),
+                          backgroundColor: const Color(0xFF4869F2),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),

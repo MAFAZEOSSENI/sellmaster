@@ -11,7 +11,7 @@ class ProfilePage extends StatelessWidget {
     final authProvider = Provider.of<AuthProvider>(context); // 🟢 CORRECTION : Provider maintenant reconnu
     
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: const Color(0xFFF6F7FB),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -56,9 +56,9 @@ class ProfilePage extends StatelessWidget {
                 height: 70,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFFE0F7FA),
+                  color: const Color(0xFFEDF0FF),
                   border: Border.all(
-                    color: const Color(0xFF00BCD4),
+                    color: const Color(0xFF4869F2),
                     width: 2,
                   ),
                 ),
@@ -67,13 +67,13 @@ class ProfilePage extends StatelessWidget {
                         child: Text(
                           authProvider.user!['email']!.substring(0, 1).toUpperCase(),
                           style: const TextStyle(
-                            color: Color(0xFF00BCD4),
+                            color: Color(0xFF4869F2),
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       )
-                    : const Icon(Icons.person_outline, size: 30, color: Color(0xFF64748B)),
+                    : const Icon(Icons.person_outline, size: 30, color: Color(0xFF70798A)),
               ),
               
               // BADGE DE CONNEXION
@@ -84,7 +84,7 @@ class ProfilePage extends StatelessWidget {
                   width: 20,
                   height: 20,
                   decoration: BoxDecoration(
-                    color: authProvider.isAuthenticated ? const Color(0xFF4CAF50) : const Color(0xFF64748B),
+                    color: authProvider.isAuthenticated ? const Color(0xFF4CAF50) : const Color(0xFF70798A),
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 3),
                   ),
@@ -110,7 +110,7 @@ class ProfilePage extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF1A1A1A),
+                    color: Color(0xFF171A27),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -120,7 +120,7 @@ class ProfilePage extends StatelessWidget {
                       : 'Connectez-vous pour accéder à toutes les fonctionnalités',
                   style: const TextStyle(
                     fontSize: 14,
-                    color: Color(0xFF64748B),
+                    color: Color(0xFF70798A),
                   ),
                 ),
                 if (authProvider.isAuthenticated) ...[
@@ -158,7 +158,7 @@ class ProfilePage extends StatelessWidget {
             icon: Icons.person,
             title: 'Informations du compte',
             subtitle: 'Gérer vos informations personnelles',
-            color: const Color(0xFF00BCD4),
+            color: const Color(0xFF4869F2),
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Gestion du compte - Bientôt disponible')),
@@ -205,7 +205,7 @@ class ProfilePage extends StatelessWidget {
           icon: authProvider.isAuthenticated ? Icons.logout : Icons.login,
           title: authProvider.isAuthenticated ? 'Déconnexion' : 'Se connecter',
           subtitle: authProvider.isAuthenticated ? 'Quitter votre session' : 'Accéder à votre compte',
-          color: authProvider.isAuthenticated ? const Color(0xFFF44336) : const Color(0xFF00BCD4),
+          color: authProvider.isAuthenticated ? const Color(0xFFF44336) : const Color(0xFF4869F2),
           onTap: () {
             if (authProvider.isAuthenticated) {
               authProvider.logout();
@@ -248,17 +248,17 @@ class ProfilePage extends StatelessWidget {
           title,
           style: const TextStyle(
             fontWeight: FontWeight.w600,
-            color: Color(0xFF1A1A1A),
+            color: Color(0xFF171A27),
           ),
         ),
         subtitle: Text(
           subtitle,
           style: const TextStyle(
-            color: Color(0xFF64748B),
+            color: Color(0xFF70798A),
             fontSize: 12,
           ),
         ),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF64748B)),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF70798A)),
         onTap: onTap,
       ),
     );

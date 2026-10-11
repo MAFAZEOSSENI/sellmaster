@@ -107,7 +107,7 @@ class ShopifyStoresPageState extends State<ShopifyStoresPage> {
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A1A1A),
+                  color: Color(0xFF171A27),
                 ),
               ),
               const SizedBox(height: 8),
@@ -115,7 +115,7 @@ class ShopifyStoresPageState extends State<ShopifyStoresPage> {
                 'Êtes-vous sûr de vouloir déconnecter "${config.shopName}" ?',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  color: Color(0xFF64748B),
+                  color: Color(0xFF70798A),
                   fontSize: 14,
                 ),
               ),
@@ -130,12 +130,12 @@ class ShopifyStoresPageState extends State<ShopifyStoresPage> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        side: const BorderSide(color: Color(0xFFE8ECF4)),
+                        side: const BorderSide(color: Color(0xFFE3E7F0)),
                       ),
                       child: const Text(
                         'Annuler',
                         style: TextStyle(
-                          color: Color(0xFF64748B),
+                          color: Color(0xFF70798A),
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -218,14 +218,14 @@ class ShopifyStoresPageState extends State<ShopifyStoresPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: const Color(0xFFF6F7FB),
       appBar: AppBar(
         title: const Text(
           'Boutiques Shopify',
           style: TextStyle(
             fontWeight: FontWeight.w700,
             fontSize: 24,
-            color: Color(0xFF1A1A1A),
+            color: Color(0xFF171A27),
           ),
         ),
         backgroundColor: Colors.white,
@@ -248,7 +248,7 @@ class ShopifyStoresPageState extends State<ShopifyStoresPage> {
             height: 36,
             margin: const EdgeInsets.only(right: 20),
             decoration: BoxDecoration(
-              color: const Color(0xFF00BCD4),
+              color: const Color(0xFF4869F2),
               borderRadius: BorderRadius.circular(18),
             ),
             child: const Icon(Icons.person, color: Colors.white, size: 20),
@@ -258,7 +258,7 @@ class ShopifyStoresPageState extends State<ShopifyStoresPage> {
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(
-                color: Color(0xFF00BCD4),
+                color: Color(0xFF4869F2),
               ),
             )
           : _configs.isEmpty
@@ -271,7 +271,7 @@ class ShopifyStoresPageState extends State<ShopifyStoresPage> {
             MaterialPageRoute(builder: (context) => const ShopifyConnectPage()),
           ).then((_) => _loadConfigs());
         },
-        backgroundColor: const Color(0xFF00BCD4),
+        backgroundColor: const Color(0xFF4869F2),
         elevation: 4,
         icon: const Icon(Icons.add_business, color: Colors.white, size: 20),
         label: const Text(
@@ -299,7 +299,7 @@ class ShopifyStoresPageState extends State<ShopifyStoresPage> {
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: const Color(0xFFF5F7FA),
+                color: const Color(0xFFF6F7FB),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -313,7 +313,7 @@ class ShopifyStoresPageState extends State<ShopifyStoresPage> {
               'Aucune boutique Shopify connectée',
               style: TextStyle(
                 fontSize: 20,
-                color: Color(0xFF1A1A1A),
+                color: Color(0xFF171A27),
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -322,7 +322,7 @@ class ShopifyStoresPageState extends State<ShopifyStoresPage> {
               'Connectez votre première boutique pour synchroniser\nvos commandes et produits automatiquement',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Color(0xFF64748B),
+                color: Color(0xFF70798A),
                 fontSize: 14,
               ),
             ),
@@ -340,7 +340,7 @@ class ShopifyStoresPageState extends State<ShopifyStoresPage> {
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00BCD4),
+                backgroundColor: const Color(0xFF4869F2),
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -371,12 +371,12 @@ class ShopifyStoresPageState extends State<ShopifyStoresPage> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE0F7FA),
+                  color: const Color(0xFFEDF0FF),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.store,
-                  color: Color(0xFF00BCD4),
+                  color: Color(0xFF4869F2),
                   size: 20,
                 ),
               ),
@@ -390,13 +390,13 @@ class ShopifyStoresPageState extends State<ShopifyStoresPage> {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF1A1A1A),
+                        color: Color(0xFF171A27),
                       ),
                     ),
                     Text(
                       'Gérez vos boutiques Shopify connectées',
                       style: TextStyle(
-                        color: Color(0xFF64748B),
+                        color: Color(0xFF70798A),
                         fontSize: 12,
                       ),
                     ),
@@ -406,13 +406,13 @@ class ShopifyStoresPageState extends State<ShopifyStoresPage> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE0F7FA),
+                  color: const Color(0xFFEDF0FF),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   '${_configs.length} boutique(s)',
                   style: const TextStyle(
-                    color: Color(0xFF00BCD4),
+                    color: Color(0xFF4869F2),
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -442,7 +442,7 @@ class ShopifyStoresPageState extends State<ShopifyStoresPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8ECF4)),
+        border: Border.all(color: const Color(0xFFE3E7F0)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -485,7 +485,7 @@ class ShopifyStoresPageState extends State<ShopifyStoresPage> {
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF1A1A1A),
+                                color: Color(0xFF171A27),
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -545,7 +545,7 @@ class ShopifyStoresPageState extends State<ShopifyStoresPage> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      side: const BorderSide(color: Color(0xFF00BCD4)),
+                      side: const BorderSide(color: Color(0xFF4869F2)),
                     ),
                   ),
                 ),
@@ -558,7 +558,7 @@ class ShopifyStoresPageState extends State<ShopifyStoresPage> {
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      side: const BorderSide(color: Color(0xFF00BCD4)),
+                      side: const BorderSide(color: Color(0xFF4869F2)),
                     ),
                   ),
                 ),
@@ -566,9 +566,9 @@ class ShopifyStoresPageState extends State<ShopifyStoresPage> {
                 IconButton(
                   onPressed: () => _showDeleteConfirmation(config),
                   icon: const Icon(Icons.delete_outline, size: 20),
-                  color: const Color(0xFF64748B),
+                  color: const Color(0xFF70798A),
                   style: IconButton.styleFrom(
-                    backgroundColor: const Color(0xFFF5F7FA),
+                    backgroundColor: const Color(0xFFF6F7FB),
                     padding: const EdgeInsets.all(12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -592,7 +592,7 @@ class ShopifyStoresPageState extends State<ShopifyStoresPage> {
           Text(
             '$label: ',
             style: const TextStyle(
-              color: Color(0xFF64748B),
+              color: Color(0xFF70798A),
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
@@ -600,7 +600,7 @@ class ShopifyStoresPageState extends State<ShopifyStoresPage> {
           Text(
             value,
             style: const TextStyle(
-              color: Color(0xFF1A1A1A),
+              color: Color(0xFF171A27),
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),

@@ -41,7 +41,7 @@ class NotificationsPage extends StatelessWidget {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: item.read ? Colors.transparent : const Color(0xFF00BCD4).withOpacity(0.25),
+                      color: item.read ? Colors.transparent : const Color(0xFF4869F2).withOpacity(0.25),
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -87,7 +87,7 @@ class NotificationsPage extends StatelessWidget {
                                     width: 10,
                                     height: 10,
                                     decoration: const BoxDecoration(
-                                      color: Color(0xFF00BCD4),
+                                      color: Color(0xFF4869F2),
                                       shape: BoxShape.circle,
                                     ),
                                   ),
@@ -97,7 +97,7 @@ class NotificationsPage extends StatelessWidget {
                             Text(
                               item.message,
                               style: const TextStyle(
-                                color: Color(0xFF64748B),
+                                color: Color(0xFF70798A),
                                 fontSize: 13,
                               ),
                             ),
@@ -130,7 +130,7 @@ class NotificationsPage extends StatelessWidget {
         return Colors.red;
       case AppNotificationType.info:
       default:
-        return const Color(0xFF00BCD4);
+        return const Color(0xFF4869F2);
     }
   }
 
@@ -177,13 +177,13 @@ class _EmptyNotificationsState extends StatelessWidget {
               width: 90,
               height: 90,
               decoration: BoxDecoration(
-                color: const Color(0xFFE0F7FA),
+                color: const Color(0xFFEDF0FF),
                 borderRadius: BorderRadius.circular(28),
               ),
               child: const Icon(
                 Icons.notifications_none_rounded,
                 size: 42,
-                color: Color(0xFF00BCD4),
+                color: Color(0xFF4869F2),
               ),
             ),
             const SizedBox(height: 18),
@@ -199,7 +199,7 @@ class _EmptyNotificationsState extends StatelessWidget {
               'Les alertes importantes apparaîtront ici.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Color(0xFF64748B),
+                color: Color(0xFF70798A),
               ),
             ),
           ],

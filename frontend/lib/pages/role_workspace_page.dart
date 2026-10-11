@@ -421,7 +421,7 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                         widget.role == 'closer'
                             ? Icons.headset_mic_outlined
                             : Icons.delivery_dining,
-                        color: const Color(0xFF00BCD4),
+                        color: const Color(0xFF4869F2),
                         size: 30,
                       ),
                       const SizedBox(width: 12),
@@ -430,7 +430,7 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF1A1A1A),
+                          color: Color(0xFF171A27),
                         ),
                       ),
                     ],
@@ -453,7 +453,7 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF1A1A1A),
+                              color: Color(0xFF171A27),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -501,14 +501,14 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                                         ),
                                         Text(
                                           (team['status'] ?? 'active') == 'pending' ? 'Invitation en attente' : 'Equipe active',
-                                          style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                                          style: const TextStyle(color: Color(0xFF70798A), fontSize: 12),
                                         ),
                                       ],
                                     ),
                                   ),
                                   Switch(
                                     value: isWorking,
-                                    activeColor: const Color(0xFF00BCD4),
+                                    activeColor: const Color(0xFF4869F2),
                                     onChanged: (value) => _saveTeamState(int.parse(membershipId.toString()), isWorking: value),
                                   ),
                                 ],
@@ -570,7 +570,7 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                               entry.key,
                               style: const TextStyle(
                                 fontSize: 12,
-                                color: Color(0xFF64748B),
+                                color: Color(0xFF70798A),
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -580,7 +580,7 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                               style: const TextStyle(
                                 fontSize: 28,
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xFF1A1A1A),
+                                color: Color(0xFF171A27),
                               ),
                             ),
                           ],
@@ -606,7 +606,7 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF1A1A1A),
+                              color: Color(0xFF171A27),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -637,7 +637,7 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                                         const SizedBox(height: 4),
                                         Text(
                                           'Rôle: $roleName • Statut: ${status == 'active' ? 'acceptée' : 'en attente'}',
-                                          style: const TextStyle(color: Color(0xFF64748B)),
+                                          style: const TextStyle(color: Color(0xFF70798A)),
                                         ),
                                       ],
                                     ),
@@ -665,7 +665,7 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                         style: TextStyle(fontWeight: FontWeight.w600),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF00BCD4),
+                        backgroundColor: const Color(0xFF4869F2),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
@@ -680,7 +680,7 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF1A1A1A),
+                      color: Color(0xFF171A27),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -695,7 +695,7 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                       child: const Text(
                         'Aucune tâche pour le moment.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Color(0xFF64748B)),
+                        style: TextStyle(color: Color(0xFF70798A)),
                       ),
                     )
                   else
@@ -754,12 +754,12 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                               const SizedBox(height: 4),
                               Text(
                                 order.clientPhone.isNotEmpty ? order.clientPhone : 'Téléphone non renseigné',
-                                style: const TextStyle(color: Color(0xFF64748B)),
+                                style: const TextStyle(color: Color(0xFF70798A)),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 order.clientAddress.isNotEmpty ? order.clientAddress : 'Adresse non renseignée',
-                                style: const TextStyle(color: Color(0xFF64748B)),
+                                style: const TextStyle(color: Color(0xFF70798A)),
                               ),
                               const SizedBox(height: 12),
                               Row(
@@ -770,13 +770,13 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                                       style: const TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w700,
-                                        color: Color(0xFF00BCD4),
+                                        color: Color(0xFF4869F2),
                                       ),
                                     ),
                                   ),
                                   Text(
                                     '${order.createdAt.day.toString().padLeft(2, '0')}/${order.createdAt.month.toString().padLeft(2, '0')}/${order.createdAt.year}',
-                                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                                    style: const TextStyle(color: Color(0xFF70798A), fontSize: 12),
                                   ),
                                 ],
                               ),
@@ -788,7 +788,7 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                                     const Text(
                                       'Attribuer à un livreur',
                                       style: TextStyle(
-                                        color: Color(0xFF64748B),
+                                        color: Color(0xFF70798A),
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -797,7 +797,7 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                                     if (_teamCouriers.isEmpty)
                                       const Text(
                                         'Aucun livreur actif et disponible dans cette équipe.',
-                                        style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                                        style: TextStyle(color: Color(0xFF70798A), fontSize: 12),
                                       )
                                     else
                                       Row(
@@ -849,7 +849,7 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                                       ? 'Non assignée'
                                       : 'Assignée à #${order.assignedTo}',
                                   style: const TextStyle(
-                                    color: Color(0xFF64748B),
+                                    color: Color(0xFF70798A),
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -890,7 +890,7 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
         children: [
           Row(
             children: [
-              const Icon(Icons.payments_outlined, color: Color(0xFF00BCD4)),
+              const Icon(Icons.payments_outlined, color: Color(0xFF4869F2)),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
@@ -912,7 +912,7 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
           ] else
             const Padding(
               padding: EdgeInsets.only(top: 8),
-              child: Text('Aucun gain enregistré pour le moment.', style: TextStyle(color: Color(0xFF64748B))),
+              child: Text('Aucun gain enregistré pour le moment.', style: TextStyle(color: Color(0xFF70798A))),
             ),
         ],
       ),
@@ -924,10 +924,10 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
     return ChoiceChip(
       label: Text(label),
       selected: isActive,
-      selectedColor: const Color(0xFF00BCD4),
-      backgroundColor: const Color(0xFFF5F7FA),
+      selectedColor: const Color(0xFF4869F2),
+      backgroundColor: const Color(0xFFF6F7FB),
       labelStyle: TextStyle(
-        color: isActive ? Colors.white : const Color(0xFF1A1A1A),
+        color: isActive ? Colors.white : const Color(0xFF171A27),
         fontWeight: FontWeight.w600,
       ),
       onSelected: (_) => _handleStatusSelection(order, status),
