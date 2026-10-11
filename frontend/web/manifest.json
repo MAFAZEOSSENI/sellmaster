@@ -1,11 +1,11 @@
 {
-    "name": "gestion_commandes_app",
-    "short_name": "gestion_commandes_app",
+    "name": "Sellmaster",
+    "short_name": "Sellmaster",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#ffffff",
+    "theme_color": "#0751df",
+    "description": "Sellmaster centralise vos commandes, produits et opérations e-commerce.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -574,12 +574,8 @@
 .brand-symbol {
   width: 34px;
   height: 34px;
-  display: grid;
-  place-items: center;
-  border-radius: 10px;
-  background: #a5e6cd;
-  color: #12342d;
-  font-size: 1rem;
+  display: block;
+  object-fit: contain;
   letter-spacing: 0;
 }
 
@@ -853,7 +849,7 @@
 }
 
 .sidebar-brand .brand-symbol {
-  background: #9edfc4;
+  background: transparent;
 }
 
 .workspace-select {

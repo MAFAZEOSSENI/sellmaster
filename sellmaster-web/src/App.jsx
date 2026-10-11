@@ -51,13 +51,13 @@ function LoginScreen({ onLogin }) {
   return (
     <main className="auth-layout">
       <section className="auth-brand-panel">
-        <a className="brand" href="#app"><span className="brand-symbol">S</span><span>SELLMASTER</span></a>
+        <a className="brand" href="#app"><img className="brand-symbol" src="/sellmaster-mark.svg" alt="" /><span>SELLMASTER</span></a>
         <div className="auth-story"><span className="overline">VOTRE COMMERCE, EN MOUVEMENT</span><h1>Chaque commande mérite un meilleur suivi.</h1><p>Retrouvez vos ventes, produits et opérations dans un espace de travail pensé pour les e-commerçants.</p><div className="story-rule"><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /></div><div className="story-caption"><Activity size={17} /> Votre activité, réunie au même endroit</div></div>
         <div className="auth-panel-foot"><ShieldCheck size={15} /> Connexion sécurisée à votre espace Sellmaster</div>
       </section>
       <section className="auth-form-panel">
         <form className="login-form" onSubmit={submit}>
-          <div className="mobile-brand brand"><span className="brand-symbol">S</span><span>SELLMASTER</span></div><span className="overline">ESPACE E-COMMERÇANT</span><h2>Content de vous revoir.</h2><p>Connectez-vous pour accéder à votre activité.</p>
+          <div className="mobile-brand brand"><img className="brand-symbol" src="/sellmaster-mark.svg" alt="" /><span>SELLMASTER</span></div><span className="overline">ESPACE E-COMMERÇANT</span><h2>Content de vous revoir.</h2><p>Connectez-vous pour accéder à votre activité.</p>
           <label htmlFor="email">Adresse e-mail</label><input id="email" type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="vous@entreprise.com" />
           <div className="password-label"><label htmlFor="password">Mot de passe</label><a href="mailto:support@sellmaster.app">Besoin d’aide ?</a></div><input id="password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Votre mot de passe" />
           {error && <div className="form-error" role="alert">{error}</div>}
@@ -71,7 +71,7 @@ function LoginScreen({ onLogin }) {
 function Sidebar({ active, onNavigate, user, onLogout }) {
   return (
     <aside className="sidebar">
-      <a className="brand sidebar-brand" href="#app"><span className="brand-symbol">S</span><span>SELLMASTER</span></a>
+      <a className="brand sidebar-brand" href="#app"><img className="brand-symbol" src="/sellmaster-mark.svg" alt="" /><span>SELLMASTER</span></a>
       <div className="workspace-select"><span className="store-icon"><Store size={17} /></span><span className="workspace-text"><strong>Ma boutique</strong><small>Espace principal</small></span><ChevronDown size={15} /></div>
       <span className="nav-caption">ESPACE DE TRAVAIL</span>
       <nav className="side-nav" aria-label="Navigation principale">{navItems.map(({ id, label, icon: Icon }) => <button className={`nav-link ${active === id ? 'selected' : ''}`} key={id} onClick={() => onNavigate(id)}><Icon size={18} strokeWidth={1.8} /><span>{label}</span>{id === 'orders' && <span className="nav-count">•</span>}</button>)}</nav>

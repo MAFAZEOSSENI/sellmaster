@@ -69,16 +69,10 @@
 }
 
 .landing-brand-mark {
-  display: grid;
+  display: block;
   width: 36px;
-  aspect-ratio: 1;
-  place-items: center;
-  border-radius: 11px;
-  background: #4869f2;
-  color: white;
-  font-size: 19px;
-  font-weight: 700;
-  box-shadow: 0 5px 20px rgba(62, 97, 238, .36);
+  height: 36px;
+  object-fit: contain;
 }
 
 .landing-nav {
@@ -327,7 +321,7 @@
 }
 
 .preview-logo { display: flex; align-items: center; gap: 7px; margin: 0 0 14px 5px; color: #2b3343; font-size: 9px; letter-spacing: .4px; }
-.preview-logo span { display: grid; width: 22px; height: 22px; place-items: center; border-radius: 6px; color: white; background: #4968ec; font-size: 12px; font-weight: 700; }
+.preview-logo img { display: block; width: 22px; height: 22px; object-fit: contain; }
 .preview-nav { display: flex; align-items: center; gap: 8px; min-height: 31px; padding: 0 8px; border-radius: 4px; color: #798293; font-size: 9px; }
 .preview-nav.active { color: #445fe1; background: #f0f3ff; font-weight: 700; }
 .preview-user { display: flex; align-items: center; gap: 8px; margin-top: auto; padding: 10px 3px 0; border-top: 1px solid #edf0f4; }
@@ -487,7 +481,7 @@
 
 .landing-footer { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 24px; padding: 26px 0; }
 .landing-footer .landing-brand { color: #282e3c; font-size: 12px; }
-.landing-footer .landing-brand-mark { width: 29px; border-radius: 8px; font-size: 15px; }
+.landing-footer .landing-brand-mark { width: 29px; height: 29px; }
 .landing-footer > p { margin: 0; color: #7c8491; font-size: 10px; }
 .landing-footer > div { display: flex; align-items: center; gap: 18px; }
 .landing-footer > div a,.landing-footer > div span { color: #737c89; text-decoration: none; font-size: 9px; }
@@ -522,7 +516,7 @@
   .landing-hero { min-height: 750px; padding: 0 18px; }
   .landing-header { min-height: 69px; }
   .landing-brand { gap: 8px; font-size: 13px; }
-  .landing-brand-mark { width: 32px; border-radius: 9px; }
+  .landing-brand-mark { width: 32px; height: 32px; }
   .landing-menu-toggle { display: grid; }
   .landing-nav { position: absolute; top: 61px; right: 0; left: 0; display: none; align-items: stretch; flex-direction: column; gap: 4px; padding: 13px; border: 1px solid rgba(255,255,255,.12); border-radius: 6px; background: #202337; box-shadow: 0 16px 35px rgba(0,0,0,.25); }
   .landing-nav.is-open { display: flex; }
@@ -541,7 +535,7 @@
   .preview-layout { min-height: 235px; grid-template-columns: 83px minmax(0, 1fr); }
   .preview-sidebar { gap: 5px; padding: 10px 5px; }
   .preview-logo { gap: 4px; margin: 0 0 8px 1px; font-size: 6px; }
-  .preview-logo span { width: 17px; height: 17px; font-size: 9px; }
+  .preview-logo img { width: 17px; height: 17px; }
   .preview-nav { min-height: 26px; gap: 4px; padding: 0 3px; font-size: 6px; }
   .preview-nav svg { width: 11px; height: 11px; }
   .preview-user { gap: 4px; padding-top: 6px; }

@@ -36,5 +36,6 @@ flutter:
   uses-material-design: true
   assets:
     - assets/sounds/notification.wav
+    - assets/sellmaster-mark.png
 
    

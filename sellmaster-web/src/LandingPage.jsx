@@ -49,7 +49,7 @@ function DashboardPreview() {
     <div className="landing-preview" aria-label="Aperçu du tableau de bord Sellmaster">
       <div className="preview-window-bar"><span /><span /><span /><small>sellmaster.site / overview</small><i><ArrowUpRight size={13} /></i></div>
       <div className="preview-layout">
-        <aside className="preview-sidebar"><div className="preview-logo"><span>S</span><b>SELLMASTER</b></div><div className="preview-nav active"><BarChart3 size={14} />Vue d’ensemble</div><div className="preview-nav"><ClipboardCheck size={14} />Commandes</div><div className="preview-nav"><PackageCheck size={14} />Produits</div><div className="preview-nav"><ShoppingBag size={14} />Boutiques</div><div className="preview-user"><span>AM</span><small>Alex Morgan<br /><em>Propriétaire</em></small></div></aside>
+        <aside className="preview-sidebar"><div className="preview-logo"><img src="/sellmaster-mark.svg" alt="" /><b>SELLMASTER</b></div><div className="preview-nav active"><BarChart3 size={14} />Vue d’ensemble</div><div className="preview-nav"><ClipboardCheck size={14} />Commandes</div><div className="preview-nav"><PackageCheck size={14} />Produits</div><div className="preview-nav"><ShoppingBag size={14} />Boutiques</div><div className="preview-user"><span>AM</span><small>Alex Morgan<br /><em>Propriétaire</em></small></div></aside>
         <div className="preview-main"><div className="preview-title"><div><small>VOTRE ACTIVITÉ · AUJOURD’HUI</small><strong>Un bonjour, Alex.</strong></div><span>Mis à jour à l’instant <i /></span></div>
           <div className="preview-metrics"><div><small>Commandes</small><strong>128</strong><em><ArrowUpRight size={12} /> 12,8%</em></div><div><small>Livrées</small><strong>94</strong><em><Check size={12} /> 73,4%</em></div><div><small>Chiffre livré</small><strong>4 820 €</strong><em className="metric-neutral">Cette semaine</em></div></div>
           <div className="preview-lower"><div className="preview-chart"><div className="preview-chart-head"><span>Rythme des commandes</span><small>7 derniers jours⌄</small></div><div className="chart-bars" aria-hidden="true">{[36, 54, 42, 69, 49, 82, 63, 95, 74, 58, 87, 68, 100, 78, 91, 61, 83, 70, 97, 76].map((height, index) => <i key={index} style={{ '--bar-height': `${height}%` }} />)}</div><div className="chart-labels"><span>Lun</span><span>Mer</span><span>Ven</span><span>Dim</span></div></div><div className="preview-recent"><span>À traiter</span><b><i className="status-dot amber" />#SM-2048 <small>En cours</small></b><b><i className="status-dot blue" />#SM-2047 <small>Assignée</small></b><b><i className="status-dot green" />#SM-2046 <small>Livrée</small></b></div></div>
@@ -68,7 +68,7 @@ export default function LandingPage({ onLogin }) {
     <main className="landing-page">
       <section className="landing-hero" id="top">
         <header className="landing-header">
-          <a className="landing-brand" href="#top" onClick={closeMenu}><span className="landing-brand-mark">S</span><span>SELLMASTER</span></a>
+          <a className="landing-brand" href="#top" onClick={closeMenu}><img className="landing-brand-mark" src="/sellmaster-mark.svg" alt="" /><span>SELLMASTER</span></a>
           <button className="landing-menu-toggle" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'} aria-expanded={menuOpen}>{menuOpen ? <X /> : <Menu />}</button>
           <nav className={menuOpen ? 'landing-nav is-open' : 'landing-nav'} aria-label="Navigation principale"><a href="#plateforme" onClick={closeMenu}>La plateforme</a><a href="#comment-ca-marche" onClick={closeMenu}>Comment ça marche</a><a href="#shopify" onClick={closeMenu}>Shopify</a><a href="#questions" onClick={closeMenu}>Questions</a><button className="landing-login-link" onClick={() => { closeMenu(); onLogin() }}>Se connecter</button><button className="landing-header-cta" onClick={() => { closeMenu(); onLogin() }}>Accéder à mon espace <ArrowRight size={15} /></button></nav>
         </header>
@@ -91,7 +91,7 @@ export default function LandingPage({ onLogin }) {
 
       <section className="landing-final-cta"><div className="final-cta-orbit" /><div className="landing-section-label"><span>VOTRE ACTIVITÉ, ENFIN AU MÊME ENDROIT</span><i /></div><h2>Prêt à reprendre<br />le fil des opérations ?</h2><p>Connectez-vous et retrouvez votre espace de travail Sellmaster.</p><button className="landing-final-button" onClick={onLogin}>Accéder à Sellmaster <ArrowRight size={17} /></button></section>
 
-      <footer className="landing-footer"><a className="landing-brand" href="#top"><span className="landing-brand-mark">S</span><span>SELLMASTER</span></a><p>Un espace clair pour faire avancer votre e-commerce.</p><div><a href="#plateforme">La plateforme</a><a href="#shopify">Shopify</a><a href="mailto:support@sellmaster.app">Support</a><span>© 2026 Sellmaster</span></div></footer>
+      <footer className="landing-footer"><a className="landing-brand" href="#top"><img className="landing-brand-mark" src="/sellmaster-mark.svg" alt="" /><span>SELLMASTER</span></a><p>Un espace clair pour faire avancer votre e-commerce.</p><div><a href="#plateforme">La plateforme</a><a href="#shopify">Shopify</a><a href="mailto:support@sellmaster.app">Support</a><span>© 2026 Sellmaster</span></div></footer>
     </main>
   )
 }

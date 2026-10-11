@@ -9,7 +9,7 @@
     :root{color-scheme:light;--ink:#172b32;--muted:#64777c;--line:#dce6e5;--paper:#fff;--ground:#f3f7f7;--teal:#087f83;--teal-dark:#075e64;--mint:#e5f5f1;--red:#a93434;--shadow:0 20px 55px #163a3d12}
     *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 88% 0,#d8efea 0,transparent 34%),var(--ground);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh}
     button,input{font:inherit}button{cursor:pointer}.topbar{height:64px;border-bottom:1px solid #dce6e5;background:#ffffffd9;display:flex;align-items:center;justify-content:space-between;padding:0 max(22px,calc((100vw - 1100px)/2));backdrop-filter:blur(10px)}
-    .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.01em}.mark{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:var(--teal);color:white;font-weight:900}.brand span:last-child{color:var(--muted);font-weight:550}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.01em}.mark{display:block;width:30px;height:30px;object-fit:contain}.brand span:last-child{color:var(--muted);font-weight:550}
     .shell{width:min(100% - 32px,1000px);margin:54px auto 80px}.eyebrow{color:var(--teal);font-size:12px;font-weight:800;text-transform:uppercase}.title{margin:7px 0 8px;font-size:clamp(27px,4vw,38px);line-height:1.15;letter-spacing:-.025em}.lead{max-width:650px;color:var(--muted);margin:0 0 28px}
     .login{max-width:440px;margin:70px auto;background:var(--paper);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:30px}.login h1{font-size:24px;margin:0 0 6px}.login p{color:var(--muted);margin:0 0 24px}
     label.field-label{display:block;font-size:13px;font-weight:700;margin:14px 0 6px}.text-input{width:100%;height:46px;border:1px solid #cbd8d7;border-radius:9px;padding:0 12px;background:#fff;color:var(--ink);outline:none}.text-input:focus{border-color:var(--teal);box-shadow:0 0 0 3px #087f831a}.text-input.textarea{height:auto;min-height:86px;padding:10px 12px;resize:vertical}
@@ -65,13 +65,7 @@
     .brand-mark {
       width: 32px;
       height: 32px;
-      border-radius: 10px;
-      display: grid;
-      place-items: center;
-      background: linear-gradient(135deg,#0f8a8d,#0d5d62);
-      color: #fff;
-      font-size: 15px;
-      box-shadow: 0 12px 28px rgba(15,138,141,0.28);
+      object-fit: contain;
     }
 
     .brand-sub {
@@ -632,7 +626,7 @@
   <main class="landing-shell">
     <header class="landing-topbar">
       <div class="brand-wrap">
-        <span class="brand-mark">S</span>
+        <img class="brand-mark" src="./sellmaster-mark.svg" alt="">
         <span>Sellmaster</span>
         <span class="brand-sub">Form builder</span>
       </div>
@@ -883,7 +877,7 @@
   </main>
 
   <main class="shell">
-    <header class="topbar"><div class="brand"><span class="mark">S</span><span>SELLMASTER</span><span>/ Form Builder</span></div><button id="logout" class="logout hidden" type="button">Se déconnecter</button></header>
+    <header class="topbar"><div class="brand"><img class="mark" src="./sellmaster-mark.svg" alt=""><span>SELLMASTER</span><span>/ Form Builder</span></div><button id="logout" class="logout hidden" type="button">Se déconnecter</button></header>
     <section id="login" class="login">
       <div class="eyebrow">Espace propriétaire</div>
       <h1>Connectez votre compte</h1>

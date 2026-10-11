@@ -99,22 +99,11 @@ class _LoginPageState extends State<LoginPage> {
                     children: [
                       Row(
                         children: [
-                          Container(
+                          Image.asset(
+                            'assets/sellmaster-mark.png',
                             width: 44,
                             height: 44,
-                            decoration: BoxDecoration(
-                              color: primary,
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            alignment: Alignment.center,
-                            child: const Text(
-                              'S',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
+                            fit: BoxFit.contain,
                           ),
                           const SizedBox(width: 12),
                           const Expanded(
