@@ -1,0 +1,242 @@
+/* Shared interface palette: indigo for navigation and actions, reserved colors for statuses. */
+.auth-layout {
+  background: #f6f7fb;
+}
+
+.auth-brand-panel,
+.sidebar,
+.sidebar.mobile-sidebar {
+  background: var(--color-night);
+}
+
+.auth-brand-panel::after {
+  border-color: rgba(133, 153, 255, .16);
+  box-shadow: 0 0 0 42px rgba(133, 153, 255, .035), 0 0 0 92px rgba(133, 153, 255, .025), 0 0 0 145px rgba(133, 153, 255, .02);
+}
+
+.brand-symbol,
+.sidebar-brand .brand-symbol {
+  color: #fff;
+  background: var(--color-primary);
+}
+
+.auth-story .overline,
+.login-form .overline {
+  color: var(--color-primary-tint);
+}
+
+.auth-story h1,
+.login-form h2,
+.page-heading-row h1 {
+  color: var(--color-ink);
+}
+
+.auth-story h1 {
+  color: #f6f7ff;
+}
+
+.story-rule span {
+  background: #637cf3;
+}
+
+.story-rule span:nth-child(10) {
+  background: #a5b5ff;
+}
+
+.story-caption,
+.auth-panel-foot {
+  color: #b2bcdf;
+}
+
+.login-form label {
+  color: #3b4355;
+}
+
+.login-form input:focus,
+.search-control:focus-within,
+.product-dialog input:focus,
+.product-dialog textarea:focus,
+.invite-dialog input:focus,
+.invite-dialog select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(72, 105, 242, .12);
+}
+
+.password-label a {
+  color: var(--color-primary);
+}
+
+.button-primary {
+  color: #fff;
+  background: var(--color-primary);
+}
+
+.button-primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.dashboard-layout {
+  color: #272d3c;
+  background: var(--color-page);
+}
+
+.sidebar {
+  color: #eef0fb;
+}
+
+.workspace-select {
+  border-color: #35394f;
+}
+
+.store-icon,
+.help-icon {
+  color: #b6c3ff;
+  background: #292f4d;
+}
+
+.nav-caption {
+  color: #929bb8;
+}
+
+.nav-link {
+  color: #c1c5d5;
+}
+
+.nav-link svg {
+  color: #9aa3c1;
+}
+
+.nav-link:hover {
+  background: #242941;
+}
+
+.nav-link.selected {
+  color: #c5ceff;
+  background: #2a3153;
+}
+
+.nav-link.selected svg,
+.nav-count {
+  color: #aab9ff;
+}
+
+.help-block {
+  background: #22273d;
+}
+
+.workspace-header {
+  border-color: #e7e9f0;
+}
+
+.connection-indicator > span {
+  box-shadow: 0 0 0 3px #e4f4ed;
+}
+
+.page-heading-row h1,
+.panel-heading h2 {
+  color: #252b3b;
+}
+
+.button-quiet:hover {
+  color: var(--color-primary);
+  background: #f2f4ff;
+}
+
+.text-button,
+.inventory-link {
+  color: var(--color-primary);
+}
+
+.text-button:hover,
+.inventory-link:hover {
+  color: var(--color-primary-hover);
+}
+
+.order-ref {
+  color: #4a63d1 !important;
+}
+
+.metric-icon.mint {
+  color: #4b63d8;
+  background: #edf0ff;
+}
+
+.metric-icon.blue {
+  color: #397ac2;
+  background: #e8f2ff;
+}
+
+.inventory-icon,
+.product-thumb {
+  color: #5269dc;
+  background: #edf0ff;
+}
+
+.title-count {
+  color: #4c5fb2;
+  background: #edf0ff;
+}
+
+.search-control:focus-within {
+  border-color: #8395f6;
+}
+
+.loader {
+  border-color: #e4e8fb;
+  border-top-color: var(--color-primary);
+}
+
+.shopify-intro-mark,
+.shopify-empty-icon,
+.store-logo {
+  color: #5269dc;
+  background: #edf0ff;
+}
+
+.shopify-intro h2,
+.shopify-empty h3,
+.store-card h3 {
+  color: #293044;
+}
+
+.shopify-empty {
+  border-color: #dce2f6;
+}
+
+.team-person .avatar,
+.large-avatar,
+.header-avatar {
+  color: #4d5fa9;
+  background: #e7eaff;
+}
+
+.team-role {
+  border-color: #e3e7f4;
+  color: #59627b;
+}
+
+.notification-popover {
+  box-shadow: 0 18px 50px rgba(26, 34, 68, .16);
+}
+
+.notification-item.unread {
+  background: #f3f5ff;
+}
+
+.notification-type {
+  color: #5068dc;
+  background: #edf0ff;
+}
+
+.unread-indicator {
+  background: var(--color-primary);
+}
+
+/* Keep delivery, warning, and error colors semantic rather than brand-colored. */
+.status-livree,
+.store-status.connected,
+.team-status.status-active,
+.working-state.working,
+.type-success {
+  color: #398154;
+}

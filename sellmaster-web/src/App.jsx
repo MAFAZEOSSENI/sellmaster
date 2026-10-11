@@ -10,6 +10,7 @@ import './App.css'
 import './notifications.css'
 import './shopify.css'
 import './team.css'
+import './theme.css'
 
 const navItems = [
   { id: 'overview', label: 'Vue d’ensemble', icon: LayoutDashboard },

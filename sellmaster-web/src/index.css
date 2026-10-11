@@ -3,6 +3,15 @@
 :root {
   --font-body: 'Inter', sans-serif;
   --font-display: 'Poppins', sans-serif;
+  --color-ink: #171a27;
+  --color-muted: #70798a;
+  --color-page: #f6f7fb;
+  --color-surface: #ffffff;
+  --color-night: #171a29;
+  --color-primary: #4869f2;
+  --color-primary-hover: #3959df;
+  --color-primary-soft: #edf0ff;
+  --color-primary-tint: #9bafff;
   font-family: var(--font-body);
   line-height: 1.5;
   font-weight: 400;
