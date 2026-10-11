@@ -5,6 +5,7 @@ import {
   RefreshCw, Search, Settings2, ShieldCheck, ShoppingBag, Store, Trash2, Truck, Users,
 } from 'lucide-react'
 import { api, authToken } from './api'
+import LandingPage from './LandingPage'
 import './App.css'
 import './notifications.css'
 import './shopify.css'
@@ -185,6 +186,10 @@ function TeamView({ members, loading, error, isMemberView, canInvite, acceptingI
 function App() {
   const [user, setUser] = useState(null)
   const [authenticated, setAuthenticated] = useState(Boolean(authToken.get()))
+  const [showLogin, setShowLogin] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.has('login') || params.has('shopify')
+  })
   const [activePage, setActivePage] = useState(() => new URLSearchParams(window.location.search).has('shopify') ? 'shopify' : 'overview')
   const [stats, setStats] = useState(null)
   const [orders, setOrders] = useState([])
@@ -518,7 +523,16 @@ function App() {
   const filteredProducts = products.filter((product) => [product.name, product.description].join(' ').toLowerCase().includes(search.toLowerCase()))
   const pageTitle = activePage === 'orders' ? 'Commandes' : activePage === 'products' ? 'Produits' : activePage === 'shopify' ? 'Boutiques Shopify' : activePage === 'team' ? 'Équipe' : 'Vue d’ensemble'
 
-  if (!authenticated) return <LoginScreen onLogin={async (loginUser) => { setUser(loginUser); setLoading(true); setAuthenticated(true) }} />
+  if (!authenticated) {
+    if (!showLogin) return <LandingPage onLogin={() => { setShowLogin(true); window.history.pushState({}, '', `${window.location.pathname}?login=1`) }} />
+    return <LoginScreen onLogin={async (loginUser) => {
+      setUser(loginUser)
+      setLoading(true)
+      setAuthenticated(true)
+      setShowLogin(false)
+      window.history.replaceState({}, '', window.location.pathname)
+    }} />
+  }
 
   return <div className="dashboard-layout">
     <Sidebar active={activePage} onNavigate={(page) => { setActivePage(page); setSearch(''); if (page === 'shopify') { setStoresLoading(true); setShopifyError('') } if (page === 'team') { setTeamLoading(true); setTeamError('') } }} user={user} onLogout={logout} />
