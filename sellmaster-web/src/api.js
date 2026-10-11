@@ -39,7 +39,21 @@ export const api = {
   profile: () => request('/auth/profile'),
   dashboardStats: () => request('/orders/stats/dashboard'),
   orders: () => request('/orders'),
-  products: () => request('/products'),
+  createOrder: (order) => request('/orders', {
+    method: 'POST',
+    body: JSON.stringify(order),
+  }),
+  products: (ownerId) => request(`/products${ownerId ? `?ownerId=${encodeURIComponent(ownerId)}` : ''}`),
+  profitability: ({ ownerId, startDate, endDate, advertisingCost } = {}) => {
+    const params = new URLSearchParams()
+    if (ownerId) params.set('ownerId', ownerId)
+    if (startDate) params.set('startDate', startDate)
+    if (endDate) params.set('endDate', endDate)
+    if (advertisingCost !== undefined) params.set('advertisingCost', advertisingCost)
+    const query = params.size ? `?${params.toString()}` : ''
+    return request(`/products/profitability${query}`)
+  },
+  myEarnings: () => request('/earnings/me'),
   notifications: () => request('/notifications'),
   markNotificationsRead: () => request('/notifications/read-all', { method: 'PATCH' }),
   updateOrderStatus: (id, status, deliveryFee) => request(`/orders/${encodeURIComponent(id)}/status`, {
@@ -67,7 +81,21 @@ export const api = {
     const query = params.size ? `?${params.toString()}` : ''
     return request(`/admin/team${query}`)
   },
+  adminUsers: () => request('/admin/users'),
+  searchUsers: (query, role) => {
+    const params = new URLSearchParams({ q: query })
+    if (role) params.set('role', role)
+    return request(`/admin/users/search?${params.toString()}`)
+  },
   myTeams: () => request('/admin/my-teams'),
+  updateMyTeam: (membershipId, changes) => request(`/admin/my-teams/${encodeURIComponent(membershipId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(changes),
+  }),
+  updateCloserCommission: (membershipId, commissionAmount, commissionType) => request(`/admin/my-teams/${encodeURIComponent(membershipId)}/commission`, {
+    method: 'PATCH',
+    body: JSON.stringify({ commission_amount: commissionAmount, commission_type: commissionType }),
+  }),
   createTeamMember: (member) => request('/admin/members/create', {
     method: 'POST',
     body: JSON.stringify(member),

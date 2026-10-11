@@ -1723,6 +1723,284 @@
   font-weight: 800;
 }
 
+.order-item-picker,
+.order-item-row,
+.order-total,
+.commission-editor,
+.earnings-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.order-item-picker {
+  margin-top: 16px;
+}
+
+.order-item-picker label {
+  flex: 1;
+  margin: 0;
+}
+
+.order-item-picker select,
+.commission-editor input,
+.commission-editor select,
+.profitability-filter-fields input {
+  min-width: 0;
+  height: 39px;
+  padding: 0 10px;
+  border: 1px solid #d9deeb;
+  border-radius: 6px;
+  background: white;
+  color: #252b3b;
+  font: inherit;
+  font-size: .75rem;
+}
+
+.order-item-picker select {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.order-item-list {
+  display: grid;
+  gap: 5px;
+  margin-top: 10px;
+  border-top: 1px solid #e7e9f0;
+}
+
+.order-item-row {
+  justify-content: space-between;
+  min-height: 54px;
+  padding: 5px 0;
+  border-bottom: 1px solid #eef0f4;
+}
+
+.order-item-row > span {
+  display: grid;
+  gap: 3px;
+}
+
+.order-item-row strong,
+.order-total strong {
+  color: #252b3b;
+  font-size: .8rem;
+}
+
+.order-item-row small,
+.profitability-note {
+  color: #70798a;
+  font-size: .7rem;
+}
+
+.order-item-row > div {
+  display: flex;
+  gap: 3px;
+}
+
+.order-total {
+  justify-content: space-between;
+  margin-top: 13px;
+  padding: 13px 0;
+  border-top: 1px solid #e7e9f0;
+}
+
+.order-total span {
+  color: #70798a;
+  font-size: .76rem;
+}
+
+.commission-editor {
+  min-width: 205px;
+  gap: 5px;
+}
+
+.commission-editor input {
+  width: 82px;
+}
+
+.commission-editor select {
+  width: 78px;
+}
+
+.nickname-edit {
+  min-height: auto;
+  margin-top: 3px;
+  padding: 0;
+  font-size: .67rem;
+}
+
+.availability-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #59627b;
+  font-size: .7rem;
+  white-space: nowrap;
+}
+
+.availability-control input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-primary);
+}
+
+.existing-user-search {
+  display: flex;
+  align-items: end;
+  gap: 9px;
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid #e3e7f0;
+  border-radius: 7px;
+  background: #f8f9fc;
+}
+
+.existing-user-search label {
+  display: grid;
+  flex: 1;
+  gap: 6px;
+  color: #59627b;
+  font-size: .72rem;
+  font-weight: 650;
+}
+
+.existing-user-search input {
+  width: 100%;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid #d9deeb;
+  border-radius: 6px;
+  background: #fff;
+  color: #252b3b;
+}
+
+.existing-user-results {
+  display: grid;
+  max-height: 180px;
+  overflow: auto;
+  margin: -7px 0 14px;
+  border: 1px solid #e3e7f0;
+  border-radius: 6px;
+}
+
+.existing-user-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 54px;
+  padding: 9px 12px;
+  border: 0;
+  border-bottom: 1px solid #eef0f4;
+  background: white;
+  color: #252b3b;
+  text-align: left;
+  cursor: pointer;
+}
+
+.existing-user-result:last-child {
+  border-bottom: 0;
+}
+
+.existing-user-result > span:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.existing-user-result strong {
+  overflow: hidden;
+  font-size: .75rem;
+  text-overflow: ellipsis;
+}
+
+.existing-user-result small,
+.existing-user-selected {
+  color: #70798a;
+  font-size: .68rem;
+}
+
+.existing-user-result .text-button {
+  flex: 0 0 auto;
+  font-size: .68rem;
+}
+
+.existing-user-selected {
+  margin: 8px 0 0;
+}
+
+.earnings-grid {
+  margin-bottom: 15px;
+}
+
+.earnings-breakdown {
+  padding: 16px;
+}
+
+.earnings-row {
+  justify-content: space-between;
+  padding-top: 11px;
+  color: #59627b;
+  font-size: .73rem;
+}
+
+.earnings-row strong {
+  color: #252b3b;
+}
+
+.profitability-view {
+  display: grid;
+  gap: 15px;
+}
+
+.profitability-filters,
+.profitability-results {
+  padding: 18px;
+}
+
+.profitability-filter-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(130px, 1fr)) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.profitability-filter-fields label {
+  display: grid;
+  gap: 6px;
+  color: #59627b;
+  font-size: .7rem;
+  font-weight: 650;
+}
+
+.profitability-results .panel-heading {
+  margin-bottom: 12px;
+}
+
+.profitability-results .profitability-note {
+  margin: -5px 0 14px;
+}
+
+@media (max-width: 760px) {
+  .order-item-picker {
+    align-items: end;
+  }
+
+  .commission-editor {
+    min-width: 185px;
+  }
+
+  .profitability-filter-fields {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .profitability-filter-fields .button {
+    grid-column: 1 / -1;
+  }
+}
+
 .mobile-nav {
   display: none;
 }

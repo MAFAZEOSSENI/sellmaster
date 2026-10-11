@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  Activity, ArrowDownRight, ArrowUpRight, Bell, Boxes, ChevronDown, CircleHelp,
-  ClipboardList, Command, ExternalLink, LayoutDashboard, Link2, LogOut, Package, Pencil,
+  Activity, ArrowDownRight, ArrowUpRight, BarChart3, Bell, Boxes, ChevronDown, CircleHelp,
+  ClipboardList, Command, ExternalLink, LayoutDashboard, Link2, LogOut, Package, Pencil, Plus,
   RefreshCw, Search, Settings2, ShieldCheck, ShoppingBag, Store, Trash2, Truck, Users,
 } from 'lucide-react'
 import { api, authToken } from './api'
@@ -18,6 +18,7 @@ const navItems = [
   { id: 'products', label: 'Produits', icon: Package },
   { id: 'shopify', label: 'Boutiques Shopify', icon: ShoppingBag },
   { id: 'team', label: 'Équipe', icon: Users },
+  { id: 'profitability', label: 'Rentabilité', icon: BarChart3 },
 ]
 const numberFormat = new Intl.NumberFormat('fr-FR')
 const currencyFormat = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
@@ -69,12 +70,15 @@ function LoginScreen({ onLogin }) {
 }
 
 function Sidebar({ active, onNavigate, user, onLogout }) {
+  const roles = user?.roles || []
+  const canViewProfitability = roles.some((role) => ['owner', 'manager'].includes(typeof role === 'string' ? role : role?.name))
+  const visibleNavItems = navItems.filter((item) => item.id !== 'profitability' || canViewProfitability)
   return (
     <aside className="sidebar">
       <a className="brand sidebar-brand" href="#app"><img className="brand-symbol" src="/sellmaster-mark.svg" alt="" /><span>SELLMASTER</span></a>
       <div className="workspace-select"><span className="store-icon"><Store size={17} /></span><span className="workspace-text"><strong>Ma boutique</strong><small>Espace principal</small></span><ChevronDown size={15} /></div>
       <span className="nav-caption">ESPACE DE TRAVAIL</span>
-      <nav className="side-nav" aria-label="Navigation principale">{navItems.map(({ id, label, icon: Icon }) => <button className={`nav-link ${active === id ? 'selected' : ''}`} key={id} onClick={() => onNavigate(id)}><Icon size={18} strokeWidth={1.8} /><span>{label}</span>{id === 'orders' && <span className="nav-count">•</span>}</button>)}</nav>
+      <nav className="side-nav" aria-label="Navigation principale">{visibleNavItems.map(({ id, label, icon: Icon }) => <button className={`nav-link ${active === id ? 'selected' : ''}`} key={id} onClick={() => onNavigate(id)}><Icon size={18} strokeWidth={1.8} /><span>{label}</span>{id === 'orders' && <span className="nav-count">•</span>}</button>)}</nav>
       <span className="nav-caption tools-caption">OUTILS</span>
       <div className="side-tools"><button className="nav-link disabled-link" title="Bientôt disponible"><Truck size={18} /><span>Équipe livraison</span></button></div>
       <div className="sidebar-bottom"><div className="help-block"><span className="help-icon"><CircleHelp size={17} /></span><div><strong>Besoin d’aide ?</strong><small>Notre équipe est là.</small></div><a href="mailto:support@sellmaster.app" aria-label="Contacter le support">↗</a></div><div className="profile-row"><span className="avatar">{displayName(user).slice(0, 1).toUpperCase()}</span><span className="profile-meta"><strong>{displayName(user)}</strong><small>{user?.email || ''}</small></span><button className="icon-button logout-button" onClick={onLogout} aria-label="Se déconnecter" title="Se déconnecter"><LogOut size={17} /></button></div></div>
@@ -121,6 +125,63 @@ function CreateProductDialog({ product, onClose, onSave }) {
   return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}><section className="product-dialog" role="dialog" aria-modal="true" aria-labelledby="new-product-title"><div className="dialog-heading"><div><span className="panel-overline">CATALOGUE</span><h2 id="new-product-title">{title}</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="Fermer">×</button></div><form onSubmit={submit}><label>Nom du produit<input required maxLength="180" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label><label>Description<textarea rows="3" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label><div className="dialog-fields"><label>Prix de vente (€)<input required type="number" min="0.01" step="0.01" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} /></label><label>Coût (€)<input type="number" min="0" step="0.01" value={form.cost_price} onChange={(event) => setForm({ ...form, cost_price: event.target.value })} /></label><label>Stock<input required type="number" min="0" step="1" value={form.stock} onChange={(event) => setForm({ ...form, stock: event.target.value })} /></label></div>{error && <div className="form-error" role="alert">{error}</div>}<div className="dialog-actions"><button type="button" className="button button-quiet" onClick={onClose} disabled={saving}>Annuler</button><button className="button button-primary" disabled={saving}>{saving ? 'Enregistrement…' : product ? 'Enregistrer les modifications' : 'Créer le produit'}</button></div></form></section></div>
 }
 
+function CreateOrderDialog({ products: initialProducts, owners = [], onClose, onSave }) {
+  const [form, setForm] = useState({ clientName: '', clientPhone: '', clientAddress: '', notes: '' })
+  const [ownerId, setOwnerId] = useState(String(owners[0]?.owner_user_id || ''))
+  const [catalogue, setCatalogue] = useState(initialProducts)
+  const [catalogueLoading, setCatalogueLoading] = useState(false)
+  const [selectedProductId, setSelectedProductId] = useState('')
+  const [items, setItems] = useState([])
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const total = items.reduce((sum, item) => sum + Number(item.unitPrice) * item.quantity, 0)
+
+  useEffect(() => {
+    if (!ownerId) {
+      setCatalogue(initialProducts)
+      return
+    }
+    let active = true
+    setCatalogueLoading(true)
+    api.products(ownerId).then((result) => {
+      if (active) setCatalogue(Array.isArray(result) ? result : [])
+    }).catch((loadError) => {
+      if (active) setError(loadError.message)
+    }).finally(() => {
+      if (active) setCatalogueLoading(false)
+    })
+    return () => { active = false }
+  }, [ownerId])
+
+  function addSelectedProduct() {
+    const product = catalogue.find((item) => String(item.id) === selectedProductId)
+    if (!product) return
+    setItems((current) => {
+      const existing = current.find((item) => String(item.productId) === String(product.id))
+      if (existing) return current.map((item) => item === existing ? { ...item, quantity: item.quantity + 1 } : item)
+      return [...current, { productId: product.id, productName: product.name, unitPrice: Number(product.price), quantity: 1 }]
+    })
+  }
+
+  async function submit(event) {
+    event.preventDefault()
+    setError('')
+    if (!items.length) {
+      setError('Ajoutez au moins un produit à la commande.')
+      return
+    }
+    setSaving(true)
+    try {
+      await onSave({ ...form, status: 'dashboard', totalAmount: total, items, ...(ownerId ? { ownerId: Number(ownerId) } : {}) })
+    } catch (saveError) {
+      setError(saveError.message)
+      setSaving(false)
+    }
+  }
+
+  return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}><section className="product-dialog order-dialog" role="dialog" aria-modal="true" aria-labelledby="new-order-title"><div className="dialog-heading"><div><span className="panel-overline">VENTES</span><h2 id="new-order-title">Nouvelle commande</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="Fermer">×</button></div><form onSubmit={submit}>{owners.length > 0 && <label>Équipe concernée<select required value={ownerId} onChange={(event) => { setOwnerId(event.target.value); setItems([]) }}>{owners.map((owner) => <option value={String(owner.owner_user_id)} key={owner.id}>{owner.nickname || owner.owner_name || owner.owner_email}</option>)}</select></label>}<div className="dialog-fields"><label>Nom du client<input required maxLength="180" value={form.clientName} onChange={(event) => setForm({ ...form, clientName: event.target.value })} /></label><label>Téléphone<input required type="tel" value={form.clientPhone} onChange={(event) => setForm({ ...form, clientPhone: event.target.value })} /></label></div><label>Adresse de livraison<input required maxLength="500" value={form.clientAddress} onChange={(event) => setForm({ ...form, clientAddress: event.target.value })} /></label><label>Notes<textarea rows="2" value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} /></label><div className="order-item-picker"><label>Ajouter un produit<select value={selectedProductId} onChange={(event) => setSelectedProductId(event.target.value)} disabled={catalogueLoading}><option value="">{catalogueLoading ? 'Chargement du catalogue…' : 'Sélectionner un produit'}</option>{catalogue.map((product) => <option value={String(product.id)} key={product.id}>{product.name} · {formatMoney(product.price)}</option>)}</select></label><button className="button button-quiet" type="button" onClick={addSelectedProduct} disabled={!selectedProductId}>Ajouter</button></div>{items.length > 0 && <div className="order-item-list">{items.map((item) => <div className="order-item-row" key={item.productId}><span><strong>{item.productName}</strong><small>{formatMoney(item.unitPrice)} × {item.quantity}</small></span><div><button type="button" className="icon-button" aria-label={`Retirer une unité de ${item.productName}`} onClick={() => setItems((current) => current.flatMap((line) => line.productId === item.productId ? (line.quantity > 1 ? [{ ...line, quantity: line.quantity - 1 }] : []) : [line]))}>−</button><button type="button" className="icon-button" aria-label={`Ajouter une unité de ${item.productName}`} onClick={() => setItems((current) => current.map((line) => line.productId === item.productId ? { ...line, quantity: line.quantity + 1 } : line))}>+</button></div></div>)}</div>}<div className="order-total"><span>Total</span><strong>{formatMoney(total)}</strong></div>{error && <div className="form-error" role="alert">{error}</div>}<div className="dialog-actions"><button type="button" className="button button-quiet" onClick={onClose} disabled={saving}>Annuler</button><button className="button button-primary" disabled={saving || catalogue.length === 0 || catalogueLoading}>{saving ? 'Création…' : 'Créer la commande'}</button></div></form></section></div>
+}
+
 function ShopifyConnectDialog({ onClose, onConnect }) {
   const [shop, setShop] = useState('')
   const [error, setError] = useState('')
@@ -146,10 +207,27 @@ function ShopifyStoresView({ stores, loading, error, notice, busyStoreId, onRefr
   </div>
 }
 
-function InviteTeamMemberDialog({ onClose, onInvite }) {
+function InviteTeamMemberDialog({ onClose, onInvite, onSearchUsers }) {
   const [form, setForm] = useState({ email: '', password: '', fullName: '', phone: '', role: 'closer' })
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searching, setSearching] = useState(false)
+  const [existingUser, setExistingUser] = useState(false)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  async function searchUsers() {
+    if (!searchQuery.trim()) return
+    setSearching(true)
+    setError('')
+    try {
+      const users = await onSearchUsers(searchQuery.trim(), form.role)
+      setSearchResults(users)
+    } catch (searchError) {
+      setError(searchError.message)
+    } finally {
+      setSearching(false)
+    }
+  }
   async function submit(event) {
     event.preventDefault()
     setError('')
@@ -157,7 +235,7 @@ function InviteTeamMemberDialog({ onClose, onInvite }) {
     try {
       await onInvite({
         email: form.email.trim(),
-        password: form.password || undefined,
+        password: existingUser ? undefined : form.password || undefined,
         fullName: form.fullName.trim() || undefined,
         phone: form.phone.trim() || undefined,
         role: form.role,
@@ -167,10 +245,11 @@ function InviteTeamMemberDialog({ onClose, onInvite }) {
       setSaving(false)
     }
   }
-  return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}><section className="product-dialog invite-dialog" role="dialog" aria-modal="true" aria-labelledby="invite-member-title"><div className="dialog-heading"><div><span className="panel-overline">ÉQUIPE SELLMASTER</span><h2 id="invite-member-title">Ajouter un membre</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="Fermer">×</button></div><p className="invite-description">Un compte existant recevra une invitation dans Sellmaster. Pour un nouveau compte, indiquez un mot de passe temporaire à transmettre au membre.</p><form onSubmit={submit}><label>Adresse e-mail<input type="email" autoComplete="email" required value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="membre@exemple.com" /></label><label>Nom complet<input autoComplete="name" value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} placeholder="Nom du membre" /></label><div className="invite-fields"><label>Rôle<select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })}><option value="manager">Manager</option><option value="closer">Closer</option><option value="courier">Livreur</option></select></label><label>Téléphone<input type="tel" autoComplete="tel" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="Optionnel" /></label></div><label>Mot de passe temporaire<input type="password" autoComplete="new-password" minLength="8" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder="Requis seulement si le compte n’existe pas" /></label>{error && <div className="form-error" role="alert">{error}</div>}<div className="dialog-actions"><button type="button" className="button button-quiet" onClick={onClose} disabled={saving}>Annuler</button><button className="button button-primary" disabled={saving}>{saving ? 'Ajout…' : 'Ajouter à l’équipe'}</button></div></form></section></div>
+  return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}><section className="product-dialog invite-dialog" role="dialog" aria-modal="true" aria-labelledby="invite-member-title"><div className="dialog-heading"><div><span className="panel-overline">ÉQUIPE SELLMASTER</span><h2 id="invite-member-title">Ajouter un membre</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="Fermer">×</button></div><p className="invite-description">Invitez un compte existant ou créez un accès pour une nouvelle personne.</p><div className="existing-user-search"><label>Rechercher un compte existant<input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Nom, e-mail ou téléphone" /></label><button type="button" className="button button-quiet" onClick={searchUsers} disabled={searching || !searchQuery.trim()}><Search size={15} />{searching ? 'Recherche…' : 'Rechercher'}</button></div>{searchResults.length > 0 && <div className="existing-user-results">{searchResults.map((user) => <button type="button" className="existing-user-result" key={user.id} onClick={() => { setExistingUser(true); setForm({ ...form, email: user.email || '', fullName: user.full_name || '', phone: user.phone || '', password: '' }); setSearchResults([]) }}><span><strong>{user.full_name || user.email}</strong><small>{user.email}{user.phone ? ` · ${user.phone}` : ''}</small></span><span className="text-button">Sélectionner</span></button>)}</div>}<form onSubmit={submit}><label>Adresse e-mail<input type="email" autoComplete="email" required value={form.email} onChange={(event) => { setExistingUser(false); setForm({ ...form, email: event.target.value }) }} placeholder="membre@exemple.com" /></label><label>Nom complet<input autoComplete="name" value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} placeholder="Nom du membre" /></label><div className="invite-fields"><label>Rôle<select value={form.role} onChange={(event) => { setForm({ ...form, role: event.target.value }); setExistingUser(false); setSearchResults([]) }}><option value="manager">Manager</option><option value="closer">Closer</option><option value="courier">Livreur</option></select></label><label>Téléphone<input type="tel" autoComplete="tel" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="Optionnel" /></label></div>{!existingUser && <label>Mot de passe temporaire<input type="password" autoComplete="new-password" minLength="8" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder="Requis si le compte n’existe pas" /></label>}{existingUser && <p className="existing-user-selected">Compte existant sélectionné. Aucun mot de passe ne sera modifié.</p>}{error && <div className="form-error" role="alert">{error}</div>}<div className="dialog-actions"><button type="button" className="button button-quiet" onClick={onClose} disabled={saving}>Annuler</button><button className="button button-primary" disabled={saving || !form.email.trim() || (!existingUser && !form.password)}>{saving ? 'Ajout…' : 'Ajouter à l’équipe'}</button></div></form></section></div>
 }
 
-function TeamView({ members, loading, error, isMemberView, canInvite, acceptingId, onAccept, onInvite, onRefresh }) {
+  function TeamView({ members, loading, error, isMemberView, canInvite, canEditCommission, acceptingId, onAccept, onInvite, onRefresh, onUpdateMyTeam, onUpdateCommission }) {
+    {loading ? <div className="loading-area"><span className="loader" />Chargement de l’équipe…</div> : visibleMembers.length === 0 ? <div className="empty-state"><Users size={25} /><strong>{isMemberView ? 'Aucune équipe associée' : 'Aucun membre actif'}</strong><span>{isMemberView ? 'Les invitations et équipes qui vous concernent apparaîtront ici.' : 'Ajoutez un membre pour lui envoyer une invitation Sellmaster.'}</span></div> : <div className="table-scroll"><table className="data-table team-table"><thead><tr><th>{isMemberView ? 'Propriétaire' : 'Membre'}</th><th>Rôle</th><th>Statut</th><th>Disponibilité</th><th>Depuis</th>{isMemberView && <th>Action</th>}{!isMemberView && canEditCommission && <th>Commission closer</th>}</tr></thead><tbody>{visibleMembers.map((member) => { const working = member.is_working === true || member.is_working === 1 || member.is_working === '1'; const status = String(member.status || 'active').toLowerCase(); const roleName = member.role_name || member.roles?.find((role) => role !== 'owner') || 'Membre'; return <tr key={member.id}><td><span className="team-person"><span className="avatar">{nameFor(member).slice(0, 1).toUpperCase()}</span><span><strong>{nameFor(member)}</strong><small className="secondary-line">{emailFor(member) || ''}</small>{isTeamMemberView && status === 'active' && <button className="text-button nickname-edit" onClick={() => { const nickname = window.prompt('Nom de cette équipe', member.nickname || ''); if (nickname !== null) onUpdateMyTeam(member.id, { nickname }) }}>Modifier le nom</button>}</span></span></td><td><span className="team-role">{roleLabels[roleName] || roleName}</span></td><td><span className={`team-status status-${status}`}>{statusLabels[status] || status}</span></td><td>{isTeamMemberView && status === 'active' ? <label className="availability-control"><input type="checkbox" checked={working} onChange={(event) => onUpdateMyTeam(member.id, { is_working: event.target.checked })} /> Disponible</label> : <span className={`working-state ${working ? 'working' : 'not-working'}`}><i />{status === 'pending' ? 'Invitation reçue' : working ? 'Disponible' : 'Inactif'}</span>}</td><td className="date-cell">{formatDate(member.created_at)}</td>{isMemberView && <td>{status === 'pending' ? <button className="button button-primary accept-invitation-button" disabled={acceptingId === member.id} onClick={() => onAccept(member)}>{acceptingId === member.id ? 'Confirmation…' : 'Accepter'}</button> : <span className="accepted-label">Confirmée</span>}</td>}{!isTeamMemberView && canEditCommission && <td>{roleName === 'closer' ? <CommissionEditor member={member} onSave={onUpdateCommission} /> : '—'}</td>}</tr> })}</tbody></table></div>}
   const roleLabels = { owner: 'Propriétaire', manager: 'Manager', closer: 'Closer', courier: 'Livreur' }
   const statusLabels = { active: 'Actif', pending: 'En attente', rejected: 'Refusé' }
   const visibleMembers = isMemberView ? members.filter((member) => member.status !== 'rejected') : members
@@ -178,10 +257,66 @@ function TeamView({ members, loading, error, isMemberView, canInvite, acceptingI
     ? member.nickname || member.owner_name || member.owner_email || 'Propriétaire'
     : member.full_name || member.email || 'Membre'
   const emailFor = (member) => isMemberView ? member.owner_email : member.email
+  const isTeamMemberView = isMemberView
   return <div className="team-view"><section className="content-panel full-table-panel"><div className="panel-heading"><div><span className="panel-overline">ESPACE DE TRAVAIL</span><h2>{isMemberView ? 'Mes équipes' : 'Membres et invitations'} <span className="title-count">{numberFormat.format(visibleMembers.length)}</span></h2></div><div className="team-heading-actions">{canInvite && <button className="button button-primary" onClick={onInvite}><Users size={15} /> Ajouter un membre</button>}<button className="button button-quiet" onClick={onRefresh}><RefreshCw size={15} /> Actualiser</button></div></div>
     {error && <div className="api-alert" role="alert"><Activity size={16} /><span>{error}</span><button onClick={onRefresh}>Réessayer</button></div>}
-    {loading ? <div className="loading-area"><span className="loader" />Chargement de l’équipe…</div> : visibleMembers.length === 0 ? <div className="empty-state"><Users size={25} /><strong>{isMemberView ? 'Aucune équipe associée' : 'Aucun membre actif'}</strong><span>{isMemberView ? 'Les invitations et équipes qui vous concernent apparaîtront ici.' : 'Ajoutez un membre pour lui envoyer une invitation Sellmaster.'}</span></div> : <div className="table-scroll"><table className="data-table team-table"><thead><tr><th>{isMemberView ? 'Propriétaire' : 'Membre'}</th><th>Rôle</th><th>Statut</th><th>Disponibilité</th><th>Depuis</th>{isMemberView && <th>Action</th>}</tr></thead><tbody>{visibleMembers.map((member) => { const working = member.is_working === true || member.is_working === 1 || member.is_working === '1'; const status = String(member.status || 'active').toLowerCase(); return <tr key={member.id}><td><span className="team-person"><span className="avatar">{nameFor(member).slice(0, 1).toUpperCase()}</span><span><strong>{nameFor(member)}</strong><small className="secondary-line">{emailFor(member) || ''}</small></span></span></td><td><span className="team-role">{roleLabels[member.role_name] || member.role_name || 'Membre'}</span></td><td><span className={`team-status status-${status}`}>{statusLabels[status] || status}</span></td><td><span className={`working-state ${working ? 'working' : 'not-working'}`}><i />{status === 'pending' ? 'Invitation reçue' : working ? 'Disponible' : 'Inactif'}</span></td><td className="date-cell">{formatDate(member.created_at)}</td>{isMemberView && <td>{status === 'pending' ? <button className="button button-primary accept-invitation-button" disabled={acceptingId === member.id} onClick={() => onAccept(member)}>{acceptingId === member.id ? 'Confirmation…' : 'Accepter'}</button> : <span className="accepted-label">Confirmée</span>}</td>}</tr> })}</tbody></table></div>}
+    {loading ? <div className="loading-area"><span className="loader" />Chargement de l’équipe…</div> : visibleMembers.length === 0 ? <div className="empty-state"><Users size={25} /><strong>{isMemberView ? 'Aucune équipe associée' : 'Aucun membre actif'}</strong><span>{isMemberView ? 'Les invitations et équipes qui vous concernent apparaîtront ici.' : 'Ajoutez un membre pour lui envoyer une invitation Sellmaster.'}</span></div> : <div className="table-scroll"><table className="data-table team-table"><thead><tr><th>{isMemberView ? 'Propriétaire' : 'Membre'}</th><th>Rôle</th><th>Statut</th><th>Disponibilité</th><th>Depuis</th>{isMemberView && <th>Action</th>}{!isMemberView && canInvite && <th>Commission closer</th>}</tr></thead><tbody>{visibleMembers.map((member) => { const working = member.is_working === true || member.is_working === 1 || member.is_working === '1'; const status = String(member.status || 'active').toLowerCase(); const roleName = member.role_name || member.roles?.find((role) => role !== 'owner') || 'Membre'; return <tr key={member.id}><td><span className="team-person"><span className="avatar">{nameFor(member).slice(0, 1).toUpperCase()}</span><span><strong>{nameFor(member)}</strong><small className="secondary-line">{emailFor(member) || ''}</small>{isTeamMemberView && status === 'active' && <button className="text-button nickname-edit" onClick={() => { const nickname = window.prompt('Nom de cette équipe', member.nickname || ''); if (nickname !== null) onUpdateMyTeam(member.id, { nickname }) }}>Modifier le nom</button>}</span></span></td><td><span className="team-role">{roleLabels[roleName] || roleName}</span></td><td><span className={`team-status status-${status}`}>{statusLabels[status] || status}</span></td><td>{isTeamMemberView && status === 'active' ? <label className="availability-control"><input type="checkbox" checked={working} onChange={(event) => onUpdateMyTeam(member.id, { is_working: event.target.checked })} /> Disponible</label> : <span className={`working-state ${working ? 'working' : 'not-working'}`}><i />{status === 'pending' ? 'Invitation reçue' : working ? 'Disponible' : 'Inactif'}</span>}</td><td className="date-cell">{formatDate(member.created_at)}</td>{isTeamMemberView && <td>{status === 'pending' ? <button className="button button-primary accept-invitation-button" disabled={acceptingId === member.id} onClick={() => onAccept(member)}>{acceptingId === member.id ? 'Confirmation…' : 'Accepter'}</button> : <span className="accepted-label">Confirmée</span>}</td>}{!isTeamMemberView && canInvite && <td>{roleName === 'closer' ? <CommissionEditor member={member} onSave={onUpdateCommission} /> : '—'}</td>}</tr> })}</tbody></table></div>}
   </section></div>
+}
+
+function CommissionEditor({ member, onSave }) {
+  const [amount, setAmount] = useState(String(member.commission_amount ?? 0))
+  const [type, setType] = useState(member.commission_type === 'percentage' ? 'percentage' : 'fixed_amount')
+  const [saving, setSaving] = useState(false)
+  async function save() {
+    const value = Number(amount)
+    if (!Number.isFinite(value) || value < 0 || !member.membership_id) return
+    setSaving(true)
+    try {
+      await onSave(member.membership_id, value, type)
+    } finally {
+      setSaving(false)
+    }
+  }
+  return <div className="commission-editor"><input aria-label={`Commission de ${member.full_name || member.email}`} type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} /><select aria-label="Type de commission" value={type} onChange={(event) => setType(event.target.value)}><option value="fixed_amount">Fixe</option><option value="percentage">%</option></select><button className="icon-button" aria-label="Enregistrer la commission" title="Enregistrer la commission" disabled={saving} onClick={save}><Pencil size={14} /></button></div>
+}
+
+function ProfitabilityView({ ownerId }) {
+  const [data, setData] = useState(null)
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [advertisingCost, setAdvertisingCost] = useState('0')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  async function load() {
+    setLoading(true)
+    setError('')
+    try {
+      const result = await api.profitability({
+        ownerId,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        advertisingCost: Number(advertisingCost || 0),
+      })
+      setData(result)
+    } catch (loadError) {
+      setError(loadError.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { void load() }, [ownerId])
+
+  const global = data?.global || {}
+  const money = (value) => `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(Number(value || 0))} FCFA`
+  const ProductTable = ({ rows, valueKey }) => rows?.length ? <div className="table-scroll"><table className="data-table"><thead><tr><th>Produit</th><th>Quantité</th><th>Montant</th></tr></thead><tbody>{rows.map((row, index) => <tr key={`${row.product_id}-${index}`}><td>{row.product_name || 'Produit'}</td><td>{numberFormat.format(Number(row.quantity || 0))}</td><td className="amount-cell">{money(row[valueKey])}</td></tr>)}</tbody></table></div> : <div className="empty-state"><Package size={22} /><strong>Aucune commande livrée sur cette période</strong></div>
+
+  return <div className="profitability-view"><section className="content-panel profitability-filters"><div className="panel-heading"><div><span className="panel-overline">ANALYSE DES VENTES</span><h2>Rentabilité</h2></div><button className="button button-quiet" onClick={() => void load()} disabled={loading}><RefreshCw size={15} /> Actualiser</button></div><div className="profitability-filter-fields"><label>Date de début<input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /></label><label>Date de fin<input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label><label>Coût publicitaire (FCFA)<input type="number" min="0" step="1" value={advertisingCost} onChange={(event) => setAdvertisingCost(event.target.value)} /></label><button className="button button-primary" onClick={() => void load()} disabled={loading}><BarChart3 size={15} /> Calculer</button></div></section>
+    {error && <div className="api-alert" role="alert"><Activity size={16} /><span>{error}</span><button onClick={() => void load()}>Réessayer</button></div>}
+    {loading ? <div className="loading-area"><span className="loader" />Calcul de la rentabilité…</div> : data && <><section className="metric-grid profitability-metrics"><MetricCard icon={ArrowUpRight} label="Bénéfice net" value={money(global.net_profit)} note={`${numberFormat.format(Number(global.delivered_orders || 0))} commandes livrées`} tone="mint" /><MetricCard icon={Boxes} label="Chiffre d’affaires" value={money(global.revenue)} note="Commandes livrées" tone="blue" /><MetricCard icon={Package} label="Coûts produits" value={money(global.product_cost)} note="Coût des articles vendus" tone="coral" /><MetricCard icon={Truck} label="Commissions et livraison" value={money(Number(global.closer_commissions || 0) + Number(global.delivery_fees || 0))} note={`Publicité : ${money(global.advertising_cost)}`} tone="lime" /></section><section className="content-panel profitability-results"><div className="panel-heading"><div><span className="panel-overline">DÉTAIL PAR ARTICLE</span><h2>Marge brute par produit</h2></div></div><ProductTable rows={data.products} valueKey="gross_margin" /></section><section className="content-panel profitability-results"><div className="panel-heading"><div><span className="panel-overline">RÉPARTITION ESTIMÉE</span><h2>Bénéfice net par produit</h2></div></div><p className="profitability-note">Les commissions et frais de livraison sont répartis au prorata de chaque produit dans la commande.</p><ProductTable rows={data.estimated_products} valueKey="estimated_net_profit" /></section></>}
+  </div>
 }
 
 function App() {
@@ -200,6 +335,8 @@ function App() {
   const [refreshing, setRefreshing] = useState(false)
   const [search, setSearch] = useState('')
   const [productDialogOpen, setProductDialogOpen] = useState(false)
+  const [orderDialogOpen, setOrderDialogOpen] = useState(false)
+  const [orderOwners, setOrderOwners] = useState([])
   const [editingProduct, setEditingProduct] = useState(null)
   const [mutationMessage, setMutationMessage] = useState('')
   const [updatingOrderId, setUpdatingOrderId] = useState(null)
@@ -225,6 +362,7 @@ function App() {
   const [connectDialogOpen, setConnectDialogOpen] = useState(false)
   const [busyStoreId, setBusyStoreId] = useState(null)
   const [teamMembers, setTeamMembers] = useState([])
+  const [earnings, setEarnings] = useState(null)
   const [teamLoading, setTeamLoading] = useState(false)
   const [teamError, setTeamError] = useState('')
   const [acceptingInvitationId, setAcceptingInvitationId] = useState(null)
@@ -233,9 +371,11 @@ function App() {
   const [courierLoadError, setCourierLoadError] = useState('')
   const [assigningOrderId, setAssigningOrderId] = useState(null)
   const userRoles = user?.roles || []
-  const isTeamMemberView = !userRoles.some((role) => ['owner', 'manager', 'closer'].includes(typeof role === 'string' ? role : role?.name))
+  const isTeamMemberView = !userRoles.some((role) => ['owner', 'manager'].includes(typeof role === 'string' ? role : role?.name))
   const isTeamOwner = userRoles.some((role) => (typeof role === 'string' ? role : role?.name) === 'owner')
+  const canManageTeam = userRoles.some((role) => ['owner', 'manager'].includes(typeof role === 'string' ? role : role?.name))
   const canAssignOrders = userRoles.some((role) => ['owner', 'manager', 'closer'].includes(typeof role === 'string' ? role : role?.name))
+  const canViewProfitability = userRoles.some((role) => ['owner', 'manager'].includes(typeof role === 'string' ? role : role?.name))
 
   const loadDashboard = useCallback(async (quiet = false) => {
     if (!authToken.get()) return
@@ -316,8 +456,28 @@ function App() {
     let active = true
     async function fetchTeam() {
       try {
-        const result = isTeamMemberView ? await api.myTeams() : await api.teamMembers(isTeamOwner)
-        if (active) setTeamMembers(isTeamMemberView ? result.memberships || [] : result.members || [])
+        if (isTeamMemberView) {
+          const result = await api.myTeams()
+          if (active) setTeamMembers(result.memberships || [])
+        } else {
+          const [result, adminResult] = await Promise.all([
+            api.teamMembers(isTeamOwner),
+            api.adminUsers(),
+          ])
+          if (active) {
+            const usersByMembership = new Map((adminResult.users || []).map((member) => [Number(member.membership_id), member]))
+            setTeamMembers((result.members || []).map((member) => ({
+              ...member,
+              ...(usersByMembership.get(Number(member.id)) || {}),
+              id: member.id,
+              member_user_id: member.member_user_id,
+              role_name: member.role_name,
+              status: member.status,
+              is_working: member.is_working,
+              created_at: member.created_at,
+            })))
+          }
+        }
       } catch (error) {
         if (active) setTeamError(error.message)
       } finally {
@@ -327,6 +487,18 @@ function App() {
     void fetchTeam()
     return () => { active = false }
   }, [authenticated, activePage, isTeamMemberView, isTeamOwner])
+  useEffect(() => {
+    const isFieldRole = userRoles.some((role) => ['closer', 'courier'].includes(typeof role === 'string' ? role : role?.name))
+    if (!authenticated || activePage !== 'team' || !isFieldRole) return
+    api.myEarnings().then(setEarnings).catch((error) => setTeamError(error.message))
+  }, [authenticated, activePage, userRoles])
+  useEffect(() => {
+    const canCreateForTeam = userRoles.some((role) => ['manager', 'closer'].includes(typeof role === 'string' ? role : role?.name))
+    if (!authenticated || !canCreateForTeam) return
+    api.myTeams().then((result) => {
+      setOrderOwners((result.memberships || []).filter((membership) => membership.status === 'active'))
+    }).catch(() => setOrderOwners([]))
+  }, [authenticated, userRoles])
   useEffect(() => {
     if (!authenticated || !canAssignOrders || orders.length === 0) return
     let active = true
@@ -373,6 +545,36 @@ function App() {
     setProducts((current) => [created, ...current])
     setProductDialogOpen(false)
     setMutationMessage('Produit créé avec succès.')
+  }
+  async function createOrder(order) {
+    const created = await api.createOrder(order)
+    setOrders((current) => [created, ...current])
+    setOrderDialogOpen(false)
+    setMutationMessage('Commande créée avec succès.')
+    await loadDashboard(true)
+  }
+  async function saveMyTeam(membershipId, changes) {
+    setTeamError('')
+    try {
+      await api.updateMyTeam(membershipId, changes)
+      const result = await api.myTeams()
+      setTeamMembers(result.memberships || [])
+      setMutationMessage('Paramètres d’équipe mis à jour.')
+    } catch (error) {
+      setTeamError(error.message)
+    }
+  }
+  async function saveCloserCommission(membershipId, amount, type) {
+    setTeamError('')
+    try {
+      const updated = await api.updateCloserCommission(membershipId, amount, type)
+      setTeamMembers((current) => current.map((member) => Number(member.membership_id) === Number(membershipId)
+        ? { ...member, commission_amount: updated.commission_amount, commission_type: updated.commission_type }
+        : member))
+      setMutationMessage('Commission mise à jour.')
+    } catch (error) {
+      setTeamError(error.message)
+    }
   }
   async function saveProduct(productData) {
     setMutationMessage('')
@@ -473,6 +675,27 @@ function App() {
       setTeamError(`Invitation enregistrée, mais la liste n’a pas pu être actualisée : ${error.message}`)
     }
   }
+  async function updateMyTeam(membershipId, changes) {
+    try {
+      await api.updateMyTeam(membershipId, changes)
+      const refreshed = await api.myTeams()
+      setTeamMembers(refreshed.memberships || [])
+      setTeamError('')
+    } catch (error) {
+      setTeamError(error.message)
+    }
+  }
+  async function updateCommission(membershipId, amount, type) {
+    try {
+      const updated = await api.updateCloserCommission(membershipId, amount, type)
+      setTeamMembers((current) => current.map((member) => Number(member.id) === Number(membershipId)
+        ? { ...member, commission_amount: updated.commission_amount, commission_type: updated.commission_type }
+        : member))
+      setMutationMessage('Commission mise à jour.')
+    } catch (error) {
+      setTeamError(error.message)
+    }
+  }
   async function acceptTeamInvitation(membership) {
     setTeamError('')
     setMutationMessage('')
@@ -522,7 +745,7 @@ function App() {
   const isCourier = (user?.roles || []).some((role) => (typeof role === 'string' ? role : role?.name) === 'courier')
   const filteredOrders = orders.filter((order) => [order.custom_order_number, order.client_name, order.client_phone, order.status].join(' ').toLowerCase().includes(search.toLowerCase()))
   const filteredProducts = products.filter((product) => [product.name, product.description].join(' ').toLowerCase().includes(search.toLowerCase()))
-  const pageTitle = activePage === 'orders' ? 'Commandes' : activePage === 'products' ? 'Produits' : activePage === 'shopify' ? 'Boutiques Shopify' : activePage === 'team' ? 'Équipe' : 'Vue d’ensemble'
+  const pageTitle = activePage === 'orders' ? 'Commandes' : activePage === 'products' ? 'Produits' : activePage === 'shopify' ? 'Boutiques Shopify' : activePage === 'team' ? 'Équipe' : activePage === 'profitability' ? 'Rentabilité' : 'Vue d’ensemble'
 
   if (!authenticated) {
     if (!showLogin) return <LandingPage onLogin={() => { setShowLogin(true); window.history.pushState({}, '', `${window.location.pathname}?login=1`) }} />
@@ -542,7 +765,7 @@ function App() {
         {notificationOpen && <section className="notification-popover" aria-label="Centre de notifications"><div className="notification-heading"><div><span className="panel-overline">CENTRE DE NOTIFICATIONS</span><h2>Notifications</h2></div><button className="text-button" onClick={markAllNotificationsRead} disabled={unreadCount === 0 || notificationLoading}>Tout lire</button></div>{notificationError && <p className="notification-error" role="alert">{notificationError}</p>}{notificationLoading ? <div className="notification-loading"><span className="loader" />Chargement…</div> : notifications.length === 0 ? <div className="notification-empty">Vous êtes à jour. Aucune notification.</div> : <div className="notification-list">{notifications.map((notification) => <article className={`notification-item ${notification.is_read ? 'read' : 'unread'}`} key={notification.id}><span className={`notification-type type-${notification.type || 'info'}`}><Bell size={15} /></span><div><strong>{notification.title}</strong><p>{notification.message}</p><time>{formatDate(notification.created_at)}</time></div>{!notification.is_read && <span className="unread-indicator" aria-label="Non lue" />}</article>)}</div>}</section>}
       </header>
       <div className="page-content">
-        <div className="page-heading-row"><div><span className="date-eyebrow">ESPACE DE TRAVAIL</span><h1>{activePage === 'overview' ? `Bonjour, ${displayName(user).split(' ')[0]}` : pageTitle}</h1><p>{activePage === 'overview' ? 'Voici le résumé de votre activité aujourd’hui.' : activePage === 'orders' ? 'Consultez et recherchez toutes les commandes de votre espace.' : activePage === 'products' ? 'Consultez les produits liés à votre catalogue.' : activePage === 'shopify' ? 'Gérez les connexions et synchronisations de vos boutiques Shopify.' : isTeamMemberView ? 'Consultez vos affiliations et invitations d’équipe.' : 'Consultez les membres actifs de votre équipe.'}</p></div><div className="heading-actions"><button className="button button-quiet" onClick={() => loadDashboard(true)} disabled={refreshing}><RefreshCw size={16} className={refreshing ? 'spin' : ''} /> Actualiser</button>{activePage === 'overview' && <button className="button button-primary" onClick={() => setActivePage('orders')}><ClipboardList size={16} /> Voir les commandes</button>}</div></div>
+        <div className="page-heading-row"><div><span className="date-eyebrow">ESPACE DE TRAVAIL</span><h1>{activePage === 'overview' ? `Bonjour, ${displayName(user).split(' ')[0]}` : pageTitle}</h1><p>{activePage === 'overview' ? 'Voici le résumé de votre activité aujourd’hui.' : activePage === 'orders' ? 'Consultez et recherchez toutes les commandes de votre espace.' : activePage === 'products' ? 'Consultez les produits liés à votre catalogue.' : activePage === 'shopify' ? 'Gérez les connexions et synchronisations de vos boutiques Shopify.' : activePage === 'profitability' ? 'Analysez les marges, coûts et bénéfices des commandes livrées.' : isTeamMemberView ? 'Consultez vos affiliations et invitations d’équipe.' : 'Consultez les membres actifs de votre équipe.'}</p></div><div className="heading-actions"><button className="button button-quiet" onClick={() => loadDashboard(true)} disabled={refreshing}><RefreshCw size={16} className={refreshing ? 'spin' : ''} /> Actualiser</button>{activePage === 'overview' && <button className="button button-primary" onClick={() => setActivePage('orders')}><ClipboardList size={16} /> Voir les commandes</button>}{activePage === 'orders' && canAssignOrders && <button className="button button-primary" onClick={() => setOrderDialogOpen(true)}><Plus size={16} /> Nouvelle commande</button>}</div></div>
         {errors.length > 0 && <div className="api-alert" role="status"><Activity size={16} /><span>{errors[0]} Les données correspondantes peuvent être incomplètes.</span><button onClick={() => loadDashboard(true)}>Réessayer</button></div>}
         {courierLoadError && canAssignOrders && ['overview', 'orders'].includes(activePage) && <div className="api-alert" role="status"><Truck size={16} /><span>Impossible de charger les livreurs éligibles : {courierLoadError}</span></div>}
         {mutationMessage && activePage !== 'team' && <div className="mutation-notice" role="status">{mutationMessage}<button className="notice-dismiss" onClick={() => setMutationMessage('')} aria-label="Fermer">×</button></div>}
@@ -553,14 +776,16 @@ function App() {
           {activePage === 'orders' && <section className="content-panel full-table-panel"><div className="panel-heading"><div><span className="panel-overline">VENTES</span><h2>Toutes les commandes <span className="title-count">{numberFormat.format(orders.length)}</span></h2></div><label className="search-control"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher une commande" aria-label="Rechercher une commande" /></label></div><OrdersTable orders={filteredOrders} onStatusChange={updateOrderStatus} updatingOrderId={updatingOrderId} isCourier={isCourier} canAssign={canAssignOrders} couriersByOwner={couriersByOwner} onAssign={assignOrder} assigningOrderId={assigningOrderId} /></section>}
           {activePage === 'products' && <section className="content-panel full-table-panel"><div className="panel-heading"><div><span className="panel-overline">CATALOGUE</span><h2>Vos produits <span className="title-count">{numberFormat.format(products.length)}</span></h2></div><div className="product-heading-actions"><label className="search-control"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher un produit" aria-label="Rechercher un produit" /></label><button className="button button-primary" onClick={() => { setEditingProduct(null); setProductDialogOpen(true) }}><Package size={16} /> Nouveau produit</button></div></div><ProductsTable products={filteredProducts} onEdit={(product) => setEditingProduct(product)} /></section>}
           {activePage === 'shopify' && <ShopifyStoresView stores={stores} loading={storesLoading} error={shopifyError} notice={shopifyNotice} busyStoreId={busyStoreId} onRefresh={() => { setStoresLoading(true); setShopifyError(''); void loadStores() }} onConnect={() => setConnectDialogOpen(true)} onSyncOrders={(store) => syncShopifyStore(store, 'orders')} onSyncProducts={(store) => syncShopifyStore(store, 'products')} onDelete={deleteShopifyStore} />}
-          {activePage === 'team' && <>{mutationMessage && <div className="mutation-notice" role="status">{mutationMessage}<button className="notice-dismiss" onClick={() => setMutationMessage('')} aria-label="Fermer">×</button></div>}<TeamView members={teamMembers} loading={teamLoading} error={teamError} isMemberView={isTeamMemberView} canInvite={isTeamOwner} acceptingId={acceptingInvitationId} onAccept={acceptTeamInvitation} onInvite={() => setInviteDialogOpen(true)} onRefresh={() => { setTeamLoading(true); setTeamError(''); const load = isTeamMemberView ? api.myTeams : () => api.teamMembers(isTeamOwner); void load().then((result) => setTeamMembers(isTeamMemberView ? result.memberships || [] : result.members || [])).catch((error) => setTeamError(error.message)).finally(() => setTeamLoading(false)) }} /></>}
+          {activePage === 'team' && <>{mutationMessage && <div className="mutation-notice" role="status">{mutationMessage}<button className="notice-dismiss" onClick={() => setMutationMessage('')} aria-label="Fermer">×</button></div>}{earnings && <section className="metric-grid earnings-grid"><MetricCard icon={Truck} label="Gains cumulés" value={`${numberFormat.format(Number(earnings.total || 0))} FCFA`} note={`${numberFormat.format((earnings.earnings || []).reduce((sum, item) => sum + Number(item.delivered_orders || 0), 0))} commandes livrées`} tone="mint" /><article className="content-panel earnings-breakdown"><span className="panel-overline">DÉTAIL PAR ÉQUIPE</span>{(earnings.earnings || []).map((item) => <div className="earnings-row" key={item.owner_id}><span>{item.owner_name}</span><strong>{numberFormat.format(Number(item.total_amount || 0))} FCFA</strong></div>)}</article></section>}<TeamView members={teamMembers} loading={teamLoading} error={teamError} isMemberView={isTeamMemberView} canInvite={canManageTeam} canEditCommission={canManageTeam} acceptingId={acceptingInvitationId} onAccept={acceptTeamInvitation} onInvite={() => setInviteDialogOpen(true)} onUpdateMyTeam={saveMyTeam} onUpdateCommission={saveCloserCommission} onRefresh={() => { setTeamLoading(true); setTeamError(''); const load = isTeamMemberView ? api.myTeams : async () => { const [result, adminResult] = await Promise.all([api.teamMembers(isTeamOwner), api.adminUsers()]); const lookup = new Map((adminResult.users || []).map((member) => [Number(member.membership_id), member])); return { members: (result.members || []).map((member) => ({ ...member, ...(lookup.get(Number(member.id)) || {}), id: member.id, member_user_id: member.member_user_id, role_name: member.role_name, status: member.status, is_working: member.is_working, created_at: member.created_at })) } }; void load().then((result) => setTeamMembers(isTeamMemberView ? result.memberships || [] : result.members || [])).catch((error) => setTeamError(error.message)).finally(() => setTeamLoading(false)) }} /></>}
+          {activePage === 'profitability' && canViewProfitability && <ProfitabilityView ownerId={user?.id} />}
         </>}
         <footer className="workspace-footer"><span>SELLMASTER WEB</span><span>Gestion e-commerce, sans détour.</span></footer>
       </div>
     </main>
     {(productDialogOpen || editingProduct) && <CreateProductDialog key={editingProduct?.id || 'new'} product={editingProduct} onClose={() => { setProductDialogOpen(false); setEditingProduct(null) }} onSave={saveProduct} />}
     {connectDialogOpen && <ShopifyConnectDialog onClose={() => setConnectDialogOpen(false)} onConnect={connectShopify} />}
-    {inviteDialogOpen && <InviteTeamMemberDialog onClose={() => setInviteDialogOpen(false)} onInvite={inviteTeamMember} />}
+    {inviteDialogOpen && <InviteTeamMemberDialog onClose={() => setInviteDialogOpen(false)} onInvite={inviteTeamMember} onSearchUsers={(query, role) => api.searchUsers(query, role)} />}
+    {orderDialogOpen && <CreateOrderDialog products={products} owners={orderOwners} onClose={() => setOrderDialogOpen(false)} onSave={createOrder} />}
   </div>
 }
 
