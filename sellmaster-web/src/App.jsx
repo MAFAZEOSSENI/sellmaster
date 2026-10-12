@@ -6,13 +6,14 @@ import {
 } from 'lucide-react'
 import { api, authToken } from './api'
 import LandingPage from './LandingPage'
+import { canManageProducts, getAvailablePages, hasAnyRole, normalizeRoles } from './roleRules'
 import './App.css'
 import './theme.css'
 import './notifications.css'
 import './shopify.css'
 import './team.css'
 
-const navItems = [
+const baseNavItems = [
   { id: 'overview', label: 'Vue d’ensemble', icon: LayoutDashboard },
   { id: 'orders', label: 'Commandes', icon: ClipboardList },
   { id: 'products', label: 'Produits', icon: Package },
@@ -68,7 +69,7 @@ function LoginScreen({ onLogin }) {
   )
 }
 
-function Sidebar({ active, onNavigate, user, onLogout }) {
+function Sidebar({ active, onNavigate, user, onLogout, navItems }) {
   return (
     <aside className="sidebar">
       <a className="brand sidebar-brand" href="#app"><span className="brand-symbol">S</span><span>SELLMASTER</span></a>
@@ -390,11 +391,28 @@ function App() {
   const [couriersByOwner, setCouriersByOwner] = useState({})
   const [courierLoadError, setCourierLoadError] = useState('')
   const [assigningOrderId, setAssigningOrderId] = useState(null)
-  const userRoles = user?.roles || []
-  const isTeamMemberView = !userRoles.some((role) => ['owner', 'manager', 'closer'].includes(typeof role === 'string' ? role : role?.name))
-  const isTeamOwner = userRoles.some((role) => (typeof role === 'string' ? role : role?.name) === 'owner')
-  const canAssignOrders = userRoles.some((role) => ['owner', 'manager', 'closer'].includes(typeof role === 'string' ? role : role?.name))
-  const canEditCommission = userRoles.some((role) => ['owner', 'manager'].includes(typeof role === 'string' ? role : role?.name))
+  const userRoles = normalizeRoles(user?.roles || user?.role || [])
+  const isOwner = hasAnyRole(userRoles, 'owner')
+  const isCourier = hasAnyRole(userRoles, 'courier')
+  const canAccessProducts = canManageProducts(userRoles)
+  const canAccessShopify = hasAnyRole(userRoles, 'owner', 'manager')
+  const navItems = baseNavItems.filter((item) => {
+    if (item.id === 'products') return canAccessProducts
+    if (item.id === 'shopify') return canAccessShopify
+    return true
+  })
+  const isTeamMemberView = !hasAnyRole(userRoles, 'owner', 'manager', 'closer')
+  const isTeamOwner = isOwner
+  const canAssignOrders = hasAnyRole(userRoles, 'owner', 'manager', 'closer')
+  const canEditCommission = hasAnyRole(userRoles, 'owner', 'manager')
+
+  useEffect(() => {
+    if (!user) return
+    const allowedPages = getAvailablePages(userRoles)
+    if (!allowedPages.includes(activePage)) {
+      setActivePage(allowedPages[0] || 'overview')
+    }
+  }, [user, userRoles, activePage])
 
   const loadDashboard = useCallback(async (quiet = false) => {
     if (!authToken.get()) return
@@ -739,7 +757,6 @@ function App() {
       setNotificationError(error.message)
     }
   }
-  const isCourier = (user?.roles || []).some((role) => (typeof role === 'string' ? role : role?.name) === 'courier')
   const filteredOrders = orders.filter((order) => [order.custom_order_number, order.client_name, order.client_phone, order.status].join(' ').toLowerCase().includes(search.toLowerCase()))
   const filteredProducts = products.filter((product) => [product.name, product.description].join(' ').toLowerCase().includes(search.toLowerCase()))
   const pageTitle = activePage === 'orders' ? 'Commandes' : activePage === 'products' ? 'Produits' : activePage === 'shopify' ? 'Boutiques Shopify' : activePage === 'team' ? 'Équipe' : 'Vue d’ensemble'
@@ -756,7 +773,7 @@ function App() {
   }
 
   return <div className="dashboard-layout">
-    <Sidebar active={activePage} onNavigate={(page) => { setActivePage(page); setSearch(''); if (page === 'shopify') { setStoresLoading(true); setShopifyError('') } if (page === 'team') { setTeamLoading(true); setTeamError('') } }} user={user} onLogout={logout} />
+    <Sidebar active={activePage} onNavigate={(page) => { setActivePage(page); setSearch(''); if (page === 'shopify') { setStoresLoading(true); setShopifyError('') } if (page === 'team') { setTeamLoading(true); setTeamError('') } }} user={user} onLogout={logout} navItems={navItems} />
     <main className="workspace-main">
       <header className="workspace-header"><div className="breadcrumb"><span>Sellmaster</span><span className="crumb-separator">/</span><strong>{pageTitle}</strong></div><div className="header-controls"><div className="connection-indicator"><span /> </div><button className="icon-button notification-button" aria-label={`Notifications${unreadCount ? `, ${unreadCount} non lues` : ''}`} aria-expanded={notificationOpen} onClick={toggleNotifications}><Bell size={18} />{unreadCount > 0 && <span className="notification-count">{unreadCount > 9 ? '9+' : unreadCount}</span>}</button><span className="header-avatar">{displayName(user).slice(0, 1).toUpperCase()}</span></div>
         {notificationOpen && <section className="notification-popover" aria-label="Centre de notifications"><div className="notification-heading"><div><span className="panel-overline">CENTRE DE NOTIFICATIONS</span><h2>Notifications</h2></div><button className="text-button" onClick={markAllNotificationsRead} disabled={unreadCount === 0 || notificationLoading}>Tout lire</button></div>{notificationError && <p className="notification-error" role="alert">{notificationError}</p>}{notificationLoading ? <div className="notification-loading"><span className="loader" />Chargement…</div> : notifications.length === 0 ? <div className="notification-empty">Vous êtes à jour. Aucune notification.</div> : <div className="notification-list">{notifications.map((notification) => <article className={`notification-item ${notification.is_read ? 'read' : 'unread'}`} key={notification.id}><span className={`notification-type type-${notification.type || 'info'}`}><Bell size={15} /></span><div><strong>{notification.title}</strong><p>{notification.message}</p><time>{formatDate(notification.created_at)}</time></div>{!notification.is_read && <span className="unread-indicator" aria-label="Non lue" />}</article>)}</div>}</section>}
@@ -769,16 +786,16 @@ function App() {
         {loading ? <div className="loading-area"><span className="loader" />Chargement des données Sellmaster…</div> : <>
           {activePage === 'overview' && <><section className="metric-grid" aria-label="Statistiques du jour"><MetricCard icon={ClipboardList} label="Commandes aujourd’hui" value={stats ? numberFormat.format(Number(stats.total_orders || 0)) : '—'} note="Total enregistré aujourd’hui" tone="mint" /><MetricCard icon={ArrowUpRight} label="Chiffre d’affaires livré" value={stats ? formatMoney(stats.revenue) : '—'} note="Commandes livrées aujourd’hui" tone="blue" /><MetricCard icon={Truck} label="Livrées" value={stats ? numberFormat.format(Number(stats.delivered || 0)) : '—'} note="Statut confirmé" tone="lime" /><MetricCard icon={ArrowDownRight} label="Annulées / reportées" value={stats ? numberFormat.format(Number(stats.cancelled || 0) + Number(stats.postponed || 0)) : '—'} note={`${numberFormat.format(Number(stats?.cancelled || 0))} annulée(s) · ${numberFormat.format(Number(stats?.postponed || 0))} reportée(s)`} tone="coral" /></section>
             <section className="content-panel orders-panel"><div className="panel-heading"><div><span className="panel-overline">ACTIVITÉ RÉCENTE</span><h2>Dernières commandes</h2></div><button className="text-button" onClick={() => setActivePage('orders')}>Toutes les commandes <span>→</span></button></div><OrdersTable orders={orders} compact onStatusChange={updateOrderStatus} updatingOrderId={updatingOrderId} isCourier={isCourier} canAssign={canAssignOrders} couriersByOwner={couriersByOwner} onAssign={assignOrder} assigningOrderId={assigningOrderId} /></section>
-            <section className="bottom-grid"><article className="content-panel inventory-panel"><div className="panel-heading"><div><span className="panel-overline">CATALOGUE</span><h2>Produits</h2></div><button className="icon-button" onClick={() => setActivePage('products')} aria-label="Afficher les produits"><Package size={17} /></button></div><div className="inventory-summary"><span className="inventory-icon"><Boxes size={20} /></span><div><strong>{numberFormat.format(products.length)}</strong><span>produit(s) dans votre catalogue</span></div><button className="inventory-link" onClick={() => setActivePage('products')}>Ouvrir <span>→</span></button></div></article><article className="content-panel account-panel"><div className="panel-heading"><div><span className="panel-overline">VOTRE ESPACE</span><h2>Compte</h2></div><Settings2 size={18} /></div><div className="account-row"><span className="avatar large-avatar">{displayName(user).slice(0, 1).toUpperCase()}</span><div><strong>{displayName(user)}</strong><span>{user?.email}</span></div></div><div className="account-license"><ShieldCheck size={16} /><span>Licence</span><strong>{user?.license_key ? 'Active' : user?.trial_used ? 'Essai utilisé' : 'Essai disponible'}</strong></div></article></section></>}
+            <section className="bottom-grid">{canAccessProducts && <article className="content-panel inventory-panel"><div className="panel-heading"><div><span className="panel-overline">CATALOGUE</span><h2>Produits</h2></div><button className="icon-button" onClick={() => setActivePage('products')} aria-label="Afficher les produits"><Package size={17} /></button></div><div className="inventory-summary"><span className="inventory-icon"><Boxes size={20} /></span><div><strong>{numberFormat.format(products.length)}</strong><span>produit(s) dans votre catalogue</span></div><button className="inventory-link" onClick={() => setActivePage('products')}>Ouvrir <span>→</span></button></div></article> }<article className="content-panel account-panel"><div className="panel-heading"><div><span className="panel-overline">VOTRE ESPACE</span><h2>Compte</h2></div><Settings2 size={18} /></div><div className="account-row"><span className="avatar large-avatar">{displayName(user).slice(0, 1).toUpperCase()}</span><div><strong>{displayName(user)}</strong><span>{user?.email}</span></div></div><div className="account-license"><ShieldCheck size={16} /><span>Licence</span><strong>{user?.license_key ? 'Active' : user?.trial_used ? 'Essai utilisé' : 'Essai disponible'}</strong></div></article></section></>}
           {activePage === 'orders' && <section className="content-panel full-table-panel"><div className="panel-heading"><div><span className="panel-overline">VENTES</span><h2>Toutes les commandes <span className="title-count">{numberFormat.format(orders.length)}</span></h2></div><label className="search-control"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher une commande" aria-label="Rechercher une commande" /></label></div><OrdersTable orders={filteredOrders} onStatusChange={updateOrderStatus} updatingOrderId={updatingOrderId} isCourier={isCourier} canAssign={canAssignOrders} couriersByOwner={couriersByOwner} onAssign={assignOrder} assigningOrderId={assigningOrderId} /></section>}
-          {activePage === 'products' && <section className="content-panel full-table-panel"><div className="panel-heading"><div><span className="panel-overline">CATALOGUE</span><h2>Vos produits <span className="title-count">{numberFormat.format(products.length)}</span></h2></div><div className="product-heading-actions"><label className="search-control"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher un produit" aria-label="Rechercher un produit" /></label><button className="button button-primary" onClick={() => { setEditingProduct(null); setProductDialogOpen(true) }}><Package size={16} /> Nouveau produit</button></div></div><ProductsTable products={filteredProducts} onEdit={(product) => setEditingProduct(product)} /></section>}
-          {activePage === 'shopify' && <ShopifyStoresView stores={stores} loading={storesLoading} error={shopifyError} notice={shopifyNotice} busyStoreId={busyStoreId} onRefresh={() => { setStoresLoading(true); setShopifyError(''); void loadStores() }} onConnect={() => setConnectDialogOpen(true)} onSyncOrders={(store) => syncShopifyStore(store, 'orders')} onSyncProducts={(store) => syncShopifyStore(store, 'products')} onDelete={deleteShopifyStore} />}
+          {activePage === 'products' && canAccessProducts && <section className="content-panel full-table-panel"><div className="panel-heading"><div><span className="panel-overline">CATALOGUE</span><h2>Vos produits <span className="title-count">{numberFormat.format(products.length)}</span></h2></div><div className="product-heading-actions"><label className="search-control"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher un produit" aria-label="Rechercher un produit" /></label><button className="button button-primary" onClick={() => { setEditingProduct(null); setProductDialogOpen(true) }}><Package size={16} /> Nouveau produit</button></div></div><ProductsTable products={filteredProducts} onEdit={(product) => setEditingProduct(product)} /></section>}
+          {activePage === 'shopify' && canAccessShopify && <ShopifyStoresView stores={stores} loading={storesLoading} error={shopifyError} notice={shopifyNotice} busyStoreId={busyStoreId} onRefresh={() => { setStoresLoading(true); setShopifyError(''); void loadStores() }} onConnect={() => setConnectDialogOpen(true)} onSyncOrders={(store) => syncShopifyStore(store, 'orders')} onSyncProducts={(store) => syncShopifyStore(store, 'products')} onDelete={deleteShopifyStore} />}
           {activePage === 'team' && <>{mutationMessage && <div className="mutation-notice" role="status">{mutationMessage}<button className="notice-dismiss" onClick={() => setMutationMessage('')} aria-label="Fermer">×</button></div>}<TeamView members={teamMembers} loading={teamLoading} error={teamError} isMemberView={isTeamMemberView} canInvite={isTeamOwner} canEditCommission={canEditCommission} acceptingId={acceptingInvitationId} onAccept={acceptTeamInvitation} onInvite={() => setInviteDialogOpen(true)} onRefresh={loadTeam} onUpdateMyTeam={updateMyTeam} onUpdateCommission={updateCloserCommission} /></>}
         </>}
         <footer className="workspace-footer"><span>SELLMASTER WEB</span><span>Gestion e-commerce, sans détour.</span></footer>
       </div>
     </main>
-    {(productDialogOpen || editingProduct) && <CreateProductDialog key={editingProduct?.id || 'new'} product={editingProduct} onClose={() => { setProductDialogOpen(false); setEditingProduct(null) }} onSave={saveProduct} />}
+    {(canAccessProducts && (productDialogOpen || editingProduct)) && <CreateProductDialog key={editingProduct?.id || 'new'} product={editingProduct} onClose={() => { setProductDialogOpen(false); setEditingProduct(null) }} onSave={saveProduct} />}
     {connectDialogOpen && <ShopifyConnectDialog onClose={() => setConnectDialogOpen(false)} onConnect={connectShopify} />}
     {inviteDialogOpen && <InviteTeamMemberDialog onClose={() => setInviteDialogOpen(false)} onInvite={inviteTeamMember} onSearchUsers={api.searchUsers} />}
   </div>
