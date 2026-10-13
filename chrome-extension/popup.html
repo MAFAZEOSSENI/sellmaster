@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Sellmaster</title>
   <style>
-    :root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#183139;background:#f3f7f7}*{box-sizing:border-box}body{width:330px;margin:0;padding:20px}.brand{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:800}.mark{width:29px;height:29px;object-fit:contain}.sub{color:#66797d;font-size:12px;margin:3px 0 18px 38px}label{display:block;font-size:12px;font-weight:700;margin:12px 0 5px}input{width:100%;height:41px;border:1px solid #cedbd9;border-radius:8px;padding:0 10px;font:14px system-ui;background:#fff}button{width:100%;height:41px;border:0;border-radius:8px;background:#087f83;color:white;font-weight:750;margin-top:15px;cursor:pointer}button:disabled{opacity:.6;cursor:wait}.secondary{background:#e7f0ef;color:#175b5d}.message{min-height:18px;margin:10px 0 0;font-size:12px;color:#5c6f73}.error{color:#b42318}.success{color:#157347}.account{padding:11px;border:1px solid #dce6e5;border-radius:8px;background:white;font-size:13px}.small{margin-top:8px;color:#687b80;font-size:11px}
+    :root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#183139;background:#f3f7f7}*{box-sizing:border-box}body{width:330px;margin:0;padding:20px}.brand{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:800}.mark{width:29px;height:29px;object-fit:contain}.sub{color:#66797d;font-size:12px;margin:3px 0 18px 38px}label{display:block;font-size:12px;font-weight:700;margin:12px 0 5px}input{width:100%;height:41px;border:1px solid #cedbd9;border-radius:8px;padding:0 10px;font:14px system-ui;background:#fff}button{width:100%;height:41px;border:0;border-radius:8px;background:#087f83;color:white;font-weight:750;margin-top:15px;cursor:pointer}button:disabled{opacity:.6;cursor:wait}.secondary{background:#e7f0ef;color:#175b5d}.import-product{margin:0 0 15px;padding:12px;border:1px solid #d7e2f8;border-radius:9px;background:#eef3ff}.import-product button{margin-top:0;background:#4869f2;color:#fff}.message{min-height:18px;margin:10px 0 0;font-size:12px;color:#5c6f73}.error{color:#b42318}.success{color:#157347}.account{padding:11px;border:1px solid #dce6e5;border-radius:8px;background:white;font-size:13px}.small{margin-top:8px;color:#687b80;font-size:11px}
   </style>
 </head>
 <body>
@@ -25,6 +25,9 @@
     <div class="small">Ouvre l’administration Shopify et utilise le panneau Sellmaster.</div>
     <button id="open-dashboard" type="button">Ouvrir le tableau de bord</button>
     <button id="logout" class="secondary" type="button">Se déconnecter</button>
+  </section>
+  <section id="product-import-view" class="import-product" hidden>
+    <button id="import-product" type="button">Importer ce produit vers Sellmaster</button>
   </section>
   <p id="message" class="message" role="status"></p>
   <script src="app-config.js"></script>

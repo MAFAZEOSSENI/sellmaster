@@ -1,0 +1,398 @@
+.dashboard-layout,
+.workspace-main,
+.page-content,
+.page-content > *,
+.content-panel,
+.shopify-view,
+.team-view {
+  min-width: 0;
+}
+
+.table-scroll {
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.data-table {
+  min-width: 700px;
+}
+
+.team-table {
+  min-width: 680px;
+}
+
+.orders-panel .data-table {
+  min-width: 760px;
+}
+
+.data-table th,
+.data-table td {
+  white-space: nowrap;
+}
+
+.notification-popover {
+  max-width: calc(100vw - 24px);
+}
+
+@media (max-width: 1100px) {
+  .sidebar {
+    width: 220px;
+  }
+
+  .workspace-main {
+    margin-left: 220px;
+  }
+
+  .page-content {
+    padding-right: 26px;
+    padding-left: 26px;
+  }
+
+  .page-heading-row h1 {
+    font-size: 1.95rem;
+  }
+
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .sidebar {
+    inset: auto 0 0;
+    width: 100%;
+    height: calc(64px + env(safe-area-inset-bottom, 0px));
+    padding: 4px 8px env(safe-area-inset-bottom, 0px);
+  }
+
+  .side-nav {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    align-items: stretch;
+    justify-content: initial;
+    gap: 2px;
+  }
+
+  .nav-link {
+    width: 100%;
+    min-width: 0;
+    min-height: 54px;
+    padding: 4px 2px;
+    gap: 3px;
+    font-size: .62rem;
+    line-height: 1.15;
+    text-align: center;
+  }
+
+  .nav-link span:not(.nav-count) {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .workspace-main {
+    margin-left: 0;
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .workspace-header {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .page-content {
+    width: 100%;
+    padding: 22px 16px 12px;
+  }
+
+  .page-heading-row {
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .page-heading-row > div:first-child {
+    min-width: 0;
+  }
+
+  .page-heading-row h1 {
+    font-size: 1.75rem;
+    overflow-wrap: anywhere;
+  }
+
+  .page-heading-row p {
+    max-width: none;
+  }
+
+  .heading-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .heading-actions .button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .panel-heading {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .panel-heading > div:first-child {
+    min-width: 0;
+  }
+
+  .panel-heading h2 {
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .search-control {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .dialog-backdrop {
+    align-items: start;
+    overflow-y: auto;
+    padding: max(12px, env(safe-area-inset-top, 0px)) 12px max(12px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .product-dialog {
+    width: 100%;
+    max-height: calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    margin: auto 0;
+    padding: 19px 16px;
+  }
+
+  .dialog-actions {
+    flex-wrap: wrap;
+  }
+
+  .dialog-actions .button {
+    flex: 1 1 130px;
+    justify-content: center;
+  }
+
+  .shopify-intro {
+    min-width: 0;
+  }
+
+  .shopify-intro-actions {
+    flex-wrap: wrap;
+  }
+
+  .store-meta {
+    align-items: flex-start;
+  }
+
+  .store-meta strong {
+    overflow-wrap: anywhere;
+  }
+
+  .product-import-editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .product-import-details,
+  .product-import-images,
+  .product-import-destination {
+    grid-column: auto;
+    grid-row: auto;
+  }
+}
+
+@media (max-width: 520px) {
+  .workspace-header {
+    height: 55px;
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .breadcrumb,
+  .header-controls {
+    gap: 8px;
+  }
+
+  .breadcrumb {
+    min-width: 0;
+    font-size: .68rem;
+  }
+
+  .breadcrumb > span:first-child {
+    display: none;
+  }
+
+  .connection-indicator {
+    display: none;
+  }
+
+  .page-content {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .metric-grid {
+    gap: 8px;
+  }
+
+  .metric-card {
+    min-height: 112px;
+    padding: 12px 10px;
+  }
+
+  .metric-top {
+    align-items: flex-start;
+    font-size: .64rem;
+  }
+
+  .metric-value {
+    margin: 10px 0 5px;
+    font-size: 1.3rem;
+  }
+
+  .metric-note {
+    align-items: flex-start;
+    white-space: normal;
+    line-height: 1.35;
+  }
+
+  .panel-heading {
+    gap: 10px;
+    padding-right: 13px;
+    padding-left: 13px;
+  }
+
+  .orders-panel .panel-heading {
+    align-items: flex-start;
+  }
+
+  .orders-panel .panel-heading .text-button {
+    white-space: normal;
+    text-align: right;
+  }
+
+  .team-view .panel-heading {
+    flex-direction: column;
+  }
+
+  .team-heading-actions {
+    width: 100%;
+  }
+
+  .team-heading-actions .button {
+    min-width: 0;
+    padding-right: 9px;
+    padding-left: 9px;
+    font-size: .68rem;
+  }
+
+  .data-table {
+    min-width: 680px;
+  }
+
+  .orders-panel .data-table {
+    min-width: 760px;
+  }
+
+  .team-table {
+    min-width: 680px;
+  }
+
+  .shopify-intro {
+    padding: 15px;
+  }
+
+  .shopify-intro-actions .button {
+    min-width: 0;
+    padding-right: 8px;
+    padding-left: 8px;
+    font-size: .68rem;
+  }
+
+  .invite-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .product-heading-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .product-heading-actions .search-control,
+  .product-heading-actions > .button {
+    width: 100%;
+  }
+
+  .product-import-url-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .product-import-url-row .button {
+    justify-content: center;
+  }
+
+  .product-import-variant {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .product-import-gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 360px) {
+  body {
+    min-width: 0;
+  }
+
+  .sidebar {
+    padding-right: 4px;
+    padding-left: 4px;
+  }
+
+  .nav-link {
+    font-size: .56rem;
+  }
+
+  .nav-link svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .page-heading-row h1 {
+    font-size: 1.55rem;
+  }
+
+  .metric-card {
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .metric-value {
+    font-size: 1.18rem;
+  }
+
+  .dialog-actions {
+    flex-direction: column-reverse;
+  }
+
+  .dialog-actions .button {
+    width: 100%;
+    flex-basis: auto;
+  }
+}
+
+@media (max-height: 520px) and (max-width: 760px) {
+  .sidebar {
+    height: calc(56px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .nav-link {
+    min-height: 46px;
+  }
+
+  .workspace-main {
+    padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+  }
+}

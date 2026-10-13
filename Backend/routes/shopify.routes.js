@@ -2,19 +2,46 @@ const express = require('express');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
+const dns = require('node:dns').promises;
+const https = require('node:https');
+const { rateLimit } = require('express-rate-limit');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const shopifyMiddleware = require('../middleware/shopify.middleware');
 const orderAuth = require('../extensions/middleware/orderAuth'); // ← AJOUTER
 const ShopifyController = require('../controllers/shopify.controller');
 const ShopifyConfig = require('../models/ShopifyConfig');
+const Product = require('../models/Product');
+const { parseShopifyProductUrl, normalizeScrapedProduct, normalizeImportPayload } = require('../utils/shopifyProductImport');
 const ShopifyService = require('../services/ShopifyService');
 const { verifyShopifyOAuthHmac } = require('../utils/shopifyOAuth');
 
 const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || '2026-07';
-const SHOPIFY_SCOPES = process.env.SHOPIFY_SCOPES || 'read_orders,write_orders,read_products,read_customers,read_inventory';
+const SHOPIFY_SCOPES = process.env.SHOPIFY_SCOPES || 'read_orders,write_orders,read_products,write_products,read_customers,read_inventory';
 const SHOPIFY_REDIRECT_URI = process.env.SHOPIFY_REDIRECT_URI || 'https://sellmaster-1.onrender.com/api/shopify/auth/callback';
 const FRONTEND_URL = process.env.SHOPIFY_FRONTEND_URL || 'https://www.sellmaster.site/';
+const scrapeProductLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 20,
+  keyGenerator: (req) => `user:${req.userId}`,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Limite de récupération atteinte. Réessayez dans une heure.' },
+});
+
+function isPublicIpv4(address) {
+  const octets = address.split('.').map(Number);
+  if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) return false;
+  const [first, second, third] = octets;
+  if (first === 0 || first === 10 || first === 127 || first >= 224) return false;
+  if (first === 100 && second >= 64 && second <= 127) return false;
+  if (first === 169 && second === 254) return false;
+  if (first === 172 && second >= 16 && second <= 31) return false;
+  if (first === 192 && (second === 168 || (second === 0 && third === 0) || (second === 0 && third === 2) || (second === 88 && third === 99) || (second === 168))) return false;
+  if (first === 198 && ((second === 18 || second === 19) || (second === 51 && third === 100))) return false;
+  if (first === 203 && second === 0 && third === 113) return false;
+  return true;
+}
 
 function normalizeShopDomain(shop) {
   const value = String(shop || '')
@@ -84,6 +111,140 @@ async function registerShopifyWebhooks(shopDomain, accessToken) {
 
 // Test de connexion Shopify
 router.post('/test-connection', authMiddleware, ShopifyController.testConnection);
+
+router.post('/products/scrape', authMiddleware, scrapeProductLimiter, async (req, res) => {
+  const parsedUrl = parseShopifyProductUrl(req.body?.url);
+  if (!parsedUrl) {
+    return res.status(422).json({
+      error: 'URL invalide. Fournissez une URL HTTPS de boutique Shopify au format https://boutique.myshopify.com/products/handle.',
+    });
+  }
+
+  try {
+    let resolvedAddresses;
+    try {
+      resolvedAddresses = await dns.lookup(parsedUrl.shopDomain, { all: true, family: 4, verbatim: true });
+    } catch {
+      return res.status(422).json({ error: 'Le domaine de cette URL ne correspond pas à une boutique Shopify publique.' });
+    }
+    const publicAddress = resolvedAddresses.find(({ address }) => isPublicIpv4(address))?.address;
+    if (!publicAddress) {
+      return res.status(422).json({ error: 'Le domaine de cette URL ne correspond pas à une boutique Shopify publique.' });
+    }
+
+    const pinnedAgent = new https.Agent({
+      keepAlive: false,
+      lookup: (_hostname, options, callback) => {
+        if (options?.all) callback(null, [{ address: publicAddress, family: 4 }]);
+        else callback(null, publicAddress, 4);
+      },
+    });
+    let response;
+    try {
+      response = await axios.get(
+        `https://${parsedUrl.shopDomain}/products/${encodeURIComponent(parsedUrl.handle)}.json`,
+        { timeout: 12000, maxRedirects: 0, httpsAgent: pinnedAgent, headers: { Accept: 'application/json' } }
+      );
+    } finally {
+      pinnedAgent.destroy();
+    }
+    const product = normalizeScrapedProduct(response.data?.product);
+    if (!product) {
+      return res.status(422).json({ error: 'Cette URL ne correspond pas à un produit Shopify public valide.' });
+    }
+    return res.json({ product });
+  } catch (error) {
+    const upstreamStatus = error.response?.status;
+    if (upstreamStatus === 404 || upstreamStatus === 301 || upstreamStatus === 302) {
+      return res.status(422).json({ error: 'Produit Shopify introuvable ou URL non valide.' });
+    }
+    console.error('[Shopify product scrape] Failed:', error.response?.data || error.message);
+    return res.status(502).json({ error: 'Impossible de récupérer ce produit depuis Shopify pour le moment.' });
+  }
+});
+
+router.post('/products/import', authMiddleware, shopifyMiddleware.validateStoreOwnership, async (req, res) => {
+  const storeId = Number(req.body?.storeId);
+  if (!Number.isInteger(storeId) || storeId <= 0 || Number(req.shopifyStore?.id) !== storeId) {
+    return res.status(400).json({ error: 'Identifiant de boutique Shopify invalide.' });
+  }
+  if (!req.shopifyStore?.is_active || !req.shopifyStore?.access_token) {
+    return res.status(409).json({ error: 'Cette boutique Shopify est inactive ou ne possède pas de jeton d’accès.' });
+  }
+
+  const normalized = normalizeImportPayload(req.body);
+  if (normalized.error) return res.status(400).json({ error: normalized.error });
+
+  const { title, description, price, images, variants } = normalized.value;
+  const shopDomain = String(req.shopifyStore.shop_name || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/\/$/, '');
+  if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shopDomain)) {
+    return res.status(409).json({ error: 'Le domaine de la boutique Shopify configurée est invalide.' });
+  }
+
+  const shopifyProduct = {
+    title,
+    body_html: description,
+    images: images.map((src) => ({ src })),
+    options: [{ name: 'Title', values: [...new Set(variants.map((variant) => variant.title))] }],
+    variants: variants.map((variant) => ({
+      option1: variant.title,
+      price: variant.price,
+      ...(variant.sku ? { sku: variant.sku } : {}),
+    })),
+  };
+
+  let createdProduct;
+  try {
+    const response = await axios.post(
+      `https://${shopDomain}/admin/api/${SHOPIFY_API_VERSION}/products.json`,
+      { product: shopifyProduct },
+      {
+        timeout: 20000,
+        headers: {
+          'X-Shopify-Access-Token': req.shopifyStore.access_token,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      }
+    );
+    createdProduct = response.data?.product;
+    if (!createdProduct?.id) throw new Error('Shopify n’a pas retourné le produit créé.');
+  } catch (error) {
+    const details = error.response?.data?.errors;
+    console.error('[Shopify product import] Shopify create failed:', details || error.message);
+    return res.status(error.response?.status === 401 || error.response?.status === 403 ? 403 : 502).json({
+      error: 'Shopify n’a pas pu créer ce produit. Vérifiez les autorisations write_products de la boutique.',
+      details: typeof details === 'string' ? details : undefined,
+    });
+  }
+
+  try {
+    const localProduct = await Product.create({
+      name: title,
+      description,
+      price,
+      cost_price: null,
+      stock: 0,
+      image_url: images[0] || null,
+    }, req.userId, Number(req.shopifyStore.user_id));
+
+    return res.status(201).json({
+      success: true,
+      shopifyProduct: createdProduct,
+      localProduct,
+    });
+  } catch (error) {
+    console.error('[Shopify product import] Local mirror failed:', error.message);
+    return res.status(502).json({
+      error: 'Le produit a été créé dans Shopify, mais son enregistrement local a échoué.',
+      shopifyProductId: createdProduct.id,
+    });
+  }
+});
 
 router.post('/register-store-credentials', authMiddleware, async (req, res) => {
   try {

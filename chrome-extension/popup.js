@@ -1,9 +1,33 @@
 const API_BASE = 'https://sellmaster-1.onrender.com/api';
 const TOKEN_KEY = 'sellmaster_jwt';
 const USER_KEY = 'sellmaster_user';
+const CONFIG_KEY = 'sellmaster_shopify_config';
 const loginView = document.getElementById('login-view');
 const accountView = document.getElementById('account-view');
+const productImportView = document.getElementById('product-import-view');
 const message = document.getElementById('message');
+let activeProductUrl = '';
+
+function getProductPageUrl(value) {
+  try {
+    const url = new URL(value);
+    if (!['http:', 'https:'].includes(url.protocol)) return '';
+    return /^\/products\/[^/]+\/?$/.test(url.pathname) ? url.toString() : '';
+  } catch (_) {
+    return '';
+  }
+}
+
+async function detectActiveProductTab() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    activeProductUrl = getProductPageUrl(tab?.url || '');
+    productImportView.hidden = !activeProductUrl;
+  } catch (_) {
+    activeProductUrl = '';
+    productImportView.hidden = true;
+  }
+}
 
 function showMessage(text, kind) {
   message.textContent = text || '';
@@ -73,9 +97,29 @@ document.getElementById('logout').addEventListener('click', async () => {
 });
 
 document.getElementById('open-dashboard').addEventListener('click', async () => {
-  const stored = await chrome.storage.local.get('sellmaster_shopify_config');
-  const appUrl = stored.sellmaster_shopify_config?.appUrl || globalThis.SELLMASTER_WEB_URL;
+  const stored = await chrome.storage.local.get(CONFIG_KEY);
+  const appUrl = stored[CONFIG_KEY]?.appUrl || globalThis.DEFAULT_APP_URL;
   await chrome.tabs.create({ url: new URL(appUrl).toString() });
 });
 
+document.getElementById('import-product').addEventListener('click', async () => {
+  const productUrl = activeProductUrl || getProductPageUrl((await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0]?.url || '');
+  if (!productUrl) {
+    productImportView.hidden = true;
+    showMessage('L’onglet actif ne correspond plus à une page produit.', 'error');
+    return;
+  }
+
+  try {
+    const stored = await chrome.storage.local.get(CONFIG_KEY);
+    const appUrl = new URL(stored[CONFIG_KEY]?.appUrl || globalThis.DEFAULT_APP_URL);
+    appUrl.searchParams.set('import', productUrl);
+    await chrome.tabs.create({ url: appUrl.toString() });
+    window.close();
+  } catch (error) {
+    showMessage(error.message || 'Impossible d’ouvrir Sellmaster.', 'error');
+  }
+});
+
+detectActiveProductTab();
 restoreSession();

@@ -69,6 +69,14 @@ export const api = {
     body: JSON.stringify(product),
   }),
   shopifyStores: () => request('/shopify/stores'),
+  scrapeShopifyProduct: (url) => request('/shopify/products/scrape', {
+    method: 'POST',
+    body: JSON.stringify({ url }),
+  }),
+  importShopifyProduct: (product) => request('/shopify/products/import', {
+    method: 'POST',
+    body: JSON.stringify(product),
+  }),
   shopifyAuthStart: (shop) => request(`/shopify/auth/start?shop=${encodeURIComponent(shop)}`),
   syncShopifyOrders: (storeId) => request(`/shopify/stores/${encodeURIComponent(storeId)}/orders/sync`),
   syncShopifyProducts: (storeId) => request(`/shopify/stores/${encodeURIComponent(storeId)}/products/sync`),

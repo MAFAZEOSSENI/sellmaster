@@ -7,7 +7,7 @@ const DEFAULT_REDIRECT_URI = 'https://sellmaster-1.onrender.com/api/shopify/auth
 
 chrome.storage.local.get(CONFIG_KEY).then(result => {
   const config = result[CONFIG_KEY] || {};
-  appUrlInput.value = config.appUrl || globalThis.SELLMASTER_WEB_URL;
+  appUrlInput.value = config.appUrl || globalThis.DEFAULT_APP_URL;
   redirectInput.value = config.redirectUri || DEFAULT_REDIRECT_URI;
 });
 

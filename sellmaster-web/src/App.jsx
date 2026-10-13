@@ -6,12 +6,15 @@ import {
 } from 'lucide-react'
 import { api, authToken } from './api'
 import LandingPage from './LandingPage'
+import ProductImportView from './ProductImportView'
 import { canManageProducts, getAvailablePages, hasAnyRole, normalizeRoles } from './roleRules'
 import './App.css'
 import './theme.css'
 import './notifications.css'
 import './shopify.css'
 import './team.css'
+import './product-import.css'
+import './responsive.css'
 
 const baseNavItems = [
   { id: 'overview', label: 'Vue d’ensemble', icon: LayoutDashboard },
@@ -348,9 +351,14 @@ function App() {
   const [authenticated, setAuthenticated] = useState(Boolean(authToken.get()))
   const [showLogin, setShowLogin] = useState(() => {
     const params = new URLSearchParams(window.location.search)
-    return params.has('login') || params.has('shopify')
+    return params.has('login') || params.has('shopify') || params.has('import')
   })
-  const [activePage, setActivePage] = useState(() => new URLSearchParams(window.location.search).has('shopify') ? 'shopify' : 'overview')
+  const [productImportUrl, setProductImportUrl] = useState(() => new URLSearchParams(window.location.search).get('import') || '')
+  const [activePage, setActivePage] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.has('import')) return 'productImport'
+    return params.has('shopify') ? 'shopify' : 'overview'
+  })
   const [stats, setStats] = useState(null)
   const [orders, setOrders] = useState([])
   const [products, setProducts] = useState([])
@@ -409,10 +417,10 @@ function App() {
   useEffect(() => {
     if (!user) return
     const allowedPages = getAvailablePages(userRoles)
-    if (!allowedPages.includes(activePage)) {
+    if (!allowedPages.includes(activePage) && !(activePage === 'productImport' && canAccessProducts)) {
       setActivePage(allowedPages[0] || 'overview')
     }
-  }, [user, userRoles, activePage])
+  }, [user, userRoles, activePage, canAccessProducts])
 
   const loadDashboard = useCallback(async (quiet = false) => {
     if (!authToken.get()) return
@@ -757,29 +765,45 @@ function App() {
       setNotificationError(error.message)
     }
   }
+  function clearProductImportParam() {
+    const url = new URL(window.location.href)
+    url.searchParams.delete('import')
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
+  }
+  function openProductImport(url = '') {
+    setProductImportUrl(url)
+    setActivePage('productImport')
+    setSearch('')
+  }
+  function closeProductImport() {
+    setProductImportUrl('')
+    clearProductImportParam()
+    setActivePage('products')
+  }
   const filteredOrders = orders.filter((order) => [order.custom_order_number, order.client_name, order.client_phone, order.status].join(' ').toLowerCase().includes(search.toLowerCase()))
   const filteredProducts = products.filter((product) => [product.name, product.description].join(' ').toLowerCase().includes(search.toLowerCase()))
-  const pageTitle = activePage === 'orders' ? 'Commandes' : activePage === 'products' ? 'Produits' : activePage === 'shopify' ? 'Boutiques Shopify' : activePage === 'team' ? 'Équipe' : 'Vue d’ensemble'
+  const pageTitle = activePage === 'orders' ? 'Commandes' : activePage === 'products' ? 'Produits' : activePage === 'productImport' ? 'Importer un produit' : activePage === 'shopify' ? 'Boutiques Shopify' : activePage === 'team' ? 'Équipe' : 'Vue d’ensemble'
 
   if (!authenticated) {
-    if (!showLogin) return <LandingPage onLogin={() => { setShowLogin(true); window.history.pushState({}, '', `${window.location.pathname}?login=1`) }} />
+    if (!showLogin) return <LandingPage onLogin={() => { setShowLogin(true); const url = new URL(window.location.href); url.searchParams.set('login', '1'); window.history.pushState({}, '', `${url.pathname}${url.search}${url.hash}`) }} />
     return <LoginScreen onLogin={async (loginUser) => {
       setUser(loginUser)
       setLoading(true)
       setAuthenticated(true)
       setShowLogin(false)
+      if (productImportUrl) setActivePage('productImport')
       window.history.replaceState({}, '', window.location.pathname)
     }} />
   }
 
   return <div className="dashboard-layout">
-    <Sidebar active={activePage} onNavigate={(page) => { setActivePage(page); setSearch(''); if (page === 'shopify') { setStoresLoading(true); setShopifyError('') } if (page === 'team') { setTeamLoading(true); setTeamError('') } }} user={user} onLogout={logout} navItems={navItems} />
+    <Sidebar active={activePage === 'productImport' ? 'products' : activePage} onNavigate={(page) => { setActivePage(page); setSearch(''); if (page === 'shopify') { setStoresLoading(true); setShopifyError('') } if (page === 'team') { setTeamLoading(true); setTeamError('') } }} user={user} onLogout={logout} navItems={navItems} />
     <main className="workspace-main">
       <header className="workspace-header"><div className="breadcrumb"><span>Sellmaster</span><span className="crumb-separator">/</span><strong>{pageTitle}</strong></div><div className="header-controls"><div className="connection-indicator"><span /> </div><button className="icon-button notification-button" aria-label={`Notifications${unreadCount ? `, ${unreadCount} non lues` : ''}`} aria-expanded={notificationOpen} onClick={toggleNotifications}><Bell size={18} />{unreadCount > 0 && <span className="notification-count">{unreadCount > 9 ? '9+' : unreadCount}</span>}</button><span className="header-avatar">{displayName(user).slice(0, 1).toUpperCase()}</span></div>
         {notificationOpen && <section className="notification-popover" aria-label="Centre de notifications"><div className="notification-heading"><div><span className="panel-overline">CENTRE DE NOTIFICATIONS</span><h2>Notifications</h2></div><button className="text-button" onClick={markAllNotificationsRead} disabled={unreadCount === 0 || notificationLoading}>Tout lire</button></div>{notificationError && <p className="notification-error" role="alert">{notificationError}</p>}{notificationLoading ? <div className="notification-loading"><span className="loader" />Chargement…</div> : notifications.length === 0 ? <div className="notification-empty">Vous êtes à jour. Aucune notification.</div> : <div className="notification-list">{notifications.map((notification) => <article className={`notification-item ${notification.is_read ? 'read' : 'unread'}`} key={notification.id}><span className={`notification-type type-${notification.type || 'info'}`}><Bell size={15} /></span><div><strong>{notification.title}</strong><p>{notification.message}</p><time>{formatDate(notification.created_at)}</time></div>{!notification.is_read && <span className="unread-indicator" aria-label="Non lue" />}</article>)}</div>}</section>}
       </header>
       <div className="page-content">
-        <div className="page-heading-row"><div><span className="date-eyebrow">ESPACE DE TRAVAIL</span><h1>{activePage === 'overview' ? `Bonjour, ${displayName(user).split(' ')[0]}` : pageTitle}</h1><p>{activePage === 'overview' ? 'Voici le résumé de votre activité aujourd’hui.' : activePage === 'orders' ? 'Consultez et recherchez toutes les commandes de votre espace.' : activePage === 'products' ? 'Consultez les produits liés à votre catalogue.' : activePage === 'shopify' ? 'Gérez les connexions et synchronisations de vos boutiques Shopify.' : isTeamMemberView ? 'Consultez vos affiliations et invitations d’équipe.' : 'Consultez les membres actifs de votre équipe.'}</p></div><div className="heading-actions"><button className="button button-quiet" onClick={() => loadDashboard(true)} disabled={refreshing}><RefreshCw size={16} className={refreshing ? 'spin' : ''} /> Actualiser</button>{activePage === 'overview' && <button className="button button-primary" onClick={() => setActivePage('orders')}><ClipboardList size={16} /> Voir les commandes</button>}</div></div>
+        <div className="page-heading-row"><div><span className="date-eyebrow">ESPACE DE TRAVAIL</span><h1>{activePage === 'overview' ? `Bonjour, ${displayName(user).split(' ')[0]}` : pageTitle}</h1><p>{activePage === 'overview' ? 'Voici le résumé de votre activité aujourd’hui.' : activePage === 'orders' ? 'Consultez et recherchez toutes les commandes de votre espace.' : activePage === 'products' ? 'Consultez les produits liés à votre catalogue.' : activePage === 'productImport' ? 'Analysez, ajustez et envoyez un produit vers une boutique Shopify.' : activePage === 'shopify' ? 'Gérez les connexions et synchronisations de vos boutiques Shopify.' : isTeamMemberView ? 'Consultez vos affiliations et invitations d’équipe.' : 'Consultez les membres actifs de votre équipe.'}</p></div>{activePage !== 'productImport' && <div className="heading-actions"><button className="button button-quiet" onClick={() => loadDashboard(true)} disabled={refreshing}><RefreshCw size={16} className={refreshing ? 'spin' : ''} /> Actualiser</button>{activePage === 'overview' && <button className="button button-primary" onClick={() => setActivePage('orders')}><ClipboardList size={16} /> Voir les commandes</button>}</div>}</div>
         {errors.length > 0 && <div className="api-alert" role="status"><Activity size={16} /><span>{errors[0]} Les données correspondantes peuvent être incomplètes.</span><button onClick={() => loadDashboard(true)}>Réessayer</button></div>}
         {courierLoadError && canAssignOrders && ['overview', 'orders'].includes(activePage) && <div className="api-alert" role="status"><Truck size={16} /><span>Impossible de charger les livreurs éligibles : {courierLoadError}</span></div>}
         {mutationMessage && activePage !== 'team' && <div className="mutation-notice" role="status">{mutationMessage}<button className="notice-dismiss" onClick={() => setMutationMessage('')} aria-label="Fermer">×</button></div>}
@@ -788,7 +812,8 @@ function App() {
             <section className="content-panel orders-panel"><div className="panel-heading"><div><span className="panel-overline">ACTIVITÉ RÉCENTE</span><h2>Dernières commandes</h2></div><button className="text-button" onClick={() => setActivePage('orders')}>Toutes les commandes <span>→</span></button></div><OrdersTable orders={orders} compact onStatusChange={updateOrderStatus} updatingOrderId={updatingOrderId} isCourier={isCourier} canAssign={canAssignOrders} couriersByOwner={couriersByOwner} onAssign={assignOrder} assigningOrderId={assigningOrderId} /></section>
             <section className="bottom-grid">{canAccessProducts && <article className="content-panel inventory-panel"><div className="panel-heading"><div><span className="panel-overline">CATALOGUE</span><h2>Produits</h2></div><button className="icon-button" onClick={() => setActivePage('products')} aria-label="Afficher les produits"><Package size={17} /></button></div><div className="inventory-summary"><span className="inventory-icon"><Boxes size={20} /></span><div><strong>{numberFormat.format(products.length)}</strong><span>produit(s) dans votre catalogue</span></div><button className="inventory-link" onClick={() => setActivePage('products')}>Ouvrir <span>→</span></button></div></article> }<article className="content-panel account-panel"><div className="panel-heading"><div><span className="panel-overline">VOTRE ESPACE</span><h2>Compte</h2></div><Settings2 size={18} /></div><div className="account-row"><span className="avatar large-avatar">{displayName(user).slice(0, 1).toUpperCase()}</span><div><strong>{displayName(user)}</strong><span>{user?.email}</span></div></div><div className="account-license"><ShieldCheck size={16} /><span>Licence</span><strong>{user?.license_key ? 'Active' : user?.trial_used ? 'Essai utilisé' : 'Essai disponible'}</strong></div></article></section></>}
           {activePage === 'orders' && <section className="content-panel full-table-panel"><div className="panel-heading"><div><span className="panel-overline">VENTES</span><h2>Toutes les commandes <span className="title-count">{numberFormat.format(orders.length)}</span></h2></div><label className="search-control"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher une commande" aria-label="Rechercher une commande" /></label></div><OrdersTable orders={filteredOrders} onStatusChange={updateOrderStatus} updatingOrderId={updatingOrderId} isCourier={isCourier} canAssign={canAssignOrders} couriersByOwner={couriersByOwner} onAssign={assignOrder} assigningOrderId={assigningOrderId} /></section>}
-          {activePage === 'products' && canAccessProducts && <section className="content-panel full-table-panel"><div className="panel-heading"><div><span className="panel-overline">CATALOGUE</span><h2>Vos produits <span className="title-count">{numberFormat.format(products.length)}</span></h2></div><div className="product-heading-actions"><label className="search-control"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher un produit" aria-label="Rechercher un produit" /></label><button className="button button-primary" onClick={() => { setEditingProduct(null); setProductDialogOpen(true) }}><Package size={16} /> Nouveau produit</button></div></div><ProductsTable products={filteredProducts} onEdit={(product) => setEditingProduct(product)} /></section>}
+          {activePage === 'products' && canAccessProducts && <section className="content-panel full-table-panel"><div className="panel-heading"><div><span className="panel-overline">CATALOGUE</span><h2>Vos produits <span className="title-count">{numberFormat.format(products.length)}</span></h2></div><div className="product-heading-actions"><label className="search-control"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher un produit" aria-label="Rechercher un produit" /></label><button className="button button-quiet" onClick={() => openProductImport()}><Link2 size={16} /> Importer depuis une URL</button><button className="button button-primary" onClick={() => { setEditingProduct(null); setProductDialogOpen(true) }}><Package size={16} /> Nouveau produit</button></div></div><ProductsTable products={filteredProducts} onEdit={(product) => setEditingProduct(product)} /></section>}
+          {activePage === 'productImport' && canAccessProducts && <ProductImportView key={productImportUrl || 'manual-import'} initialUrl={productImportUrl} onBack={closeProductImport} onImported={(product) => setProducts((current) => [product, ...current.filter((item) => String(item.id) !== String(product.id))])} />}
           {activePage === 'shopify' && canAccessShopify && <ShopifyStoresView stores={stores} loading={storesLoading} error={shopifyError} notice={shopifyNotice} busyStoreId={busyStoreId} onRefresh={() => { setStoresLoading(true); setShopifyError(''); void loadStores() }} onConnect={() => setConnectDialogOpen(true)} onSyncOrders={(store) => syncShopifyStore(store, 'orders')} onSyncProducts={(store) => syncShopifyStore(store, 'products')} onDelete={deleteShopifyStore} />}
           {activePage === 'team' && <>{mutationMessage && <div className="mutation-notice" role="status">{mutationMessage}<button className="notice-dismiss" onClick={() => setMutationMessage('')} aria-label="Fermer">×</button></div>}<TeamView members={teamMembers} loading={teamLoading} error={teamError} isMemberView={isTeamMemberView} canInvite={isTeamOwner} canEditCommission={canEditCommission} acceptingId={acceptingInvitationId} onAccept={acceptTeamInvitation} onInvite={() => setInviteDialogOpen(true)} onRefresh={loadTeam} onUpdateMyTeam={updateMyTeam} onUpdateCommission={updateCloserCommission} /></>}
         </>}
