@@ -24,8 +24,8 @@ const baseNavItems = [
   { id: 'team', label: 'Équipe', icon: Users },
 ]
 const numberFormat = new Intl.NumberFormat('fr-FR')
-const currencyFormat = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
-const formatMoney = (value) => Number.isFinite(Number(value)) ? currencyFormat.format(Number(value)) : '—'
+const currencyFormat = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 })
+const formatMoney = (value) => Number.isFinite(Number(value)) ? `${currencyFormat.format(Number(value))} FCFA` : '—'
 const formatDate = (value) => {
   if (!value) return '—'
   const date = new Date(value)
@@ -122,7 +122,7 @@ function CreateProductDialog({ product, onClose, onSave }) {
     }
   }
   const title = product ? 'Modifier le produit' : 'Nouveau produit'
-  return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}><section className="product-dialog" role="dialog" aria-modal="true" aria-labelledby="new-product-title"><div className="dialog-heading"><div><span className="panel-overline">CATALOGUE</span><h2 id="new-product-title">{title}</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="Fermer">×</button></div><form onSubmit={submit}><label>Nom du produit<input required maxLength="180" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label><label>Description<textarea rows="3" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label><div className="dialog-fields"><label>Prix de vente (€)<input required type="number" min="0.01" step="0.01" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} /></label><label>Coût (€)<input type="number" min="0" step="0.01" value={form.cost_price} onChange={(event) => setForm({ ...form, cost_price: event.target.value })} /></label><label>Stock<input required type="number" min="0" step="1" value={form.stock} onChange={(event) => setForm({ ...form, stock: event.target.value })} /></label></div>{error && <div className="form-error" role="alert">{error}</div>}<div className="dialog-actions"><button type="button" className="button button-quiet" onClick={onClose} disabled={saving}>Annuler</button><button className="button button-primary" disabled={saving}>{saving ? 'Enregistrement…' : product ? 'Enregistrer les modifications' : 'Créer le produit'}</button></div></form></section></div>
+  return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}><section className="product-dialog" role="dialog" aria-modal="true" aria-labelledby="new-product-title"><div className="dialog-heading"><div><span className="panel-overline">CATALOGUE</span><h2 id="new-product-title">{title}</h2></div><button type="button" className="icon-button" onClick={onClose} aria-label="Fermer">×</button></div><form onSubmit={submit}><label>Nom du produit<input required maxLength="180" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label><label>Description<textarea rows="3" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label><div className="dialog-fields"><label>Prix de vente (FCFA)<input required type="number" min="0.01" step="0.01" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} /></label><label>Coût (FCFA)<input type="number" min="0" step="0.01" value={form.cost_price} onChange={(event) => setForm({ ...form, cost_price: event.target.value })} /></label><label>Stock<input required type="number" min="0" step="1" value={form.stock} onChange={(event) => setForm({ ...form, stock: event.target.value })} /></label></div>{error && <div className="form-error" role="alert">{error}</div>}<div className="dialog-actions"><button type="button" className="button button-quiet" onClick={onClose} disabled={saving}>Annuler</button><button className="button button-primary" disabled={saving}>{saving ? 'Enregistrement…' : product ? 'Enregistrer les modifications' : 'Créer le produit'}</button></div></form></section></div>
 }
 
 function ShopifyConnectDialog({ onClose, onConnect }) {
@@ -208,7 +208,7 @@ function CommissionEditor({ member, onSave }) {
           aria-label={`Commission du membre ${member.full_name || member.email || 'membre'}`}
         />
         <select value={commissionType} onChange={(event) => setCommissionType(event.target.value)} aria-label="Type de commission">
-          <option value="fixed_amount">€ fixe</option>
+          <option value="fixed_amount">FCFA fixe</option>
           <option value="percentage">%</option>
         </select>
       </div>

@@ -183,7 +183,8 @@ export default function ProductImportView({ initialUrl = '', onBack, onImported 
                 <div className="product-import-section-heading"><div><span className="panel-overline">INFORMATIONS MODIFIABLES</span><h2>Vérifier le produit</h2></div><span className="product-import-step">02</span></div>
                 <label className="product-import-field">Titre<input required maxLength="255" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /></label>
                 <label className="product-import-field">Description<textarea rows="7" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label>
-                <label className="product-import-field product-import-price">Prix de référence (€)<input required type="number" min="0.01" step="0.01" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} /></label>
+                <label className="product-import-field product-import-price">Prix de référence (FCFA)<input required type="number" min="1" step="any" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} /></label>
+                <p className="product-import-price-note">La valeur reprise de la fiche source n’est pas convertie. Vérifiez ou saisissez le montant en FCFA avant l’import.</p>
 
                 {form.variants.length > 0 && (
                   <fieldset className="product-import-variants">
@@ -192,7 +193,7 @@ export default function ProductImportView({ initialUrl = '', onBack, onImported 
                     {form.variants.map((variant, index) => (
                       <div className="product-import-variant" key={`${index}-${variant.sku}`}>
                         <label>Titre<input required maxLength="255" value={variant.title} onChange={(event) => updateVariant(index, 'title', event.target.value)} /></label>
-                        <label>Prix (€)<input required type="number" min="0" step="0.01" value={variant.price} onChange={(event) => updateVariant(index, 'price', event.target.value)} /></label>
+                        <label>Prix (FCFA)<input required type="number" min="0" step="any" value={variant.price} onChange={(event) => updateVariant(index, 'price', event.target.value)} /></label>
                         <label>SKU<input maxLength="255" value={variant.sku} onChange={(event) => updateVariant(index, 'sku', event.target.value)} /></label>
                       </div>
                     ))}

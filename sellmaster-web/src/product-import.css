@@ -137,6 +137,13 @@
   max-width: 220px;
 }
 
+.product-import-price-note {
+  margin: 8px 0 0;
+  color: #818ba0;
+  font-size: .68rem;
+  line-height: 1.5;
+}
+
 .product-import-variants {
   min-width: 0;
   margin: 20px 0 0;
