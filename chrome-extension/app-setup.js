@@ -7,11 +7,12 @@
   const CONFIG_KEY = 'sellmaster_shopify_config';
   const TOKEN_KEY = 'sellmaster_jwt';
   const USER_KEY = 'sellmaster_user';
-  const API_SCOPE_KEYS = ['read_orders', 'write_orders', 'read_products', 'read_customers', 'read_inventory'];
+  const API_SCOPE_KEYS = ['read_orders', 'write_orders', 'read_products', 'write_products', 'read_customers', 'read_inventory'];
   const LABELS = {
     read_orders: ['read orders', 'read all orders'],
     write_orders: ['write orders', 'create and edit orders', 'manage orders'],
     read_products: ['read products', 'read product'],
+    write_products: ['write products', 'create and edit products', 'manage products'],
     read_customers: ['read customers', 'read customer'],
     read_inventory: ['read inventory', 'read stock'],
   };
