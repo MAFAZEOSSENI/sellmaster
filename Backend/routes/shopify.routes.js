@@ -369,17 +369,35 @@ router.get('/auth/callback', async (req, res) => {
     const accessToken = tokenResponse.data.access_token;
     if (!accessToken) throw new Error('Shopify access token missing');
 
-    await ShopifyConfig.upsertOAuthStore({
+    let shopInfo = {};
+    try {
+      const shopResponse = await axios.get(`https://${shopDomain}/admin/api/${SHOPIFY_API_VERSION}/shop.json`, {
+        headers: { 'X-Shopify-Access-Token': accessToken, Accept: 'application/json' },
+        timeout: 15000,
+      });
+      shopInfo = shopResponse.data?.shop || {};
+    } catch (error) {
+      console.warn('[Shopify OAuth] Could not resolve store aliases:', error.response?.data || error.message);
+    }
+
+    const savedStore = await ShopifyConfig.upsertOAuthStore({
       shopName: shopDomain,
       apiKey: clientId,
       clientSecret,
-      accessToken
+      accessToken,
+      shopInfo,
+      shopAliases: [
+        shopDomain,
+        shopInfo.domain,
+        shopInfo.primary_domain?.host,
+        shopInfo.primary_domain,
+      ],
     }, decoded.userId);
-    await registerShopifyWebhooks(shopDomain, accessToken);
+    await registerShopifyWebhooks(savedStore.shop_name, accessToken);
 
     const redirect = new URL(FRONTEND_URL);
     redirect.searchParams.set('shopify', 'connected');
-    redirect.searchParams.set('store', shopDomain);
+    redirect.searchParams.set('store', savedStore.shop_name);
     return res.redirect(redirect.toString());
   } catch (error) {
     console.error('[Shopify OAuth] Callback error:', error.response?.data || error.message);

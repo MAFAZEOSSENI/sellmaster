@@ -52,32 +52,20 @@ class ShopifyController {
       }
 
       // Vérifier si le store existe déjà pour cet utilisateur
-      const existingConfigs = await ShopifyConfig.findByUserId(req.userId);
-      const alreadyExists = existingConfigs.some(config => 
-        config.shop_name.toLowerCase() === shopName.toLowerCase()
-      );
-      
-      if (alreadyExists) {
-        return res.status(400).json({
-          success: false,
-          message: 'Ce store Shopify est déjà configuré'
-        });
-      }
-
-      // Créer la configuration
-      const config = await ShopifyConfig.create({
+      const config = await ShopifyConfig.upsertOAuthStore({
         shopName,
         apiKey,
-        accessToken
+        accessToken,
+        shopInfo: testResult.shop,
+        shopAliases: [shopName, testResult.shop?.domain, testResult.shop?.primary_domain?.host],
       }, req.userId);
 
-      res.status(201).json({
+      return res.status(200).json({
         success: true,
-        message: 'Store Shopify configuré avec succès',
+        message: 'Store Shopify configuré sans doublon',
         store: {
           id: config.id,
           shopName: config.shop_name,
-          connectedAt: config.connected_at
         },
         shopInfo: testResult.shop
       });
