@@ -699,6 +699,22 @@
   margin: auto;
 }
 
+.register-form {
+  width: min(430px, 100%);
+}
+
+.auth-form-panel:has(.register-form) {
+  justify-content: flex-start;
+  padding-top: 42px;
+  padding-bottom: 58px;
+}
+
+.register-form + .auth-copyright {
+  position: static;
+  align-self: center;
+  margin-top: auto;
+}
+
 .login-form .overline {
   color: #37846d;
   margin-bottom: 15px;
@@ -725,6 +741,12 @@
   font-weight: 700;
   color: #354640;
   margin: 17px 0 8px;
+}
+
+.optional-label {
+  color: #858da0;
+  font-size: .7rem;
+  font-weight: 500;
 }
 
 .login-form input {
@@ -813,6 +835,28 @@
   color: #83918b;
   font-size: .72rem;
   margin-top: 21px;
+}
+
+.auth-switch {
+  margin: 18px 0 0;
+  color: #747d8e;
+  font-size: .78rem;
+  text-align: center;
+}
+
+.auth-switch button {
+  padding: 2px 0;
+  border: 0;
+  color: var(--color-primary);
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.auth-switch button:hover {
+  color: var(--color-primary-hover);
+  text-decoration: underline;
 }
 
 .auth-copyright {
@@ -2037,6 +2081,22 @@
   .auth-form-panel {
     min-height: 100vh;
     padding: 30px 24px 60px;
+  }
+
+  .auth-form-panel:has(.register-form) {
+    min-height: 100vh;
+    padding-top: 24px;
+    padding-bottom: 30px;
+  }
+
+  .register-form {
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .register-form + .auth-copyright {
+    margin-top: 24px;
   }
 
   .mobile-brand {

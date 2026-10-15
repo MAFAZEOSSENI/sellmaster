@@ -33,17 +33,27 @@ const formatDate = (value) => {
 }
 const displayName = (user) => user?.full_name?.trim() || user?.email?.split('@')[0] || 'Utilisateur'
 
-function LoginScreen({ onLogin }) {
+function LoginScreen({ onLogin, initialMode = 'login' }) {
+  const [mode, setMode] = useState(initialMode)
+  const [fullName, setFullName] = useState('')
+  const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [passwordConfirmation, setPasswordConfirmation] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const isRegistering = mode === 'register'
   async function submit(event) {
     event.preventDefault()
     setError('')
     setLoading(true)
     try {
-      const result = await api.login(email.trim(), password)
+      if (isRegistering && password !== passwordConfirmation) {
+        throw new Error('Les deux mots de passe ne correspondent pas.')
+      }
+      const result = isRegistering
+        ? await api.register({ email: email.trim(), password, fullName: fullName.trim(), phone: phone.trim() || undefined, role: 'owner' })
+        : await api.login(email.trim(), password)
       if (!result.token) throw new Error('Le serveur n’a pas renvoyé de jeton de session.')
       authToken.set(result.token)
       await onLogin(result.user)
@@ -60,12 +70,21 @@ function LoginScreen({ onLogin }) {
         <div className="auth-panel-foot"><ShieldCheck size={15} /> Connexion sécurisée à votre espace Sellmaster</div>
       </section>
       <section className="auth-form-panel">
-        <form className="login-form" onSubmit={submit}>
-          <div className="mobile-brand brand"><span className="brand-symbol">S</span><span>SELLMASTER</span></div><span className="overline">ESPACE E-COMMERÇANT</span><h2>Content de vous revoir.</h2><p>Connectez-vous pour accéder à votre activité.</p>
-          <label htmlFor="email">Adresse e-mail</label><input id="email" type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="vous@entreprise.com" />
-          <div className="password-label"><label htmlFor="password">Mot de passe</label><a href="mailto:support@sellmaster.app">Besoin d’aide ?</a></div><input id="password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Votre mot de passe" />
+        <form className={`login-form ${isRegistering ? 'register-form' : ''}`} onSubmit={submit}>
+          <div className="mobile-brand brand"><img className="brand-symbol" src="/sellmaster-mark.svg" alt="" /><span>SELLMASTER</span></div><span className="overline">ESPACE E-COMMERÇANT</span><h2>{isRegistering ? 'Créez votre espace.' : 'Content de vous revoir.'}</h2><p>{isRegistering ? 'Quelques informations pour commencer avec Sellmaster.' : 'Connectez-vous pour accéder à votre activité.'}</p>
+          {isRegistering && <>
+            <label htmlFor="full-name">Nom complet</label><input id="full-name" type="text" autoComplete="name" required maxLength="255" value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Votre nom" />
+          </>}
+          <label htmlFor="email">Adresse e-mail</label><input id="email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="vous@entreprise.com" />
+          {isRegistering && <>
+            <label htmlFor="phone">Téléphone <span className="optional-label">Facultatif</span></label><input id="phone" type="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+221…" />
+          </>}
+          <div className="password-label"><label htmlFor="password">Mot de passe</label>{!isRegistering && <a href="mailto:support@sellmaster.app">Besoin d’aide ?</a>}</div><input id="password" type="password" autoComplete={isRegistering ? 'new-password' : 'current-password'} minLength={isRegistering ? 8 : undefined} required value={password} onChange={(event) => setPassword(event.target.value)} placeholder={isRegistering ? '8 caractères minimum' : 'Votre mot de passe'} />
+          {isRegistering && <><label htmlFor="password-confirmation">Confirmer le mot de passe</label><input id="password-confirmation" type="password" autoComplete="new-password" minLength="8" required value={passwordConfirmation} onChange={(event) => setPasswordConfirmation(event.target.value)} placeholder="Saisissez-le à nouveau" /></>}
           {error && <div className="form-error" role="alert">{error}</div>}
-          <button className="button button-primary login-submit" disabled={loading}>{loading ? 'Connexion en cours…' : 'Se connecter'}</button><div className="login-note"><ShieldCheck size={15} /> Identifiants transmis au backend Sellmaster.</div>
+          <button className="button button-primary login-submit" disabled={loading}>{loading ? (isRegistering ? 'Création du compte…' : 'Connexion en cours…') : (isRegistering ? 'Créer mon compte' : 'Se connecter')}</button>
+          <p className="auth-switch">{isRegistering ? 'Vous avez déjà un compte ?' : 'Pas encore de compte ?'} <button type="button" onClick={() => { setMode(isRegistering ? 'login' : 'register'); setError('') }}>{isRegistering ? 'Se connecter' : 'Créer un compte'}</button></p>
+          {!isRegistering && <div className="login-note"><ShieldCheck size={15} /> Identifiants transmis au backend Sellmaster.</div>}
         </form><div className="auth-copyright">© 2026 Sellmaster</div>
       </section>
     </main>
@@ -425,8 +444,9 @@ function App() {
   const [authenticated, setAuthenticated] = useState(Boolean(authToken.get()))
   const [showLogin, setShowLogin] = useState(() => {
     const params = new URLSearchParams(window.location.search)
-    return params.has('login') || params.has('shopify') || params.has('import')
+    return params.has('login') || params.has('register') || params.has('shopify') || params.has('import')
   })
+  const [authMode, setAuthMode] = useState(() => new URLSearchParams(window.location.search).has('register') ? 'register' : 'login')
   const [productImportUrl, setProductImportUrl] = useState(() => new URLSearchParams(window.location.search).get('import') || '')
   const [requestedPage, setActivePage] = useState(() => {
     const params = new URLSearchParams(window.location.search)
@@ -837,8 +857,17 @@ function App() {
   const pageTitle = activePage === 'orders' ? 'Commandes' : activePage === 'products' ? 'Produits' : activePage === 'productImport' ? 'Importer un produit' : activePage === 'shopify' ? 'Boutiques Shopify' : activePage === 'team' ? 'Équipe' : activePage === 'more' ? 'Plus' : 'Vue d’ensemble'
 
   if (!authenticated) {
-    if (!showLogin) return <LandingPage onLogin={() => { setShowLogin(true); const url = new URL(window.location.href); url.searchParams.set('login', '1'); window.history.pushState({}, '', `${url.pathname}${url.search}${url.hash}`) }} />
-    return <LoginScreen onLogin={async (loginUser) => {
+    const openAuth = (mode) => {
+      setAuthMode(mode)
+      setShowLogin(true)
+      const url = new URL(window.location.href)
+      url.searchParams.delete('login')
+      url.searchParams.delete('register')
+      url.searchParams.set(mode === 'register' ? 'register' : 'login', '1')
+      window.history.pushState({}, '', `${url.pathname}${url.search}${url.hash}`)
+    }
+    if (!showLogin) return <LandingPage onLogin={() => openAuth('login')} onRegister={() => openAuth('register')} />
+    return <LoginScreen key={authMode} initialMode={authMode} onLogin={async (loginUser) => {
       setUser(loginUser)
       setLoading(true)
       setAuthenticated(true)
