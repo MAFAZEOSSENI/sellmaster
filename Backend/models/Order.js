@@ -1,4 +1,5 @@
 const { getConnection } = require('../config/database');
+const { formatCustomOrderNumber } = require('../utils/orderNumber');
 
 const Order = {
   async ensureAssignmentColumns() {
@@ -102,25 +103,21 @@ const Order = {
   },
 
   // 🆕 MÉTHODE : Générer le numéro de commande personnalisé
-  async generateCustomOrderNumber(ownerUserId, creatorUserId = null) {
+  async generateCustomOrderNumber() {
     let conn;
     try {
       conn = await getConnection();
-      const targetOwnerId = Number(ownerUserId || creatorUserId || 0);
+      const year = new Date().getUTCFullYear();
+      const [result] = await conn.query(`
+        INSERT INTO order_number_sequences (year, sequence_value)
+        VALUES (?, 1)
+        ON CONFLICT (year)
+        DO UPDATE SET sequence_value = order_number_sequences.sequence_value + 1
+        RETURNING sequence_value
+      `, [year]);
+      const customNumber = formatCustomOrderNumber(year, result.rows[0].sequence_value);
 
-      if (!Number.isInteger(targetOwnerId) || targetOwnerId <= 0) {
-        throw new Error('ownerUserId invalide pour la génération du numéro de commande');
-      }
-
-      const [rows] = await conn.query(
-        'SELECT COUNT(*) as order_count FROM orders WHERE user_id = ?',
-        [targetOwnerId]
-      );
-      
-      const orderCount = Number(rows[0].order_count) + 1;
-      const customNumber = `USR${targetOwnerId}-CMD${orderCount}`;
-      
-      console.log(`🔢 Génération numéro commande: ${customNumber} pour owner ${targetOwnerId}`);
+      console.log(`🔢 Génération numéro commande: ${customNumber}`);
       return customNumber;
       
     } finally {
@@ -153,7 +150,7 @@ const Order = {
 
       console.log('📦 Création commande avec numéro personnalisé pour owner:', ownerId, 'créée par:', userId);
 
-      const customOrderNumber = await this.generateCustomOrderNumber(ownerId);
+      const customOrderNumber = await this.generateCustomOrderNumber();
       const shopifyOrderId = normalizedOrderData.shopify_order_id;
       const safeShopifyOrderId = shopifyOrderId ? shopifyOrderId.toString() : null;
 
@@ -240,11 +237,15 @@ const Order = {
       const [stats] = await conn.query(`
         SELECT 
           COUNT(*) as total_orders,
-          MAX(custom_order_number) as last_order_number,
+          (SELECT custom_order_number
+           FROM orders latest
+           WHERE latest.user_id IN (${placeholders})
+           ORDER BY latest.created_at DESC, latest.id DESC
+           LIMIT 1) as last_order_number,
           MIN(created_at) as first_order_date
         FROM orders 
         WHERE user_id IN (${placeholders})
-      `, visibleOwnerIds);
+      `, [...visibleOwnerIds, ...visibleOwnerIds]);
       
       return stats[0];
     } finally {
@@ -441,9 +442,7 @@ const Order = {
       const safeShopifyOrderId = shopifyOrderId ? shopifyOrderId.toString() : null;
 
       // Générer un numéro personnalisé même pour l'ancienne méthode
-      const customOrderNumber = orderData.user_id ? 
-        await this.generateCustomOrderNumber(orderData.user_id) : 
-        `CMD-${Date.now()}`;
+      const customOrderNumber = await this.generateCustomOrderNumber();
 
       const [orderResult] = await conn.query(`
         INSERT INTO orders (client_name, client_phone, client_address, status, total_amount, notes, source, shopify_order_id, shopify_data, user_id, custom_order_number)
@@ -715,7 +714,7 @@ async createFromShopify(orderData, userId) {
     const safeShopifyOrderId = shopifyOrderId ? shopifyOrderId.toString() : null;
     
     // Générer un numéro personnalisé (comme votre autre méthode)
-    const customOrderNumber = await this.generateCustomOrderNumber(userId);
+    const customOrderNumber = await this.generateCustomOrderNumber();
     
     // IMPORTANT: Vérifier et parser total_amount
     const totalAmount = parseFloat(orderData.total_amount) || 0;

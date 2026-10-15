@@ -115,6 +115,13 @@ async function createTables() {
     await ensureColumnExists(conn, 'orders', 'updated_at', "ADD COLUMN \"updated_at\" TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
 
     await conn.query(`
+      CREATE TABLE IF NOT EXISTS "order_number_sequences" (
+        year INT PRIMARY KEY,
+        sequence_value BIGINT NOT NULL CHECK (sequence_value >= 0)
+      )
+    `);
+
+    await conn.query(`
       CREATE TABLE IF NOT EXISTS "order_items" (
         id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         order_id INT NOT NULL,

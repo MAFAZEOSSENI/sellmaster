@@ -80,3 +80,14 @@ export function filterOrdersForRole(orders, userRoles, currentUserId) {
 
   return list;
 }
+
+export function sortOrdersNewestFirst(orders) {
+  return (Array.isArray(orders) ? orders : [])
+    .map((order, index) => ({ order, index, timestamp: Date.parse(order?.created_at || order?.createdAt || '') }))
+    .sort((left, right) => {
+      const leftTimestamp = Number.isFinite(left.timestamp) ? left.timestamp : Number.NEGATIVE_INFINITY;
+      const rightTimestamp = Number.isFinite(right.timestamp) ? right.timestamp : Number.NEGATIVE_INFINITY;
+      return rightTimestamp - leftTimestamp || left.index - right.index;
+    })
+    .map(({ order }) => order);
+}

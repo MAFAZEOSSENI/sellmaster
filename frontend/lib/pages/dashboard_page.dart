@@ -30,7 +30,8 @@ class DashboardPageState extends State<DashboardPage> {
     try {
       final targetOwnerId = ownerId ?? _selectedOwnerId;
       final statsFuture = targetOwnerId == null
-          ? ApiService.getDashboardStats().catchError((_) => <String, dynamic>{})
+          ? ApiService.getDashboardStats()
+              .catchError((_) => <String, dynamic>{})
           : Future.value(<String, dynamic>{});
       final results = await Future.wait<Object>([
         ApiService.getOrders(ownerId: targetOwnerId),
@@ -40,7 +41,8 @@ class DashboardPageState extends State<DashboardPage> {
 
       setState(() {
         _selectedOwnerId = targetOwnerId;
-        orders = results[0] as List<Order>;
+        orders = List<Order>.from(results[0] as List<Order>)
+          ..sort((left, right) => right.createdAt.compareTo(left.createdAt));
         products = results[1] as List<Product>;
         final stats = results[2] as Map<String, dynamic>;
         _dashboardStats = stats.isEmpty ? null : stats;
@@ -55,7 +57,8 @@ class DashboardPageState extends State<DashboardPage> {
   }
 
   double getRealRevenue() {
-    final reportedRevenue = double.tryParse(_dashboardStats?['revenue']?.toString() ?? '');
+    final reportedRevenue =
+        double.tryParse(_dashboardStats?['revenue']?.toString() ?? '');
     if (reportedRevenue != null) return reportedRevenue;
     return orders
         .where((order) => order.status == 'livree')
@@ -87,7 +90,8 @@ class DashboardPageState extends State<DashboardPage> {
 
   List<Order> getTeamQueue() {
     return orders
-        .where((order) => order.assignedTo != null || order.status == 'dashboard')
+        .where(
+            (order) => order.assignedTo != null || order.status == 'dashboard')
         .take(5)
         .toList();
   }
@@ -124,7 +128,8 @@ class DashboardPageState extends State<DashboardPage> {
   }
 
   int getTotalOrders() {
-    return int.tryParse(_dashboardStats?['total_orders']?.toString() ?? '') ?? orders.length;
+    return int.tryParse(_dashboardStats?['total_orders']?.toString() ?? '') ??
+        orders.length;
   }
 
   double getDeliveryRate() {
@@ -157,7 +162,7 @@ class DashboardPageState extends State<DashboardPage> {
                   children: [
                     // Nouveau Header avec profil
                     _buildHeader(),
-                    
+
                     // Contenu principal
                     Padding(
                       padding: const EdgeInsets.all(20),
@@ -167,7 +172,7 @@ class DashboardPageState extends State<DashboardPage> {
                           // Cartes de statistiques
                           _buildStatsCards(),
                           const SizedBox(height: 24),
-                          
+
                           // Commandes récentes
                           _buildRecentOrders(),
                           const SizedBox(height: 24),
@@ -180,20 +185,26 @@ class DashboardPageState extends State<DashboardPage> {
                           _buildTeamOverview(),
                           const SizedBox(height: 24),
 
-                          if (Provider.of<AuthProvider>(context, listen: false).primaryRole == 'owner')
+                          if (Provider.of<AuthProvider>(context, listen: false)
+                                  .primaryRole ==
+                              'owner')
                             SizedBox(
                               width: double.infinity,
                               child: OutlinedButton.icon(
                                 onPressed: () => Navigator.of(context).push(
-                                  MaterialPageRoute(builder: (_) => const ProfitabilityPage()),
+                                  MaterialPageRoute(
+                                      builder: (_) =>
+                                          const ProfitabilityPage()),
                                 ),
                                 icon: const Icon(Icons.analytics_outlined),
                                 label: const Text('Voir la rentabilité'),
                               ),
                             ),
-                          if (Provider.of<AuthProvider>(context, listen: false).primaryRole == 'owner')
+                          if (Provider.of<AuthProvider>(context, listen: false)
+                                  .primaryRole ==
+                              'owner')
                             const SizedBox(height: 24),
-                          
+
                           // Produits populaires
                           _buildTopProducts(),
                           const SizedBox(height: 20),
@@ -209,7 +220,10 @@ class DashboardPageState extends State<DashboardPage> {
 
   Widget _buildHeader() {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
-    final accountName = (user?['full_name'] ?? user?['email']?.toString().split('@').first ?? 'Utilisateur').toString();
+    final accountName = (user?['full_name'] ??
+            user?['email']?.toString().split('@').first ??
+            'Utilisateur')
+        .toString();
     final firstName = accountName.split(' ').first;
 
     return Container(
@@ -271,7 +285,10 @@ class DashboardPageState extends State<DashboardPage> {
                     alignment: Alignment.center,
                     child: Text(
                       accountName.substring(0, 1).toUpperCase(),
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 18),
                     ),
                   ),
                 ],
@@ -279,7 +296,7 @@ class DashboardPageState extends State<DashboardPage> {
             ],
           ),
           const SizedBox(height: 20),
-          
+
           // Chiffre d'affaires principal
           Container(
             width: double.infinity,
@@ -337,7 +354,7 @@ class DashboardPageState extends State<DashboardPage> {
   Widget _buildStatsCards() {
     final totalOrders = getTotalOrders();
     final deliveryRate = getDeliveryRate();
-    
+
     return GridView.count(
       crossAxisCount: 2,
       shrinkWrap: true,
@@ -378,8 +395,8 @@ class DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _buildStatCard(
-      String title, String value, IconData icon, Color bgColor, Color iconColor) {
+  Widget _buildStatCard(String title, String value, IconData icon,
+      Color bgColor, Color iconColor) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -426,7 +443,7 @@ class DashboardPageState extends State<DashboardPage> {
 
   Widget _buildRecentOrders() {
     final recentOrders = getRecentOrders();
-    
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -451,7 +468,8 @@ class DashboardPageState extends State<DashboardPage> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE3F2FD),
                     borderRadius: BorderRadius.circular(12),
@@ -571,7 +589,8 @@ class DashboardPageState extends State<DashboardPage> {
               ),
               const SizedBox(height: 4),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: _getStatusColor(order.status).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
@@ -621,11 +640,13 @@ class DashboardPageState extends State<DashboardPage> {
             Row(
               children: [
                 Expanded(
-                  child: _buildQueueMetric('Assignées', '$assignedCount', const Color(0xFFEDF0FF), const Color(0xFF3959DF)),
+                  child: _buildQueueMetric('Assignées', '$assignedCount',
+                      const Color(0xFFEDF0FF), const Color(0xFF3959DF)),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _buildQueueMetric('Non assignées', '$unassignedCount', const Color(0xFFFFF3E0), const Color(0xFFF57C00)),
+                  child: _buildQueueMetric('Non assignées', '$unassignedCount',
+                      const Color(0xFFFFF3E0), const Color(0xFFF57C00)),
                 ),
               ],
             ),
@@ -680,7 +701,8 @@ class DashboardPageState extends State<DashboardPage> {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
                               color: order.assignedTo == null
                                   ? const Color(0xFFFFF3E0)
@@ -719,7 +741,8 @@ class DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _buildQueueMetric(String label, String value, Color backgroundColor, Color accentColor) {
+  Widget _buildQueueMetric(
+      String label, String value, Color backgroundColor, Color accentColor) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -847,7 +870,8 @@ class DashboardPageState extends State<DashboardPage> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         color: const Color(0xFFE3F2FD),
                         borderRadius: BorderRadius.circular(999),
@@ -873,7 +897,7 @@ class DashboardPageState extends State<DashboardPage> {
 
   Widget _buildTopProducts() {
     final topProducts = getTopProducts();
-    
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -898,7 +922,8 @@ class DashboardPageState extends State<DashboardPage> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE3F2FD),
                     borderRadius: BorderRadius.circular(12),
@@ -987,7 +1012,7 @@ class DashboardPageState extends State<DashboardPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: product.stock > 0 
+              color: product.stock > 0
                   ? const Color(0xFFE8F5E8)
                   : const Color(0xFFFFEBEE),
               borderRadius: BorderRadius.circular(10),
@@ -995,7 +1020,7 @@ class DashboardPageState extends State<DashboardPage> {
             child: Text(
               '${product.stock}',
               style: TextStyle(
-                color: product.stock > 0 
+                color: product.stock > 0
                     ? const Color(0xFF2E7D32)
                     : const Color(0xFFC62828),
                 fontSize: 12,

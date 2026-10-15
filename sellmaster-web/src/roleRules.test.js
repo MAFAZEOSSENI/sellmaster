@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeRoles, getPrimaryRole, hasAnyRole, getAvailablePages, canManageProducts, filterOrdersForRole } from './roleRules.js';
+import { normalizeRoles, getPrimaryRole, hasAnyRole, getAvailablePages, canManageProducts, filterOrdersForRole, sortOrdersNewestFirst } from './roleRules.js';
 
 test('normalizeRoles lowercases and filters blanks', () => {
   assert.deepEqual(normalizeRoles(['Owner', ' Manager ', '', null, undefined]), ['owner', 'manager']);
@@ -57,4 +57,13 @@ test('closer sees unassigned and own dashboard/reportee orders only', () => {
 test('owner and manager see all orders without filtering', () => {
   assert.deepEqual(filterOrdersForRole(orders, ['owner'], 20), orders);
   assert.deepEqual(filterOrdersForRole(orders, ['manager'], 20), orders);
+});
+
+test('orders are displayed newest first with invalid dates at the end', () => {
+  const unordered = [
+    { id: 'older', created_at: '2025-01-01T10:00:00Z' },
+    { id: 'newer', created_at: '2025-02-01T10:00:00Z' },
+    { id: 'undated', created_at: 'invalid' },
+  ];
+  assert.deepEqual(sortOrdersNewestFirst(unordered).map((order) => order.id), ['newer', 'older', 'undated']);
 });

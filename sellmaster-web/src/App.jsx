@@ -7,7 +7,7 @@ import {
 import { api, authToken } from './api'
 import LandingPage from './LandingPage'
 import ProductImportView from './ProductImportView'
-import { canManageProducts, filterOrdersForRole, getAvailablePages, hasAnyRole, normalizeRoles } from './roleRules'
+import { canManageProducts, filterOrdersForRole, getAvailablePages, hasAnyRole, normalizeRoles, sortOrdersNewestFirst } from './roleRules'
 import './App.css'
 import './theme.css'
 import './notifications.css'
@@ -412,7 +412,7 @@ function App() {
   const isTeamMemberView = !hasAnyRole(userRoles, 'owner', 'manager', 'closer')
   const isTeamOwner = isOwner
   const canAssignOrders = hasAnyRole(userRoles, 'owner', 'manager', 'closer')
-  const roleFilteredOrders = filterOrdersForRole(orders, userRoles, user?.id)
+  const roleFilteredOrders = sortOrdersNewestFirst(filterOrdersForRole(orders, userRoles, user?.id))
   const canEditCommission = hasAnyRole(userRoles, 'owner', 'manager')
 
   useEffect(() => {
