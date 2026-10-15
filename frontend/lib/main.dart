@@ -10,6 +10,7 @@ import 'pages/products_page.dart';
 import 'pages/orders_page.dart';
 import 'pages/shopify_stores_page.dart';
 import 'pages/profile_page.dart';
+import 'pages/profitability_page.dart';
 import 'pages/role_workspace_page.dart';
 import 'auth/login_page.dart';
 import 'auth/register_page.dart';
@@ -27,7 +28,8 @@ import 'pages/notifications_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  const bool useLocalApi = bool.fromEnvironment('USE_LOCAL_API', defaultValue: false);
+  const bool useLocalApi =
+      bool.fromEnvironment('USE_LOCAL_API', defaultValue: false);
   ApiService.setEnvironment(useLocal: useLocalApi);
 
   await Firebase.initializeApp(
@@ -45,35 +47,40 @@ Future<void> main() async {
       initialLink = null;
     }
   }
-  runApp(MyApp(initialLink: initialLink, notificationService: notificationService));
+  runApp(MyApp(
+      initialLink: initialLink, notificationService: notificationService));
 }
 
 class MyApp extends StatefulWidget {
   final Uri? initialLink;
   final NotificationService notificationService;
 
-  const MyApp({Key? key, this.initialLink, required this.notificationService}) : super(key: key);
+  const MyApp({Key? key, this.initialLink, required this.notificationService})
+      : super(key: key);
 
   @override
   State<MyApp> createState() => _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> {
-  static final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  static final GlobalKey<NavigatorState> _navigatorKey =
+      GlobalKey<NavigatorState>();
   StreamSubscription<Uri>? _linkSubscription;
   String? _initialConnectedStore;
 
   @override
   void initState() {
     super.initState();
-    _initialConnectedStore = _storeFromDeepLink(widget.initialLink) ?? _storeFromWebCallback();
+    _initialConnectedStore =
+        _storeFromDeepLink(widget.initialLink) ?? _storeFromWebCallback();
     if (!kIsWeb) {
       _linkSubscription = AppLinks().uriLinkStream.listen(_handleDeepLink);
     }
   }
 
   String? _storeFromDeepLink(Uri? uri) {
-    if (uri?.scheme != 'sellmaster' || uri?.host != 'shopify-connected') return null;
+    if (uri?.scheme != 'sellmaster' || uri?.host != 'shopify-connected')
+      return null;
     return uri?.queryParameters['store'] ?? '';
   }
 
@@ -120,7 +127,8 @@ class _MyAppState extends State<MyApp> {
         title: 'Sellmaster',
         theme: ThemeData(
           useMaterial3: true,
-          textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme).copyWith(
+          textTheme:
+              GoogleFonts.interTextTheme(ThemeData.light().textTheme).copyWith(
             headlineLarge: GoogleFonts.poppins(
               fontSize: 36,
               fontWeight: FontWeight.w700,
@@ -174,7 +182,8 @@ class _MyAppState extends State<MyApp> {
           inputDecorationTheme: InputDecorationTheme(
             filled: true,
             fillColor: Colors.white,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: const BorderSide(color: Color(0xFFD9DEEB)),
@@ -215,8 +224,8 @@ class _MyAppState extends State<MyApp> {
         ),
         debugShowCheckedModeBanner: false,
         home: _initialConnectedStore != null
-          ? ShopifyConnectedPage(store: _initialConnectedStore!)
-          : const AuthWrapper(),
+            ? ShopifyConnectedPage(store: _initialConnectedStore!)
+            : const AuthWrapper(),
         routes: {
           '/auth/login': (context) => const LoginPage(),
           '/auth/register': (context) => const RegisterPage(),
@@ -269,10 +278,10 @@ class AuthWrapper extends StatelessWidget {
             await context.read<NotificationService>().syncFromServer();
             if (context.read<NotificationService>().items.isEmpty) {
               context.read<NotificationService>().show(
-                title: 'Bienvenue',
-                message: 'Vos notifications s\'afficheront ici.',
-                type: AppNotificationType.success,
-              );
+                    title: 'Bienvenue',
+                    message: 'Vos notifications s\'afficheront ici.',
+                    type: AppNotificationType.success,
+                  );
             }
           }
         });
@@ -282,6 +291,22 @@ class AuthWrapper extends StatelessWidget {
       },
     );
   }
+}
+
+class _MainDestination {
+  final String id;
+  final String label;
+  final IconData icon;
+  final IconData selectedIcon;
+  final Widget page;
+
+  const _MainDestination({
+    required this.id,
+    required this.label,
+    required this.icon,
+    required this.selectedIcon,
+    required this.page,
+  });
 }
 
 class MainNavigationPage extends StatefulWidget {
@@ -294,38 +319,156 @@ class MainNavigationPage extends StatefulWidget {
 class MainNavigationPageState extends State<MainNavigationPage> {
   int _currentIndex = 0;
 
-  List<Widget> _pagesForRole(String role) {
-    if (role == 'closer' || role == 'courier') {
+  List<_MainDestination> _destinationsForRole(String role) {
+    if (role == 'courier') {
       return [
-        RoleWorkspacePage(role: role),
-        const OrdersPage(),
-        const ProfilePage(),
+        _MainDestination(
+            id: 'workspace',
+            label: 'Espace',
+            icon: Icons.work_outline,
+            selectedIcon: Icons.work,
+            page: RoleWorkspacePage(role: role)),
+        const _MainDestination(
+            id: 'orders',
+            label: 'Commandes',
+            icon: Icons.receipt_long_outlined,
+            selectedIcon: Icons.receipt_long,
+            page: OrdersPage()),
+        const _MainDestination(
+            id: 'profile',
+            label: 'Profil',
+            icon: Icons.person_outline,
+            selectedIcon: Icons.person,
+            page: ProfilePage()),
       ];
     }
+
+    if (role == 'closer') {
+      return [
+        _MainDestination(
+            id: 'workspace',
+            label: 'Espace',
+            icon: Icons.work_outline,
+            selectedIcon: Icons.work,
+            page: RoleWorkspacePage(role: role)),
+        const _MainDestination(
+            id: 'orders',
+            label: 'Commandes',
+            icon: Icons.receipt_long_outlined,
+            selectedIcon: Icons.receipt_long,
+            page: OrdersPage()),
+        const _MainDestination(
+            id: 'products',
+            label: 'Produits',
+            icon: Icons.inventory_2_outlined,
+            selectedIcon: Icons.inventory_2,
+            page: ProductsPage()),
+        const _MainDestination(
+            id: 'profile',
+            label: 'Profil',
+            icon: Icons.person_outline,
+            selectedIcon: Icons.person,
+            page: ProfilePage()),
+      ];
+    }
+
     return [
-      const DashboardPage(),
-      const ProductsPage(),
-      const OrdersPage(),
-      const ShopifyStoresPage(),
-      const ProfilePage(),
+      const _MainDestination(
+          id: 'overview',
+          label: 'Accueil',
+          icon: Icons.home_outlined,
+          selectedIcon: Icons.home,
+          page: DashboardPage()),
+      const _MainDestination(
+          id: 'orders',
+          label: 'Commandes',
+          icon: Icons.receipt_long_outlined,
+          selectedIcon: Icons.receipt_long,
+          page: OrdersPage()),
+      const _MainDestination(
+          id: 'products',
+          label: 'Produits',
+          icon: Icons.inventory_2_outlined,
+          selectedIcon: Icons.inventory_2,
+          page: ProductsPage()),
+      const _MainDestination(
+          id: 'team',
+          label: 'Équipe',
+          icon: Icons.groups_outlined,
+          selectedIcon: Icons.groups,
+          page: AdminDashboardPage()),
+      _MainDestination(
+          id: 'more',
+          label: 'Plus',
+          icon: Icons.more_horiz,
+          selectedIcon: Icons.more_horiz,
+          page: MorePage(role: role)),
     ];
   }
 
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-    final pages = _pagesForRole(authProvider.primaryRole);
-    if (_currentIndex >= pages.length) {
-      _currentIndex = pages.length - 1;
-    }
-    
+    final destinations = _destinationsForRole(authProvider.primaryRole);
+    final selectedIndex = _currentIndex.clamp(0, destinations.length - 1);
+
     return Scaffold(
       appBar: _buildAppBar(authProvider, context),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        child: pages[_currentIndex],
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth >= 840) {
+            return Row(
+              children: [
+                NavigationRail(
+                  selectedIndex: selectedIndex,
+                  labelType: NavigationRailLabelType.all,
+                  backgroundColor: Colors.white,
+                  indicatorColor: const Color(0xFFEDF0FF),
+                  selectedIconTheme:
+                      const IconThemeData(color: Color(0xFF4869F2)),
+                  selectedLabelTextStyle: const TextStyle(
+                      color: Color(0xFF3959DF), fontWeight: FontWeight.w700),
+                  unselectedIconTheme:
+                      const IconThemeData(color: Color(0xFF70798A)),
+                  unselectedLabelTextStyle:
+                      const TextStyle(color: Color(0xFF70798A)),
+                  onDestinationSelected: (index) =>
+                      setState(() => _currentIndex = index),
+                  destinations: destinations
+                      .map((destination) => NavigationRailDestination(
+                            icon: Icon(destination.icon),
+                            selectedIcon: Icon(destination.selectedIcon),
+                            label: Text(destination.label),
+                          ))
+                      .toList(),
+                ),
+                const VerticalDivider(
+                    width: 1, thickness: 1, color: Color(0xFFE3E7F0)),
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    child: KeyedSubtree(
+                      key: ValueKey(destinations[selectedIndex].id),
+                      child: destinations[selectedIndex].page,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
+
+          return AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            child: KeyedSubtree(
+              key: ValueKey(destinations[selectedIndex].id),
+              child: destinations[selectedIndex].page,
+            ),
+          );
+        },
       ),
-      bottomNavigationBar: _buildBottomNavigationBar(authProvider.primaryRole),
+      bottomNavigationBar: MediaQuery.sizeOf(context).width < 840
+          ? _buildBottomNavigationBar(destinations, selectedIndex)
+          : null,
     );
   }
 
@@ -344,7 +487,8 @@ class MainNavigationPageState extends State<MainNavigationPage> {
     }
   }
 
-  PreferredSizeWidget _buildAppBar(AuthProvider authProvider, BuildContext context) {
+  PreferredSizeWidget _buildAppBar(
+      AuthProvider authProvider, BuildContext context) {
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 0,
@@ -358,7 +502,22 @@ class MainNavigationPageState extends State<MainNavigationPage> {
             fit: BoxFit.contain,
           ),
           const SizedBox(width: 10),
-          _buildTimeWidget(),
+          Flexible(
+            child: Text(
+              _destinationsForRole(authProvider.primaryRole)[
+                      _currentIndex.clamp(
+                          0,
+                          _destinationsForRole(authProvider.primaryRole)
+                                  .length -
+                              1)]
+                  .label,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  color: Color(0xFF171A27),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600),
+            ),
+          ),
         ],
       ),
       centerTitle: false,
@@ -388,7 +547,8 @@ class MainNavigationPageState extends State<MainNavigationPage> {
                 clipBehavior: Clip.none,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.notifications_outlined, color: Color(0xFF171A27)),
+                    icon: const Icon(Icons.notifications_outlined,
+                        color: Color(0xFF171A27)),
                     onPressed: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
@@ -410,7 +570,9 @@ class MainNavigationPageState extends State<MainNavigationPage> {
                           shape: BoxShape.circle,
                         ),
                         child: Text(
-                          notifications.unreadCount > 9 ? '9+' : notifications.unreadCount.toString(),
+                          notifications.unreadCount > 9
+                              ? '9+'
+                              : notifications.unreadCount.toString(),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 10,
@@ -424,7 +586,6 @@ class MainNavigationPageState extends State<MainNavigationPage> {
             );
           },
         ),
-        
         Container(
           margin: const EdgeInsets.only(right: 16, top: 8, bottom: 8),
           child: Stack(
@@ -432,24 +593,33 @@ class MainNavigationPageState extends State<MainNavigationPage> {
               GestureDetector(
                 onTap: () {
                   setState(() {
-                    _currentIndex = _pagesForRole(authProvider.primaryRole).length - 1;
+                    _currentIndex =
+                        _destinationsForRole(authProvider.primaryRole)
+                            .indexWhere((item) => item.id == 'profile');
+                    if (_currentIndex < 0)
+                      _currentIndex =
+                          _destinationsForRole(authProvider.primaryRole)
+                              .indexWhere((item) => item.id == 'more');
                   });
                 },
                 child: CircleAvatar(
                   radius: 18,
                   backgroundColor: const Color(0xFFEDF0FF),
-                  child: authProvider.isAuthenticated && authProvider.user?['email'] != null
+                  child: authProvider.isAuthenticated &&
+                          authProvider.user?['email'] != null
                       ? Text(
-                          authProvider.user!['email']!.substring(0, 1).toUpperCase(),
+                          authProvider.user!['email']!
+                              .substring(0, 1)
+                              .toUpperCase(),
                           style: const TextStyle(
                             color: Color(0xFF4869F2),
                             fontWeight: FontWeight.bold,
                           ),
                         )
-                      : const Icon(Icons.person_outline, size: 18, color: Color(0xFF70798A)),
+                      : const Icon(Icons.person_outline,
+                          size: 18, color: Color(0xFF70798A)),
                 ),
               ),
-              
               Positioned(
                 right: 0,
                 bottom: 0,
@@ -457,7 +627,9 @@ class MainNavigationPageState extends State<MainNavigationPage> {
                   width: 12,
                   height: 12,
                   decoration: BoxDecoration(
-                    color: authProvider.isAuthenticated ? const Color(0xFF4CAF50) : const Color(0xFF70798A),
+                    color: authProvider.isAuthenticated
+                        ? const Color(0xFF4CAF50)
+                        : const Color(0xFF70798A),
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 2),
                   ),
@@ -470,108 +642,116 @@ class MainNavigationPageState extends State<MainNavigationPage> {
     );
   }
 
-  Widget _buildTimeWidget() {
-    return StreamBuilder(
-      stream: Stream.periodic(const Duration(seconds: 60)),
-      builder: (context, snapshot) {
-        final now = DateTime.now();
-        final timeString = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-        return Text(
-          timeString,
-          style: const TextStyle(
-            color: Color(0xFF171A27),
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        );
-      },
+  Widget _buildBottomNavigationBar(
+      List<_MainDestination> destinations, int selectedIndex) {
+    return NavigationBar(
+      height: 68,
+      backgroundColor: Colors.white,
+      indicatorColor: const Color(0xFFEDF0FF),
+      selectedIndex: selectedIndex,
+      labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+      onDestinationSelected: (index) => setState(() => _currentIndex = index),
+      destinations: destinations
+          .map((destination) => NavigationDestination(
+                icon: Icon(destination.icon),
+                selectedIcon: Icon(destination.selectedIcon),
+                label: destination.label,
+              ))
+          .toList(),
     );
   }
+}
 
-  Widget _buildBottomNavigationBar(String role) {
-    final isFieldRole = role == 'closer' || role == 'courier';
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
+class MorePage extends StatelessWidget {
+  final String role;
+
+  const MorePage({super.key, required this.role});
+
+  void _open(BuildContext context, Widget page) {
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isOwner = role == 'owner';
+    final canManageShopify = role == 'owner' || role == 'manager';
+    return Scaffold(
+      backgroundColor: const Color(0xFFF6F7FB),
+      appBar: AppBar(
+          title: const Text('Plus'),
+          backgroundColor: Colors.white,
+          elevation: 0),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+        children: [
+          if (canManageShopify)
+            _MoreDestinationTile(
+              icon: Icons.storefront_outlined,
+              title: 'Boutiques Shopify',
+              subtitle: 'Synchronisation et connexions',
+              onTap: () => _open(context, const ShopifyStoresPage()),
+            ),
+          if (isOwner)
+            _MoreDestinationTile(
+              icon: Icons.analytics_outlined,
+              title: 'Rentabilité',
+              subtitle: 'Analyse des revenus et des coûts',
+              onTap: () => _open(context, const ProfitabilityPage()),
+            ),
+          _MoreDestinationTile(
+            icon: Icons.person_outline,
+            title: 'Profil',
+            subtitle: 'Compte, licence et préférences',
+            onTap: () => _open(context, const ProfilePage()),
+          ),
+          _MoreDestinationTile(
+            icon: Icons.help_outline,
+            title: 'Support',
+            subtitle: 'Centre d’aide Sellmaster',
+            onTap: () => _open(context, const SupportPage()),
           ),
         ],
-        border: Border(
-          top: BorderSide(
-            color: const Color(0xFFE3E7F0),
-            width: 1,
-          ),
-        ),
       ),
-      child: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        selectedItemColor: const Color(0xFF4869F2),
-        unselectedItemColor: const Color(0xFF70798A),
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        selectedLabelStyle: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
+    );
+  }
+}
+
+class _MoreDestinationTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _MoreDestinationTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      color: Colors.white,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: const BorderSide(color: Color(0xFFE3E7F0)),
+      ),
+      child: ListTile(
+        minLeadingWidth: 44,
+        leading: CircleAvatar(
+          backgroundColor: const Color(0xFFEDF0FF),
+          foregroundColor: const Color(0xFF4869F2),
+          child: Icon(icon),
         ),
-        unselectedLabelStyle: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-        ),
-        iconSize: 24,
-        items: isFieldRole
-            ? const [
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.work_outline),
-                  activeIcon: Icon(Icons.work),
-                  label: 'Espace',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.receipt_long_outlined),
-                  activeIcon: Icon(Icons.receipt_long),
-                  label: 'Commandes',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.person_outline),
-                  activeIcon: Icon(Icons.person),
-                  label: 'Profil',
-                ),
-              ]
-            : const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Accueil',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.inventory_2_outlined),
-            activeIcon: Icon(Icons.inventory_2),
-            label: 'Produits',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long_outlined),
-            activeIcon: Icon(Icons.receipt_long),
-            label: 'Commandes',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.storefront_outlined),
-            activeIcon: Icon(Icons.storefront),
-            label: 'Shopify',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Profil',
-          ),
-        ],
+        title: Text(title,
+            style: const TextStyle(
+                fontWeight: FontWeight.w700, color: Color(0xFF171A27))),
+        subtitle: Text(subtitle),
+        trailing: const Icon(Icons.chevron_right, color: Color(0xFF70798A)),
+        onTap: onTap,
       ),
     );
   }

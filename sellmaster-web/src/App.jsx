@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   Activity, ArrowDownRight, ArrowUpRight, Bell, Boxes, ChevronDown, CircleHelp,
-  ClipboardList, Command, ExternalLink, LayoutDashboard, Link2, LogOut, Package, Pencil,
+  ClipboardList, Command, ExternalLink, LayoutDashboard, Link2, LogOut, MoreHorizontal, Package, Pencil,
   RefreshCw, Search, Settings2, ShieldCheck, ShoppingBag, Store, Trash2, Truck, Users,
 } from 'lucide-react'
 import { api, authToken } from './api'
@@ -72,17 +72,38 @@ function LoginScreen({ onLogin }) {
   )
 }
 
-function Sidebar({ active, onNavigate, user, onLogout, navItems }) {
+function Sidebar({ active, onNavigate, user, onLogout, navItems, mobileNavItems }) {
   return (
     <aside className="sidebar">
       <a className="brand sidebar-brand" href="#app"><span className="brand-symbol">S</span><span>SELLMASTER</span></a>
       <div className="workspace-select"><span className="store-icon"><Store size={17} /></span><span className="workspace-text"><strong>Ma boutique</strong><small>Espace principal</small></span><ChevronDown size={15} /></div>
       <span className="nav-caption">ESPACE DE TRAVAIL</span>
-      <nav className="side-nav" aria-label="Navigation principale">{navItems.map(({ id, label, icon: Icon }) => <button className={`nav-link ${active === id ? 'selected' : ''}`} key={id} onClick={() => onNavigate(id)}><Icon size={18} strokeWidth={1.8} /><span>{label}</span>{id === 'orders' && <span className="nav-count">•</span>}</button>)}</nav>
+      <nav className="side-nav desktop-side-nav" aria-label="Navigation principale">{navItems.map(({ id, label, icon: Icon }) => <button className={`nav-link ${active === id ? 'selected' : ''}`} key={id} onClick={() => onNavigate(id)}><Icon size={18} strokeWidth={1.8} /><span>{label}</span>{id === 'orders' && <span className="nav-count">•</span>}</button>)}</nav>
+      <nav className="side-nav mobile-side-nav" aria-label="Navigation principale mobile" style={{ '--mobile-destination-count': mobileNavItems.length }}>{mobileNavItems.map(({ id, label, icon: Icon }) => <button className={`nav-link ${active === id ? 'selected' : ''}`} key={id} onClick={() => onNavigate(id)} aria-current={active === id ? 'page' : undefined}><Icon size={20} strokeWidth={1.8} /><span>{label}</span></button>)}</nav>
       <span className="nav-caption tools-caption">OUTILS</span>
       <div className="side-tools"><button className="nav-link disabled-link" title="Bientôt disponible"><Truck size={18} /><span>Équipe livraison</span></button></div>
       <div className="sidebar-bottom"><div className="help-block"><span className="help-icon"><CircleHelp size={17} /></span><div><strong>Besoin d’aide ?</strong><small>Notre équipe est là.</small></div><a href="mailto:support@sellmaster.app" aria-label="Contacter le support">↗</a></div><div className="profile-row"><span className="avatar">{displayName(user).slice(0, 1).toUpperCase()}</span><span className="profile-meta"><strong>{displayName(user)}</strong><small>{user?.email || ''}</small></span><button className="icon-button logout-button" onClick={onLogout} aria-label="Se déconnecter" title="Se déconnecter"><LogOut size={17} /></button></div></div>
     </aside>
+  )
+}
+
+function MoreView({ user, canAccessShopify, onNavigate, onLogout }) {
+  const roles = normalizeRoles(user?.roles || user?.role || [])
+  const roleLabels = { owner: 'Propriétaire', manager: 'Manager', closer: 'Closer', courier: 'Livreur' }
+  const roleLabel = roles.map((role) => roleLabels[role] || role).join(' · ') || 'Compte Sellmaster'
+
+  return (
+    <div className="more-view">
+      <section className="content-panel more-account">
+        <span className="avatar large-avatar">{displayName(user).slice(0, 1).toUpperCase()}</span>
+        <span><strong>{displayName(user)}</strong><small>{user?.email || ''}</small><small>{roleLabel}</small></span>
+      </section>
+      <nav className="more-links" aria-label="Autres destinations">
+        {canAccessShopify && <button type="button" className="more-link" onClick={() => onNavigate('shopify')}><span className="more-link-icon"><ShoppingBag size={18} /></span><span><strong>Boutiques Shopify</strong><small>Connexions et synchronisations</small></span><ChevronDown className="more-link-arrow" size={16} /></button>}
+        <a className="more-link" href="mailto:support@sellmaster.app"><span className="more-link-icon"><CircleHelp size={18} /></span><span><strong>Support</strong><small>Contacter l’équipe Sellmaster</small></span><ExternalLink className="more-link-arrow" size={15} /></a>
+        <button type="button" className="more-link more-logout" onClick={onLogout}><span className="more-link-icon"><LogOut size={18} /></span><span><strong>Se déconnecter</strong><small>Fermer cette session</small></span></button>
+      </nav>
+    </div>
   )
 }
 
@@ -98,12 +119,36 @@ function StatusBadge({ status }) {
 
 function OrdersTable({ orders, compact = false, onStatusChange, updatingOrderId, isCourier, canAssign, couriersByOwner = {}, onAssign, assigningOrderId }) {
   if (!orders.length) return <div className="empty-state"><ClipboardList size={24} /><strong>Aucune commande pour le moment</strong><span>Les commandes reçues apparaîtront ici.</span></div>
-  return <div className="table-scroll"><table className="data-table"><thead><tr><th>Commande</th><th>Client</th><th>Source</th><th>Montant</th><th>Statut</th>{canAssign && <th>Livreur</th>}<th>Date</th></tr></thead><tbody>{orders.slice(0, compact ? 5 : undefined).map((order, index) => { const couriers = couriersByOwner[String(order.user_id)] || []; return <tr key={order.id ?? `${order.custom_order_number}-${index}`}><td className="order-ref">{order.custom_order_number || `CMD-${order.id}`}</td><td><span className="customer-name">{order.client_name || 'Client'}</span><small className="secondary-line">{order.client_phone || 'Téléphone non renseigné'}</small></td><td><span className="source-label">{order.source === 'shopify' ? <><ShoppingBag size={13} /> Shopify</> : <><Command size={13} /> Sellmaster</>}</span></td><td className="amount-cell">{formatMoney(order.total_amount)}</td><td>{onStatusChange ? <select className="status-select" aria-label={`Statut de ${order.custom_order_number || order.id}`} value={order.status || 'dashboard'} disabled={updatingOrderId === order.id} onChange={(event) => onStatusChange(order, event.target.value, isCourier)}><option value="dashboard">En cours</option><option value="livree">Livrée</option><option value="annulee">Annulée</option><option value="reportee">Reportée</option></select> : <StatusBadge status={order.status} />}</td>{canAssign && <td><select className="courier-select" aria-label={`Livreur de ${order.custom_order_number || order.id}`} value={order.assigned_to == null ? '' : String(order.assigned_to)} disabled={assigningOrderId === order.id || couriers.length === 0} onChange={(event) => { if (event.target.value) onAssign(order, event.target.value) }}><option value="">{couriers.length ? 'Non assignée' : 'Aucun livreur éligible'}</option>{order.assigned_to != null && !couriers.some((courier) => String(courier.member_user_id) === String(order.assigned_to)) && <option value={String(order.assigned_to)}>Livreur actuel</option>}{couriers.map((courier) => <option value={String(courier.member_user_id)} key={courier.member_user_id}>{courier.full_name || courier.email || `Livreur #${courier.member_user_id}`}</option>)}</select></td>}<td className="date-cell">{formatDate(order.created_at)}</td></tr> })}</tbody></table></div>
+  const visibleOrders = orders.slice(0, compact ? 5 : undefined)
+  return <>
+    <div className="table-scroll orders-table-scroll"><table className="data-table"><thead><tr><th>Commande</th><th>Client</th><th>Source</th><th>Montant</th><th>Statut</th>{canAssign && <th>Livreur</th>}<th>Date</th></tr></thead><tbody>{visibleOrders.map((order, index) => { const couriers = couriersByOwner[String(order.user_id)] || []; return <tr key={order.id ?? `${order.custom_order_number}-${index}`}><td className="order-ref">{order.custom_order_number || `CMD-${order.id}`}</td><td><span className="customer-name">{order.client_name || 'Client'}</span><small className="secondary-line">{order.client_phone || 'Téléphone non renseigné'}</small></td><td><span className="source-label">{order.source === 'shopify' ? <><ShoppingBag size={13} /> Shopify</> : <><Command size={13} /> Sellmaster</>}</span></td><td className="amount-cell">{formatMoney(order.total_amount)}</td><td>{onStatusChange ? <select className="status-select" aria-label={`Statut de ${order.custom_order_number || order.id}`} value={order.status || 'dashboard'} disabled={updatingOrderId === order.id} onChange={(event) => onStatusChange(order, event.target.value, isCourier)}><option value="dashboard">En cours</option><option value="livree">Livrée</option><option value="annulee">Annulée</option><option value="reportee">Reportée</option></select> : <StatusBadge status={order.status} />}</td>{canAssign && <td><select className="courier-select" aria-label={`Livreur de ${order.custom_order_number || order.id}`} value={order.assigned_to == null ? '' : String(order.assigned_to)} disabled={assigningOrderId === order.id || couriers.length === 0} onChange={(event) => { if (event.target.value) onAssign(order, event.target.value) }}><option value="">{couriers.length ? 'Non assignée' : 'Aucun livreur éligible'}</option>{order.assigned_to != null && !couriers.some((courier) => String(courier.member_user_id) === String(order.assigned_to)) && <option value={String(order.assigned_to)}>Livreur actuel</option>}{couriers.map((courier) => <option value={String(courier.member_user_id)} key={courier.member_user_id}>{courier.full_name || courier.email || `Livreur #${courier.member_user_id}`}</option>)}</select></td>}<td className="date-cell">{formatDate(order.created_at)}</td></tr> })}</tbody></table></div>
+    <div className="orders-mobile-list" aria-label="Liste des commandes">
+      {visibleOrders.map((order, index) => {
+        const couriers = couriersByOwner[String(order.user_id)] || []
+        const number = order.custom_order_number || `CMD-${order.id}`
+        return <article className="orders-mobile-card" key={order.id ?? `${number}-${index}`}>
+          <div className="orders-mobile-card-head"><div><strong className="order-ref">{number}</strong><span className="source-label">{order.source === 'shopify' ? <><ShoppingBag size={13} /> Shopify</> : <><Command size={13} /> Sellmaster</>}</span></div><strong className="orders-mobile-amount">{formatMoney(order.total_amount)}</strong></div>
+          <div className="orders-mobile-client"><strong>{order.client_name || 'Client'}</strong><small>{order.client_phone || 'Téléphone non renseigné'}</small></div>
+          <div className="orders-mobile-card-controls">{onStatusChange ? <select className="status-select" aria-label={`Statut de ${number}`} value={order.status || 'dashboard'} disabled={updatingOrderId === order.id} onChange={(event) => onStatusChange(order, event.target.value, isCourier)}><option value="dashboard">En cours</option><option value="livree">Livrée</option><option value="annulee">Annulée</option><option value="reportee">Reportée</option></select> : <StatusBadge status={order.status} />}{canAssign && <select className="courier-select" aria-label={`Livreur de ${number}`} value={order.assigned_to == null ? '' : String(order.assigned_to)} disabled={assigningOrderId === order.id || couriers.length === 0} onChange={(event) => { if (event.target.value) onAssign(order, event.target.value) }}><option value="">{couriers.length ? 'Non assignée' : 'Aucun livreur'}</option>{couriers.map((courier) => <option value={String(courier.member_user_id)} key={courier.member_user_id}>{courier.full_name || courier.email || `Livreur #${courier.member_user_id}`}</option>)}</select>}</div>
+          <div className="orders-mobile-card-foot"><span>{formatDate(order.created_at)}</span></div>
+        </article>
+      })}
+    </div>
+  </>
 }
 
 function ProductsTable({ products, onEdit }) {
   if (!products.length) return <div className="empty-state"><Package size={24} /><strong>Votre catalogue est vide</strong><span>Les produits de votre boutique apparaîtront ici.</span></div>
-  return <div className="table-scroll"><table className="data-table"><thead><tr><th>Produit</th><th>Prix</th><th>Coût</th><th>Stock</th><th>Créé le</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{products.map((product, index) => <tr key={product.id ?? index}><td><span className="product-name"><span className="product-thumb">{product.image_url ? <img src={product.image_url} alt="" /> : <Boxes size={17} />}</span><span>{product.name || 'Produit sans nom'}<small className="secondary-line">{product.description || 'Aucune description'}</small></span></span></td><td className="amount-cell">{formatMoney(product.price)}</td><td>{product.cost_price == null ? '—' : formatMoney(product.cost_price)}</td><td>{product.stock ?? '—'}</td><td className="date-cell">{formatDate(product.created_at)}</td><td><button className="icon-button edit-product-button" onClick={() => onEdit(product)} aria-label={`Modifier ${product.name}`} title="Modifier le produit"><Pencil size={15} /></button></td></tr>)}</tbody></table></div>
+  return <>
+    <div className="table-scroll products-table-scroll"><table className="data-table"><thead><tr><th>Produit</th><th>Prix</th><th>Coût</th><th>Stock</th><th>Créé le</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{products.map((product, index) => <tr key={product.id ?? index}><td><span className="product-name"><span className="product-thumb">{product.image_url ? <img src={product.image_url} alt="" /> : <Boxes size={17} />}</span><span>{product.name || 'Produit sans nom'}<small className="secondary-line">{product.description || 'Aucune description'}</small></span></span></td><td className="amount-cell">{formatMoney(product.price)}</td><td>{product.cost_price == null ? '—' : formatMoney(product.cost_price)}</td><td>{product.stock ?? '—'}</td><td className="date-cell">{formatDate(product.created_at)}</td><td><button className="icon-button edit-product-button" onClick={() => onEdit(product)} aria-label={`Modifier ${product.name}`} title="Modifier le produit"><Pencil size={15} /></button></td></tr>)}</tbody></table></div>
+    <div className="products-mobile-list" aria-label="Liste des produits">
+      {products.map((product, index) => <article className="product-mobile-row" key={product.id ?? index}>
+        <span className="product-mobile-thumb">{product.image_url ? <img src={product.image_url} alt="" loading="lazy" /> : <Boxes size={20} />}</span>
+        <span className="product-mobile-row-name"><strong>{product.name || 'Produit sans nom'}</strong><small>{product.description || 'Aucune description'}</small><span className="product-mobile-row-meta"><b className="product-mobile-price">{formatMoney(product.price)}</b><span>Stock : {product.stock ?? '—'}</span></span></span>
+        <button className="icon-button edit-product-button" onClick={() => onEdit(product)} aria-label={`Modifier ${product.name}`} title="Modifier le produit"><Pencil size={15} /></button>
+      </article>)}
+    </div>
+  </>
 }
 
 function CreateProductDialog({ product, onClose, onSave }) {
@@ -409,6 +454,11 @@ function App() {
     if (item.id === 'shopify') return canAccessShopify
     return true
   })
+  const mobileLabels = { overview: 'Accueil', orders: 'Commandes', products: 'Produits', team: 'Équipe' }
+  const mobileNavItems = [
+    ...navItems.filter((item) => mobileLabels[item.id]).map((item) => ({ ...item, label: mobileLabels[item.id] })),
+    { id: 'more', label: 'Plus', icon: MoreHorizontal },
+  ]
   const isTeamMemberView = !hasAnyRole(userRoles, 'owner', 'manager', 'closer')
   const isTeamOwner = isOwner
   const canAssignOrders = hasAnyRole(userRoles, 'owner', 'manager', 'closer')
@@ -418,7 +468,7 @@ function App() {
   useEffect(() => {
     if (!user) return
     const allowedPages = getAvailablePages(userRoles)
-    if (!allowedPages.includes(activePage) && !(activePage === 'productImport' && canAccessProducts)) {
+    if (!allowedPages.includes(activePage) && !(activePage === 'productImport' && canAccessProducts) && activePage !== 'more') {
       setActivePage(allowedPages[0] || 'overview')
     }
   }, [user, userRoles, activePage, canAccessProducts])
@@ -781,9 +831,21 @@ function App() {
     clearProductImportParam()
     setActivePage('products')
   }
+  function navigateToPage(page) {
+    setActivePage(page)
+    setSearch('')
+    if (page === 'shopify') {
+      setStoresLoading(true)
+      setShopifyError('')
+    }
+    if (page === 'team') {
+      setTeamLoading(true)
+      setTeamError('')
+    }
+  }
   const filteredOrders = roleFilteredOrders.filter((order) => [order.custom_order_number, order.client_name, order.client_phone, order.status].join(' ').toLowerCase().includes(search.toLowerCase()))
   const filteredProducts = products.filter((product) => [product.name, product.description].join(' ').toLowerCase().includes(search.toLowerCase()))
-  const pageTitle = activePage === 'orders' ? 'Commandes' : activePage === 'products' ? 'Produits' : activePage === 'productImport' ? 'Importer un produit' : activePage === 'shopify' ? 'Boutiques Shopify' : activePage === 'team' ? 'Équipe' : 'Vue d’ensemble'
+  const pageTitle = activePage === 'orders' ? 'Commandes' : activePage === 'products' ? 'Produits' : activePage === 'productImport' ? 'Importer un produit' : activePage === 'shopify' ? 'Boutiques Shopify' : activePage === 'team' ? 'Équipe' : activePage === 'more' ? 'Plus' : 'Vue d’ensemble'
 
   if (!authenticated) {
     if (!showLogin) return <LandingPage onLogin={() => { setShowLogin(true); const url = new URL(window.location.href); url.searchParams.set('login', '1'); window.history.pushState({}, '', `${url.pathname}${url.search}${url.hash}`) }} />
@@ -798,17 +860,17 @@ function App() {
   }
 
   return <div className="dashboard-layout">
-    <Sidebar active={activePage === 'productImport' ? 'products' : activePage} onNavigate={(page) => { setActivePage(page); setSearch(''); if (page === 'shopify') { setStoresLoading(true); setShopifyError('') } if (page === 'team') { setTeamLoading(true); setTeamError('') } }} user={user} onLogout={logout} navItems={navItems} />
+    <Sidebar active={activePage === 'productImport' ? 'products' : activePage} onNavigate={navigateToPage} user={user} onLogout={logout} navItems={navItems} mobileNavItems={mobileNavItems} />
     <main className="workspace-main">
       <header className="workspace-header"><div className="breadcrumb"><span>Sellmaster</span><span className="crumb-separator">/</span><strong>{pageTitle}</strong></div><div className="header-controls"><div className="connection-indicator"><span /> </div><button className="icon-button notification-button" aria-label={`Notifications${unreadCount ? `, ${unreadCount} non lues` : ''}`} aria-expanded={notificationOpen} onClick={toggleNotifications}><Bell size={18} />{unreadCount > 0 && <span className="notification-count">{unreadCount > 9 ? '9+' : unreadCount}</span>}</button><span className="header-avatar">{displayName(user).slice(0, 1).toUpperCase()}</span></div>
         {notificationOpen && <section className="notification-popover" aria-label="Centre de notifications"><div className="notification-heading"><div><span className="panel-overline">CENTRE DE NOTIFICATIONS</span><h2>Notifications</h2></div><button className="text-button" onClick={markAllNotificationsRead} disabled={unreadCount === 0 || notificationLoading}>Tout lire</button></div>{notificationError && <p className="notification-error" role="alert">{notificationError}</p>}{notificationLoading ? <div className="notification-loading"><span className="loader" />Chargement…</div> : notifications.length === 0 ? <div className="notification-empty">Vous êtes à jour. Aucune notification.</div> : <div className="notification-list">{notifications.map((notification) => <article className={`notification-item ${notification.is_read ? 'read' : 'unread'}`} key={notification.id}><span className={`notification-type type-${notification.type || 'info'}`}><Bell size={15} /></span><div><strong>{notification.title}</strong><p>{notification.message}</p><time>{formatDate(notification.created_at)}</time></div>{!notification.is_read && <span className="unread-indicator" aria-label="Non lue" />}</article>)}</div>}</section>}
       </header>
       <div className="page-content">
-        <div className="page-heading-row"><div><span className="date-eyebrow">ESPACE DE TRAVAIL</span><h1>{activePage === 'overview' ? `Bonjour, ${displayName(user).split(' ')[0]}` : pageTitle}</h1><p>{activePage === 'overview' ? 'Voici le résumé de votre activité aujourd’hui.' : activePage === 'orders' ? 'Consultez et recherchez toutes les commandes de votre espace.' : activePage === 'products' ? 'Consultez les produits liés à votre catalogue.' : activePage === 'productImport' ? 'Analysez, ajustez et envoyez un produit vers une boutique Shopify.' : activePage === 'shopify' ? 'Gérez les connexions et synchronisations de vos boutiques Shopify.' : isTeamMemberView ? 'Consultez vos affiliations et invitations d’équipe.' : 'Consultez les membres actifs de votre équipe.'}</p></div>{activePage !== 'productImport' && <div className="heading-actions"><button className="button button-quiet" onClick={() => loadDashboard(true)} disabled={refreshing}><RefreshCw size={16} className={refreshing ? 'spin' : ''} /> Actualiser</button>{activePage === 'overview' && <button className="button button-primary" onClick={() => setActivePage('orders')}><ClipboardList size={16} /> Voir les commandes</button>}</div>}</div>
+        {activePage !== 'more' && <div className="page-heading-row"><div><span className="date-eyebrow">ESPACE DE TRAVAIL</span><h1>{activePage === 'overview' ? `Bonjour, ${displayName(user).split(' ')[0]}` : pageTitle}</h1><p>{activePage === 'overview' ? 'Voici le résumé de votre activité aujourd’hui.' : activePage === 'orders' ? 'Consultez et recherchez toutes les commandes de votre espace.' : activePage === 'products' ? 'Consultez les produits liés à votre catalogue.' : activePage === 'productImport' ? 'Analysez, ajustez et envoyez un produit vers une boutique Shopify.' : activePage === 'shopify' ? 'Gérez les connexions et synchronisations de vos boutiques Shopify.' : isTeamMemberView ? 'Consultez vos affiliations et invitations d’équipe.' : 'Consultez les membres actifs de votre équipe.'}</p></div>{activePage !== 'productImport' && <div className="heading-actions"><button className="button button-quiet" onClick={() => loadDashboard(true)} disabled={refreshing}><RefreshCw size={16} className={refreshing ? 'spin' : ''} /> Actualiser</button>{activePage === 'overview' && <button className="button button-primary" onClick={() => setActivePage('orders')}><ClipboardList size={16} /> Voir les commandes</button>}</div>}</div>}
         {errors.length > 0 && <div className="api-alert" role="status"><Activity size={16} /><span>{errors[0]} Les données correspondantes peuvent être incomplètes.</span><button onClick={() => loadDashboard(true)}>Réessayer</button></div>}
         {courierLoadError && canAssignOrders && ['overview', 'orders'].includes(activePage) && <div className="api-alert" role="status"><Truck size={16} /><span>Impossible de charger les livreurs éligibles : {courierLoadError}</span></div>}
         {mutationMessage && activePage !== 'team' && <div className="mutation-notice" role="status">{mutationMessage}<button className="notice-dismiss" onClick={() => setMutationMessage('')} aria-label="Fermer">×</button></div>}
-        {loading ? <div className="loading-area"><span className="loader" />Chargement des données Sellmaster…</div> : <>
+        {loading && activePage !== 'more' ? <div className="loading-area"><span className="loader" />Chargement des données Sellmaster…</div> : <>
           {activePage === 'overview' && <><section className="metric-grid" aria-label="Statistiques du jour"><MetricCard icon={ClipboardList} label="Commandes aujourd’hui" value={stats ? numberFormat.format(Number(stats.total_orders || 0)) : '—'} note="Total enregistré aujourd’hui" tone="mint" /><MetricCard icon={ArrowUpRight} label="Chiffre d’affaires livré" value={stats ? formatMoney(stats.revenue) : '—'} note="Commandes livrées aujourd’hui" tone="blue" /><MetricCard icon={Truck} label="Livrées" value={stats ? numberFormat.format(Number(stats.delivered || 0)) : '—'} note="Statut confirmé" tone="lime" /><MetricCard icon={ArrowDownRight} label="Annulées / reportées" value={stats ? numberFormat.format(Number(stats.cancelled || 0) + Number(stats.postponed || 0)) : '—'} note={`${numberFormat.format(Number(stats?.cancelled || 0))} annulée(s) · ${numberFormat.format(Number(stats?.postponed || 0))} reportée(s)`} tone="coral" /></section>
             <section className="content-panel orders-panel"><div className="panel-heading"><div><span className="panel-overline">ACTIVITÉ RÉCENTE</span><h2>Dernières commandes</h2></div><button className="text-button" onClick={() => setActivePage('orders')}>Toutes les commandes <span>→</span></button></div><OrdersTable orders={roleFilteredOrders} compact onStatusChange={updateOrderStatus} updatingOrderId={updatingOrderId} isCourier={isCourier} canAssign={canAssignOrders} couriersByOwner={couriersByOwner} onAssign={assignOrder} assigningOrderId={assigningOrderId} /></section>
             <section className="bottom-grid">{canAccessProducts && <article className="content-panel inventory-panel"><div className="panel-heading"><div><span className="panel-overline">CATALOGUE</span><h2>Produits</h2></div><button className="icon-button" onClick={() => setActivePage('products')} aria-label="Afficher les produits"><Package size={17} /></button></div><div className="inventory-summary"><span className="inventory-icon"><Boxes size={20} /></span><div><strong>{numberFormat.format(products.length)}</strong><span>produit(s) dans votre catalogue</span></div><button className="inventory-link" onClick={() => setActivePage('products')}>Ouvrir <span>→</span></button></div></article> }<article className="content-panel account-panel"><div className="panel-heading"><div><span className="panel-overline">VOTRE ESPACE</span><h2>Compte</h2></div><Settings2 size={18} /></div><div className="account-row"><span className="avatar large-avatar">{displayName(user).slice(0, 1).toUpperCase()}</span><div><strong>{displayName(user)}</strong><span>{user?.email}</span></div></div><div className="account-license"><ShieldCheck size={16} /><span>Licence</span><strong>{user?.license_key ? 'Active' : user?.trial_used ? 'Essai utilisé' : 'Essai disponible'}</strong></div></article></section></>}
@@ -817,6 +879,7 @@ function App() {
           {activePage === 'productImport' && canAccessProducts && <ProductImportView key={productImportUrl || 'manual-import'} initialUrl={productImportUrl} onBack={closeProductImport} onImported={(product) => setProducts((current) => [product, ...current.filter((item) => String(item.id) !== String(product.id))])} />}
           {activePage === 'shopify' && canAccessShopify && <ShopifyStoresView stores={stores} loading={storesLoading} error={shopifyError} notice={shopifyNotice} busyStoreId={busyStoreId} onRefresh={() => { setStoresLoading(true); setShopifyError(''); void loadStores() }} onConnect={() => setConnectDialogOpen(true)} onSyncOrders={(store) => syncShopifyStore(store, 'orders')} onSyncProducts={(store) => syncShopifyStore(store, 'products')} onDelete={deleteShopifyStore} />}
           {activePage === 'team' && <>{mutationMessage && <div className="mutation-notice" role="status">{mutationMessage}<button className="notice-dismiss" onClick={() => setMutationMessage('')} aria-label="Fermer">×</button></div>}<TeamView members={teamMembers} loading={teamLoading} error={teamError} isMemberView={isTeamMemberView} canInvite={isTeamOwner} canEditCommission={canEditCommission} acceptingId={acceptingInvitationId} onAccept={acceptTeamInvitation} onInvite={() => setInviteDialogOpen(true)} onRefresh={loadTeam} onUpdateMyTeam={updateMyTeam} onUpdateCommission={updateCloserCommission} /></>}
+          {activePage === 'more' && <MoreView user={user} canAccessShopify={canAccessShopify} onNavigate={navigateToPage} onLogout={logout} />}
         </>}
         <footer className="workspace-footer"><span>SELLMASTER WEB</span><span>Gestion e-commerce, sans détour.</span></footer>
       </div>

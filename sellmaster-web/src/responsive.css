@@ -30,6 +30,256 @@
   white-space: nowrap;
 }
 
+.mobile-side-nav,
+.orders-mobile-list,
+.products-mobile-list {
+  display: none;
+}
+
+.more-view {
+  display: grid;
+  gap: 12px;
+  max-width: 760px;
+}
+
+.more-account {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+}
+
+.more-account > span:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.more-account strong {
+  color: #252b3b;
+  font-size: .84rem;
+}
+
+.more-account small {
+  overflow: hidden;
+  color: #70798a;
+  font-size: .69rem;
+  text-overflow: ellipsis;
+}
+
+.more-links {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid #e4e8f1;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.more-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 66px;
+  padding: 10px 14px;
+  border: 0;
+  border-bottom: 1px solid #eef0f5;
+  background: #fff;
+  color: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.more-link:last-child {
+  border-bottom: 0;
+}
+
+.more-link-icon {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.more-link > span:nth-child(2) {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 3px;
+}
+
+.more-link strong {
+  color: #293148;
+  font-size: .76rem;
+}
+
+.more-link small {
+  color: #798298;
+  font-size: .66rem;
+}
+
+.more-link-arrow {
+  flex: 0 0 auto;
+  color: #929aae;
+  transform: rotate(-90deg);
+}
+
+.more-link:hover {
+  background: #f8f9ff;
+}
+
+.more-logout .more-link-icon {
+  background: #fff0ed;
+  color: #b45a4d;
+}
+
+.orders-mobile-list,
+.products-mobile-list {
+  gap: 9px;
+  padding: 9px 12px 12px;
+}
+
+.orders-mobile-card,
+.product-mobile-row {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #e7eaf2;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.orders-mobile-card-head,
+.orders-mobile-card-foot,
+.product-mobile-row-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.orders-mobile-card-head {
+  margin-bottom: 10px;
+}
+
+.orders-mobile-card-head > div:first-child,
+.product-mobile-row-name {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.orders-mobile-card-head .order-ref {
+  overflow-wrap: anywhere;
+  font-size: .73rem;
+}
+
+.orders-mobile-amount {
+  flex: 0 0 auto;
+  color: #252d46;
+  font-size: .78rem;
+  font-weight: 800;
+  text-align: right;
+}
+
+.orders-mobile-client {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  margin-bottom: 11px;
+}
+
+.orders-mobile-client strong,
+.product-mobile-row-name strong {
+  overflow: hidden;
+  color: #30384e;
+  font-size: .73rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orders-mobile-client small,
+.product-mobile-row-name small {
+  overflow: hidden;
+  color: #81899b;
+  font-size: .65rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orders-mobile-card-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
+  gap: 8px;
+  margin-bottom: 9px;
+}
+
+.orders-mobile-card-controls .status-select,
+.orders-mobile-card-controls .courier-select {
+  width: 100%;
+  max-width: none;
+  min-height: 40px;
+  font-size: .7rem;
+}
+
+.orders-mobile-card-foot {
+  justify-content: flex-start;
+  color: #858da0;
+  font-size: .64rem;
+}
+
+.product-mobile-row {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+}
+
+.product-mobile-thumb {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid #eceef4;
+  border-radius: 6px;
+  background: #f7f8fc;
+  color: #8992a6;
+}
+
+.product-mobile-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-mobile-row-name {
+  align-self: stretch;
+  align-content: center;
+}
+
+.product-mobile-row-meta {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 4px 9px;
+  color: #606b82;
+  font-size: .65rem;
+}
+
+.product-mobile-price {
+  color: #303d61;
+  font-size: .68rem;
+  font-weight: 800;
+}
+
+.product-mobile-row .edit-product-button {
+  width: 40px;
+  height: 40px;
+}
+
 .notification-popover {
   max-width: calc(100vw - 24px);
 }
@@ -57,6 +307,41 @@
   }
 }
 
+@media (min-width: 761px) and (max-width: 900px) {
+  .sidebar {
+    width: 76px;
+    align-items: center;
+    padding: 18px 8px;
+  }
+
+  .sidebar-brand,
+  .workspace-select,
+  .nav-caption,
+  .side-tools,
+  .sidebar-bottom {
+    display: none;
+  }
+
+  .side-nav {
+    width: 100%;
+    margin-top: 5px;
+  }
+
+  .desktop-side-nav .nav-link {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .desktop-side-nav .nav-link > span:not(.nav-count),
+  .desktop-side-nav .nav-count {
+    display: none;
+  }
+
+  .workspace-main {
+    margin-left: 76px;
+  }
+}
+
 @media (max-width: 760px) {
   .sidebar {
     inset: auto 0 0;
@@ -65,9 +350,13 @@
     padding: 4px 8px env(safe-area-inset-bottom, 0px);
   }
 
-  .side-nav {
+  .desktop-side-nav {
+    display: none;
+  }
+
+  .mobile-side-nav {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    grid-template-columns: repeat(var(--mobile-destination-count, 5), minmax(0, 1fr));
     align-items: stretch;
     justify-content: initial;
     gap: 2px;
@@ -86,7 +375,19 @@
 
   .nav-link span:not(.nav-count) {
     max-width: 100%;
-    overflow-wrap: anywhere;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .nav-link.selected {
+    border-radius: 7px;
+    background: #2a3153;
+    color: #c5ceff;
+  }
+
+  .nav-link.selected svg {
+    color: #aab9ff;
   }
 
   .workspace-main {
@@ -187,6 +488,20 @@
 
   .store-meta strong {
     overflow-wrap: anywhere;
+  }
+
+  .orders-table-scroll,
+  .products-table-scroll {
+    display: none;
+  }
+
+  .orders-mobile-list,
+  .products-mobile-list {
+    display: grid;
+  }
+
+  .more-view {
+    max-width: none;
   }
 
   .product-import-editor {
@@ -353,6 +668,10 @@
 
   .nav-link {
     font-size: .56rem;
+  }
+
+  .mobile-side-nav .nav-link {
+    font-size: .57rem;
   }
 
   .nav-link svg {
