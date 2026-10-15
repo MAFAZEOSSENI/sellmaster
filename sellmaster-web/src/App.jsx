@@ -223,6 +223,37 @@ function getVisibleTeamMembers(members, isMemberView) {
   return isMemberView ? (members || []).filter((member) => member.status !== 'rejected') : (members || [])
 }
 
+async function fetchTeamMembers(isMemberView, isTeamOwner) {
+  if (!authToken.get()) return []
+  if (isMemberView) {
+    const result = await api.myTeams()
+    return Array.isArray(result.memberships) ? result.memberships : []
+  }
+
+  const [membersResult, usersResult] = await Promise.all([
+    api.teamMembers(isTeamOwner),
+    api.adminUsers(),
+  ])
+  const userByMembershipId = new Map(
+    (Array.isArray(usersResult?.users) ? usersResult.users : []).map((user) => [Number(user.membership_id || user.id), user])
+  )
+  return (Array.isArray(membersResult?.members) ? membersResult.members : []).map((member) => {
+    const membershipId = Number(member.id)
+    const memberUser = userByMembershipId.get(membershipId) || userByMembershipId.get(Number(member.member_user_id)) || {}
+    return {
+      ...member,
+      ...memberUser,
+      id: membershipId,
+      membership_id: membershipId,
+      full_name: member.full_name || memberUser.full_name || memberUser.email?.split('@')[0] || member.email || 'Membre',
+      email: member.email || memberUser.email || '',
+      phone: member.phone || memberUser.phone || '',
+      commission_amount: member.commission_amount ?? memberUser.commission_amount ?? 0,
+      commission_type: member.commission_type || memberUser.commission_type || 'fixed_amount',
+    }
+  })
+}
+
 function CommissionEditor({ member, onSave }) {
   const [amount, setAmount] = useState(String(member?.commission_amount ?? 0))
   const [commissionType, setCommissionType] = useState(member?.commission_type || 'fixed_amount')
@@ -333,8 +364,6 @@ function TeamMemberRow({ member, isMemberView, canEditCommission, acceptingId, o
 }
 
 function TeamView({ members, loading, error, isMemberView, canInvite, canEditCommission, acceptingId, onAccept, onInvite, onRefresh, onUpdateMyTeam, onUpdateCommission }) {
-  const roleLabels = { owner: 'Propriétaire', manager: 'Manager', closer: 'Closer', courier: 'Livreur' }
-  const statusLabels = { active: 'Actif', pending: 'En attente', rejected: 'Refusé' }
   const visibleMembers = getVisibleTeamMembers(members, isMemberView)
 
   return (
@@ -399,7 +428,7 @@ function App() {
     return params.has('login') || params.has('shopify') || params.has('import')
   })
   const [productImportUrl, setProductImportUrl] = useState(() => new URLSearchParams(window.location.search).get('import') || '')
-  const [activePage, setActivePage] = useState(() => {
+  const [requestedPage, setActivePage] = useState(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.has('import')) return 'productImport'
     return params.has('shopify') ? 'shopify' : 'overview'
@@ -461,19 +490,18 @@ function App() {
   ]
   const isTeamMemberView = !hasAnyRole(userRoles, 'owner', 'manager', 'closer')
   const isTeamOwner = isOwner
+  const allowedPages = getAvailablePages(userRoles)
+  const activePage = user
+    && !allowedPages.includes(requestedPage)
+    && !(requestedPage === 'productImport' && canAccessProducts)
+    && requestedPage !== 'more'
+    ? allowedPages[0] || 'overview'
+    : requestedPage
   const canAssignOrders = hasAnyRole(userRoles, 'owner', 'manager', 'closer')
   const roleFilteredOrders = sortOrdersNewestFirst(filterOrdersForRole(orders, userRoles, user?.id))
   const canEditCommission = hasAnyRole(userRoles, 'owner', 'manager')
 
-  useEffect(() => {
-    if (!user) return
-    const allowedPages = getAvailablePages(userRoles)
-    if (!allowedPages.includes(activePage) && !(activePage === 'productImport' && canAccessProducts) && activePage !== 'more') {
-      setActivePage(allowedPages[0] || 'overview')
-    }
-  }, [user, userRoles, activePage, canAccessProducts])
-
-  const loadDashboard = useCallback(async (quiet = false) => {
+  async function loadDashboard(quiet = false) {
     if (!authToken.get()) return
     if (quiet) setRefreshing(true)
     const results = await Promise.allSettled([api.profile(), api.dashboardStats(), api.orders(), api.products(), api.notifications()])
@@ -490,7 +518,7 @@ function App() {
     setAuthenticated(true)
     setLoading(false)
     setRefreshing(false)
-  }, [])
+  }
 
   const loadStores = useCallback(async () => {
     try {
@@ -503,49 +531,18 @@ function App() {
     }
   }, [])
 
-  const loadTeam = useCallback(async () => {
+  async function loadTeam() {
     if (!authToken.get()) return
     setTeamLoading(true)
     setTeamError('')
     try {
-      if (isTeamMemberView) {
-        const result = await api.myTeams()
-        setTeamMembers(Array.isArray(result.memberships) ? result.memberships : [])
-        return
-      }
-
-      const [membersResult, usersResult] = await Promise.all([
-        api.teamMembers(isTeamOwner),
-        api.adminUsers(),
-      ])
-
-      const userByMembershipId = new Map(
-        (Array.isArray(usersResult?.users) ? usersResult.users : []).map((user) => [Number(user.membership_id || user.id), user])
-      )
-
-      const mergedMembers = (Array.isArray(membersResult?.members) ? membersResult.members : []).map((member) => {
-        const membershipId = Number(member.id)
-        const memberUser = userByMembershipId.get(membershipId) || userByMembershipId.get(Number(member.member_user_id)) || {}
-        return {
-          ...member,
-          ...memberUser,
-          id: membershipId,
-          membership_id: membershipId,
-          full_name: member.full_name || memberUser.full_name || memberUser.email?.split('@')[0] || member.email || 'Membre',
-          email: member.email || memberUser.email || '',
-          phone: member.phone || memberUser.phone || '',
-          commission_amount: member.commission_amount ?? memberUser.commission_amount ?? 0,
-          commission_type: member.commission_type || memberUser.commission_type || 'fixed_amount',
-        }
-      })
-
-      setTeamMembers(mergedMembers)
+      setTeamMembers(await fetchTeamMembers(isTeamMemberView, isTeamOwner))
     } catch (error) {
       setTeamError(error.message)
     } finally {
       setTeamLoading(false)
     }
-  }, [isTeamMemberView, isTeamOwner])
+  }
 
   useEffect(() => {
     if (!authenticated) return
@@ -594,20 +591,12 @@ function App() {
   useEffect(() => {
     if (!authenticated || activePage !== 'team') return
     let active = true
-    const runTeamLoad = async () => {
-      setTeamLoading(true)
-      setTeamError('')
-      try {
-        await loadTeam()
-      } catch (error) {
-        if (active) setTeamError(error.message)
-      } finally {
-        if (active) setTeamLoading(false)
-      }
-    }
-    void runTeamLoad()
+    fetchTeamMembers(isTeamMemberView, isTeamOwner)
+      .then((members) => { if (active) setTeamMembers(members) })
+      .catch((error) => { if (active) setTeamError(error.message) })
+      .finally(() => { if (active) setTeamLoading(false) })
     return () => { active = false }
-  }, [authenticated, activePage, loadTeam])
+  }, [authenticated, activePage, isTeamMemberView, isTeamOwner])
   useEffect(() => {
     if (!authenticated || !canAssignOrders || orders.length === 0) return
     let active = true

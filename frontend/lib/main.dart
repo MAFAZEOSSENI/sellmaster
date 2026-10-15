@@ -79,8 +79,9 @@ class _MyAppState extends State<MyApp> {
   }
 
   String? _storeFromDeepLink(Uri? uri) {
-    if (uri?.scheme != 'sellmaster' || uri?.host != 'shopify-connected')
+    if (uri?.scheme != 'sellmaster' || uri?.host != 'shopify-connected') {
       return null;
+    }
     return uri?.queryParameters['store'] ?? '';
   }
 
@@ -273,15 +274,16 @@ class AuthWrapper extends StatelessWidget {
           return const LoginPage();
         }
 
+        final notificationService = context.read<NotificationService>();
         WidgetsBinding.instance.addPostFrameCallback((_) async {
           if (auth.isAuthenticated) {
-            await context.read<NotificationService>().syncFromServer();
-            if (context.read<NotificationService>().items.isEmpty) {
-              context.read<NotificationService>().show(
-                    title: 'Bienvenue',
-                    message: 'Vos notifications s\'afficheront ici.',
-                    type: AppNotificationType.success,
-                  );
+            await notificationService.syncFromServer();
+            if (notificationService.items.isEmpty) {
+              notificationService.show(
+                title: 'Bienvenue',
+                message: 'Vos notifications s\'afficheront ici.',
+                type: AppNotificationType.success,
+              );
             }
           }
         });
@@ -539,9 +541,9 @@ class MainNavigationPageState extends State<MainNavigationPage> {
             final notifications = context.watch<NotificationService>();
             return Container(
               margin: const EdgeInsets.only(right: 8, top: 8),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFFF6F7FB),
+                color: Color(0xFFF6F7FB),
               ),
               child: Stack(
                 clipBehavior: Clip.none,
@@ -596,10 +598,11 @@ class MainNavigationPageState extends State<MainNavigationPage> {
                     _currentIndex =
                         _destinationsForRole(authProvider.primaryRole)
                             .indexWhere((item) => item.id == 'profile');
-                    if (_currentIndex < 0)
+                    if (_currentIndex < 0) {
                       _currentIndex =
                           _destinationsForRole(authProvider.primaryRole)
                               .indexWhere((item) => item.id == 'more');
+                    }
                   });
                 },
                 child: CircleAvatar(
