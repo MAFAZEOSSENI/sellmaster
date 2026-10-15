@@ -41,7 +41,7 @@ export function getAvailablePages(roles) {
   }
 
   if (hasAnyRole(normalized, 'closer')) {
-    return ['overview', 'orders', 'team'];
+    return ['overview', 'orders', 'products', 'team'];
   }
 
   if (hasAnyRole(normalized, 'courier')) {
@@ -49,4 +49,34 @@ export function getAvailablePages(roles) {
   }
 
   return ['overview', 'orders', 'team'];
+}
+
+function sameUserId(left, right) {
+  if (left === null || left === undefined || right === null || right === undefined) return false;
+  const leftId = String(left).trim();
+  const rightId = String(right).trim();
+  return leftId !== '' && rightId !== '' && leftId === rightId;
+}
+
+export function filterOrdersForRole(orders, userRoles, currentUserId) {
+  const list = Array.isArray(orders) ? orders : [];
+
+  if (hasAnyRole(userRoles, 'owner', 'manager')) return list;
+
+  if (hasAnyRole(userRoles, 'closer')) {
+    return list.filter((order) =>
+      ['dashboard', 'reportee'].includes(String(order?.status || '').toLowerCase())
+      && (order?.assigned_to === null || order?.assigned_to === undefined || order?.assigned_to === ''
+        || sameUserId(order?.assigned_to, currentUserId))
+    );
+  }
+
+  if (hasAnyRole(userRoles, 'courier')) {
+    return list.filter((order) =>
+      ['dashboard', 'reportee', 'livree'].includes(String(order?.status || '').toLowerCase())
+      && sameUserId(order?.assigned_to, currentUserId)
+    );
+  }
+
+  return list;
 }
