@@ -14,7 +14,8 @@
   ],
   "host_permissions": [
     "https://sellmaster-1.onrender.com/*",
-    "https://www.sellmaster.site/*"
+    "https://www.sellmaster.site/*",
+    "https://*.myshopify.com/*"
   ],
   "action": {
     "default_title": "Sellmaster",

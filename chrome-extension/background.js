@@ -28,9 +28,45 @@ function sendApi(path, method, body, sendResponse) {
   }).catch(error => sendResponse({ ok: false, error: error.message || 'Erreur de connexion à Sellmaster.' }));
 }
 
+async function getShopifyProductDetails(productUrl) {
+  const pageUrl = new URL(productUrl);
+  if (pageUrl.protocol !== 'https:' || !/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(pageUrl.hostname)) {
+    throw new Error('URL de produit Shopify refusée.');
+  }
+
+  const segments = pageUrl.pathname.split('/').filter(Boolean);
+  const productIndex = segments.findIndex(segment => segment.toLowerCase() === 'products');
+  const handle = productIndex >= 0 ? segments[productIndex + 1] : '';
+  if (!handle || handle.includes('.')) throw new Error('URL de fiche produit Shopify invalide.');
+
+  const endpoint = new URL(`/products/${encodeURIComponent(decodeURIComponent(handle))}.js`, pageUrl.origin);
+  const response = await fetch(endpoint, { headers: { Accept: 'application/json' } });
+  if (!response.ok) throw new Error(`Shopify a répondu ${response.status}.`);
+  const product = await response.json();
+  const firstImage = Array.isArray(product.images) ? product.images[0] : '';
+  const imageValue = product.featured_image || (typeof firstImage === 'string' ? firstImage : firstImage?.src) || '';
+  let imageUrl = '';
+
+  if (imageValue) {
+    const parsedImageUrl = new URL(imageValue, pageUrl.origin);
+    if (parsedImageUrl.protocol === 'https:' && (parsedImageUrl.hostname === 'cdn.shopify.com' || parsedImageUrl.hostname.endsWith('.myshopify.com'))) {
+      imageUrl = parsedImageUrl.toString();
+    }
+  }
+
+  return { title: typeof product.title === 'string' ? product.title : '', imageUrl };
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === 'SELLMASTER_API') {
     sendApi(message.path, message.method, message.body, sendResponse);
+    return true;
+  }
+
+  if (message?.type === 'SELLMASTER_GET_SHOPIFY_PRODUCT') {
+    getShopifyProductDetails(message.productUrl)
+      .then(data => sendResponse({ ok: true, data }))
+      .catch(error => sendResponse({ ok: false, error: error.message || 'Impossible de récupérer les données produit Shopify.' }));
     return true;
   }
 
