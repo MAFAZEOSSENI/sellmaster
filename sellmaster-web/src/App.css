@@ -1304,11 +1304,36 @@
 
 .metric-value {
   display: block;
+  width: fit-content;
   margin: 15px 0 9px;
+  padding: 1px 4px;
+  border-radius: 4px;
   color: #1d332a;
   font-size: 1.65rem;
   font-weight: 700;
   letter-spacing: 0;
+}
+
+.metric-value-updated {
+  animation: metric-value-update 600ms ease-out;
+}
+
+@keyframes metric-value-update {
+  from {
+    color: #334fda;
+    background-color: #edf0ff;
+  }
+
+  to {
+    color: #1d332a;
+    background-color: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .metric-value-updated {
+    animation: none;
+  }
 }
 
 .metric-note {

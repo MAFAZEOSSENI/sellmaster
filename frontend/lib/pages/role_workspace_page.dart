@@ -23,9 +23,11 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
   List<Map<String, dynamic>> _owners = [];
   List<Map<String, dynamic>> _myTeams = [];
   List<Map<String, dynamic>> _teamCouriers = [];
+  Set<int> _activeWorkingOwnerIds = {};
   int? _selectedOwnerId;
   int? _selectedCourierIdForOrder;
-  Timer? _earningsTimer;
+  Timer? _refreshTimer;
+  bool _refreshInProgress = false;
   double _earningsTotal = 0;
   List<Map<String, dynamic>> _earnings = [];
 
@@ -33,13 +35,16 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
   void initState() {
     super.initState();
     _loadMyTeams();
-    _loadEarnings();
-    _earningsTimer = Timer.periodic(const Duration(seconds: 30), (_) => _loadEarnings());
+    _refreshWorkspace();
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 20),
+      (_) => _refreshWorkspace(),
+    );
   }
 
   @override
   void dispose() {
-    _earningsTimer?.cancel();
+    _refreshTimer?.cancel();
     super.dispose();
   }
 
@@ -58,7 +63,26 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
     }
   }
 
-  Future<void> _loadOrders({int? ownerId, Set<int>? ownerIds}) async {
+  Future<void> _refreshWorkspace() async {
+    if (_refreshInProgress || !mounted) return;
+    _refreshInProgress = true;
+    try {
+      await _loadEarnings();
+      final ownerId = _selectedOwnerId;
+      if (ownerId != null && mounted) {
+        await _loadOrders(
+          ownerId: ownerId,
+          ownerIds: _activeWorkingOwnerIds,
+          quiet: true,
+        );
+      }
+    } finally {
+      _refreshInProgress = false;
+    }
+  }
+
+  Future<void> _loadOrders(
+      {int? ownerId, Set<int>? ownerIds, bool quiet = false}) async {
     try {
       final targetOwnerId = ownerId ?? _selectedOwnerId;
       final orders = targetOwnerId == null
@@ -66,21 +90,25 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
           : await ApiService.getOrders(ownerId: targetOwnerId);
       if (!mounted) return;
 
-      final effectiveOwnerIds = ownerIds ?? (targetOwnerId != null ? {targetOwnerId} : <int>{});
+      final effectiveOwnerIds =
+          ownerIds ?? (targetOwnerId != null ? {targetOwnerId} : <int>{});
       setState(() {
-        _orders = _filterOrdersForOwner(orders, effectiveOwnerIds.isNotEmpty ? effectiveOwnerIds : null);
+        _orders = _filterOrdersForOwner(
+            orders, effectiveOwnerIds.isNotEmpty ? effectiveOwnerIds : null);
         _selectedOwnerId = targetOwnerId;
         _isLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur chargement du workspace: $e'),
-          backgroundColor: const Color(0xFFEF5350),
-        ),
-      );
+      if (!quiet) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur chargement du workspace: $e'),
+            backgroundColor: const Color(0xFFEF5350),
+          ),
+        );
+      }
     }
   }
 
@@ -126,27 +154,30 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
       final teams = await ApiService.getMyTeams();
       if (!mounted) return;
 
-      final activeOwners = teams
-          .where((item) {
-            final status = (item['status'] ?? 'pending').toString();
-            final isWorking = item['is_working'] == true || item['is_working'] == 1 || item['is_working'] == '1';
-            return status == 'active' || status == 'pending';
-          })
-          .map((item) {
-            final ownerId = int.tryParse(item['owner_user_id'].toString());
-            final ownerName = (item['nickname'] ?? item['owner_name'] ?? 'Propriétaire').toString();
-            final isWorking = item['is_working'] == true || item['is_working'] == 1 || item['is_working'] == '1';
-            return {
-              'id': item['id'],
-              'owner_user_id': ownerId,
-              'owner_name': ownerName,
-              'nickname': item['nickname'] ?? ownerName,
-              'role_name': item['role_name'],
-              'status': item['status'],
-              'is_working': isWorking,
-            };
-          })
-          .toList();
+      final activeOwners = teams.where((item) {
+        final status = (item['status'] ?? 'pending').toString();
+        final isWorking = item['is_working'] == true ||
+            item['is_working'] == 1 ||
+            item['is_working'] == '1';
+        return status == 'active' || status == 'pending';
+      }).map((item) {
+        final ownerId = int.tryParse(item['owner_user_id'].toString());
+        final ownerName =
+            (item['nickname'] ?? item['owner_name'] ?? 'Propriétaire')
+                .toString();
+        final isWorking = item['is_working'] == true ||
+            item['is_working'] == 1 ||
+            item['is_working'] == '1';
+        return {
+          'id': item['id'],
+          'owner_user_id': ownerId,
+          'owner_name': ownerName,
+          'nickname': item['nickname'] ?? ownerName,
+          'role_name': item['role_name'],
+          'status': item['status'],
+          'is_working': isWorking,
+        };
+      }).toList();
 
       final workingOwnerIds = activeOwners
           .where((owner) => owner['is_working'] == true)
@@ -156,9 +187,17 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
 
       setState(() {
         _myTeams = teams;
-        _invitations = teams.where((item) => (item['status'] ?? 'pending').toString() != 'rejected').toList();
+        _invitations = teams
+            .where((item) =>
+                (item['status'] ?? 'pending').toString() != 'rejected')
+            .toList();
         _owners = activeOwners;
-        _selectedOwnerId = workingOwnerIds.isNotEmpty ? workingOwnerIds.first : (activeOwners.isNotEmpty ? int.tryParse(activeOwners.first['owner_user_id'].toString()) : null);
+        _activeWorkingOwnerIds = workingOwnerIds;
+        _selectedOwnerId = workingOwnerIds.isNotEmpty
+            ? workingOwnerIds.first
+            : (activeOwners.isNotEmpty
+                ? int.tryParse(activeOwners.first['owner_user_id'].toString())
+                : null);
       });
 
       if (workingOwnerIds.isNotEmpty) {
@@ -183,19 +222,25 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
     }
   }
 
-  Future<void> _saveTeamState(int membershipId, {String? nickname, bool? isWorking}) async {
+  Future<void> _saveTeamState(int membershipId,
+      {String? nickname, bool? isWorking}) async {
     try {
-      final updated = await ApiService.updateMyTeam(membershipId, nickname: nickname, isWorking: isWorking);
+      final updated = await ApiService.updateMyTeam(membershipId,
+          nickname: nickname, isWorking: isWorking);
       if (!mounted) return;
 
-      final updatedOwnerName = (updated['nickname'] ?? updated['owner_name'] ?? 'Propriétaire').toString();
+      final updatedOwnerName =
+          (updated['nickname'] ?? updated['owner_name'] ?? 'Propriétaire')
+              .toString();
       setState(() {
         _myTeams = _myTeams.map((team) {
           if (team['id'] == membershipId) {
             return {
               ...team,
-              'nickname': updated['nickname'] ?? team['nickname'] ?? updatedOwnerName,
-              'is_working': updated['is_working'] ?? team['is_working'] ?? false,
+              'nickname':
+                  updated['nickname'] ?? team['nickname'] ?? updatedOwnerName,
+              'is_working':
+                  updated['is_working'] ?? team['is_working'] ?? false,
             };
           }
           return team;
@@ -227,7 +272,8 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Invitation acceptée, vous êtes maintenant actif dans cette équipe.'),
+          content: Text(
+              'Invitation acceptée, vous êtes maintenant actif dans cette équipe.'),
           backgroundColor: Color(0xFF4CAF50),
         ),
       );
@@ -246,7 +292,8 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
     await _loadMyTeams();
   }
 
-  String get title => widget.role == 'closer' ? 'Espace Closeur' : 'Espace Livreur';
+  String get title =>
+      widget.role == 'closer' ? 'Espace Closeur' : 'Espace Livreur';
 
   int? get currentUserId {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -264,7 +311,8 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
       return _orders
           .where((order) =>
               (order.status == 'dashboard' || order.status == 'reportee') &&
-              (order.assignedTo == null || order.assignedTo == currentUserIdValue))
+              (order.assignedTo == null ||
+                  order.assignedTo == currentUserIdValue))
           .toList();
     }
 
@@ -273,7 +321,7 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
             (order.status == 'dashboard' ||
                 order.status == 'reportee' ||
                 order.status == 'livree') &&
-        order.assignedTo == currentUserIdValue)
+            order.assignedTo == currentUserIdValue)
         .toList();
   }
 
@@ -295,7 +343,8 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
     if (_selectedOwnerId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Sélectionnez un propriétaire avant de créer une commande.'),
+          content:
+              Text('Sélectionnez un propriétaire avant de créer une commande.'),
           backgroundColor: Color(0xFFFF9800),
         ),
       );
@@ -322,7 +371,8 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Commande ${order.customOrderNumber} assignée au livreur sélectionné'),
+          content: Text(
+              'Commande ${order.customOrderNumber} assignée au livreur sélectionné'),
           backgroundColor: const Color(0xFF4CAF50),
         ),
       );
@@ -337,9 +387,11 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
     }
   }
 
-  Future<void> _updateStatus(Order order, String status, {double? deliveryFee}) async {
+  Future<void> _updateStatus(Order order, String status,
+      {double? deliveryFee}) async {
     try {
-      await ApiService.updateOrderStatus(order.id.toString(), status, deliveryFee: deliveryFee);
+      await ApiService.updateOrderStatus(order.id.toString(), status,
+          deliveryFee: deliveryFee);
       await _loadOrders();
       await _loadEarnings();
       if (!mounted) return;
@@ -387,7 +439,8 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
           ),
           ElevatedButton(
             onPressed: () {
-              final value = double.tryParse(controller.text.replaceAll(',', '.'));
+              final value =
+                  double.tryParse(controller.text.replaceAll(',', '.'));
               if (value == null || value <= 0) return;
               Navigator.of(dialogContext).pop(value);
             },
@@ -461,22 +514,33 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                             spacing: 8,
                             runSpacing: 8,
                             children: _owners.map((owner) {
-                              final ownerId = int.tryParse(owner['owner_user_id'].toString());
-                              final isSelected = ownerId != null && ownerId == _selectedOwnerId;
+                              final ownerId = int.tryParse(
+                                  owner['owner_user_id'].toString());
+                              final isSelected = ownerId != null &&
+                                  ownerId == _selectedOwnerId;
                               final isWorking = owner['is_working'] == true;
                               return ChoiceChip(
-                                label: Text((owner['nickname'] ?? owner['owner_name'] ?? 'Propriétaire').toString()),
+                                label: Text((owner['nickname'] ??
+                                        owner['owner_name'] ??
+                                        'Propriétaire')
+                                    .toString()),
                                 selected: isSelected,
-                                avatar: isWorking ? const Icon(Icons.check_circle, size: 16) : const Icon(Icons.pause_circle, size: 16),
-                                onSelected: (_) => _applyOwnerSelection(ownerId),
+                                avatar: isWorking
+                                    ? const Icon(Icons.check_circle, size: 16)
+                                    : const Icon(Icons.pause_circle, size: 16),
+                                onSelected: (_) =>
+                                    _applyOwnerSelection(ownerId),
                               );
                             }).toList(),
                           ),
                           const SizedBox(height: 12),
                           ..._owners.map((team) {
-                            final ownerId = int.tryParse(team['owner_user_id'].toString());
+                            final ownerId =
+                                int.tryParse(team['owner_user_id'].toString());
                             final membershipId = team['id'];
-                            final nickname = team['nickname'] ?? team['owner_name'] ?? 'Propriétaire';
+                            final nickname = team['nickname'] ??
+                                team['owner_name'] ??
+                                'Propriétaire';
                             final isWorking = team['is_working'] == true;
                             if (ownerId == null || membershipId == null) {
                               return const SizedBox.shrink();
@@ -493,15 +557,22 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                                 children: [
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           nickname,
-                                          style: const TextStyle(fontWeight: FontWeight.w700),
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w700),
                                         ),
                                         Text(
-                                          (team['status'] ?? 'active') == 'pending' ? 'Invitation en attente' : 'Equipe active',
-                                          style: const TextStyle(color: Color(0xFF70798A), fontSize: 12),
+                                          (team['status'] ?? 'active') ==
+                                                  'pending'
+                                              ? 'Invitation en attente'
+                                              : 'Equipe active',
+                                          style: const TextStyle(
+                                              color: Color(0xFF70798A),
+                                              fontSize: 12),
                                         ),
                                       ],
                                     ),
@@ -509,7 +580,9 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                                   Switch(
                                     value: isWorking,
                                     activeColor: const Color(0xFF4869F2),
-                                    onChanged: (value) => _saveTeamState(int.parse(membershipId.toString()), isWorking: value),
+                                    onChanged: (value) => _saveTeamState(
+                                        int.parse(membershipId.toString()),
+                                        isWorking: value),
                                   ),
                                 ],
                               ),
@@ -531,7 +604,8 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                             : () {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
-                                    builder: (_) => ProductsPage(ownerId: _selectedOwnerId),
+                                    builder: (_) =>
+                                        ProductsPage(ownerId: _selectedOwnerId),
                                   ),
                                 );
                               },
@@ -611,8 +685,10 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                           ),
                           const SizedBox(height: 12),
                           ..._invitations.map((invitation) {
-                            final ownerName = invitation['owner_name'] ?? 'Propriétaire';
-                            final roleName = invitation['role_name'] ?? 'membre';
+                            final ownerName =
+                                invitation['owner_name'] ?? 'Propriétaire';
+                            final roleName =
+                                invitation['role_name'] ?? 'membre';
                             final status = invitation['status'] ?? 'pending';
                             final membershipId = invitation['id'];
 
@@ -628,23 +704,29 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                                 children: [
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           'Invitation de $ownerName',
-                                          style: const TextStyle(fontWeight: FontWeight.w700),
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w700),
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
                                           'Rôle: $roleName • Statut: ${status == 'active' ? 'acceptée' : 'en attente'}',
-                                          style: const TextStyle(color: Color(0xFF70798A)),
+                                          style: const TextStyle(
+                                              color: Color(0xFF70798A)),
                                         ),
                                       ],
                                     ),
                                   ),
                                   if (status != 'active')
                                     ElevatedButton(
-                                      onPressed: () => _acceptInvitation(int.tryParse(membershipId.toString()) ?? 0),
+                                      onPressed: () => _acceptInvitation(
+                                          int.tryParse(
+                                                  membershipId.toString()) ??
+                                              0),
                                       child: const Text('Accepter'),
                                     ),
                                 ],
@@ -727,9 +809,11 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                                     ),
                                   ),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 6),
                                     decoration: BoxDecoration(
-                                      color: order.statusColor.withOpacity(0.12),
+                                      color:
+                                          order.statusColor.withOpacity(0.12),
                                       borderRadius: BorderRadius.circular(999),
                                     ),
                                     child: Text(
@@ -753,13 +837,19 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                order.clientPhone.isNotEmpty ? order.clientPhone : 'Téléphone non renseigné',
-                                style: const TextStyle(color: Color(0xFF70798A)),
+                                order.clientPhone.isNotEmpty
+                                    ? order.clientPhone
+                                    : 'Téléphone non renseigné',
+                                style:
+                                    const TextStyle(color: Color(0xFF70798A)),
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                order.clientAddress.isNotEmpty ? order.clientAddress : 'Adresse non renseignée',
-                                style: const TextStyle(color: Color(0xFF70798A)),
+                                order.clientAddress.isNotEmpty
+                                    ? order.clientAddress
+                                    : 'Adresse non renseignée',
+                                style:
+                                    const TextStyle(color: Color(0xFF70798A)),
                               ),
                               const SizedBox(height: 12),
                               Row(
@@ -776,7 +866,8 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                                   ),
                                   Text(
                                     '${order.createdAt.day.toString().padLeft(2, '0')}/${order.createdAt.month.toString().padLeft(2, '0')}/${order.createdAt.year}',
-                                    style: const TextStyle(color: Color(0xFF70798A), fontSize: 12),
+                                    style: const TextStyle(
+                                        color: Color(0xFF70798A), fontSize: 12),
                                   ),
                                 ],
                               ),
@@ -797,7 +888,9 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                                     if (_teamCouriers.isEmpty)
                                       const Text(
                                         'Aucun livreur actif et disponible dans cette équipe.',
-                                        style: TextStyle(color: Color(0xFF70798A), fontSize: 12),
+                                        style: TextStyle(
+                                            color: Color(0xFF70798A),
+                                            fontSize: 12),
                                       )
                                     else
                                       Row(
@@ -805,38 +898,60 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                                           Expanded(
                                             child: DropdownButtonFormField<int>(
                                               value: _teamCouriers
-                                                  .map((courier) => int.tryParse(courier['member_user_id'].toString()))
-                                                  .whereType<int>()
-                                                  .contains(order.assignedTo)
+                                                      .map((courier) =>
+                                                          int.tryParse(courier[
+                                                                  'member_user_id']
+                                                              .toString()))
+                                                      .whereType<int>()
+                                                      .contains(
+                                                          order.assignedTo)
                                                   ? order.assignedTo
                                                   : null,
                                               decoration: InputDecoration(
                                                 filled: true,
-                                                fillColor: const Color(0xFFF8FAFC),
+                                                fillColor:
+                                                    const Color(0xFFF8FAFC),
                                                 border: OutlineInputBorder(
-                                                  borderRadius: BorderRadius.circular(10),
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
                                                   borderSide: BorderSide.none,
                                                 ),
-                                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                contentPadding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 8),
                                               ),
                                               items: _teamCouriers
                                                   .map((courier) {
-                                                    final courierId = int.tryParse(courier['member_user_id'].toString());
-                                                    if (courierId == null) return null;
-                                                    return DropdownMenuItem<int>(
+                                                    final courierId =
+                                                        int.tryParse(courier[
+                                                                'member_user_id']
+                                                            .toString());
+                                                    if (courierId == null) {
+                                                      return null;
+                                                    }
+                                                    return DropdownMenuItem<
+                                                        int>(
                                                       value: courierId,
                                                       child: Text(
-                                                        (courier['full_name'] ?? courier['email'] ?? 'Livreur').toString(),
+                                                        (courier['full_name'] ??
+                                                                courier[
+                                                                    'email'] ??
+                                                                'Livreur')
+                                                            .toString(),
                                                       ),
                                                     );
                                                   })
-                                                  .whereType<DropdownMenuItem<int>>()
+                                                  .whereType<
+                                                      DropdownMenuItem<int>>()
                                                   .toList(),
                                               onChanged: (courierId) {
                                                 if (courierId == null) return;
-                                                _assignToCourier(order, courierId);
+                                                _assignToCourier(
+                                                    order, courierId);
                                               },
-                                              hint: const Text('Choisir un livreur'),
+                                              hint: const Text(
+                                                  'Choisir un livreur'),
                                             ),
                                           ),
                                         ],
@@ -877,7 +992,9 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
   }
 
   Widget _buildEarningsSection() {
-    final label = widget.role == 'closer' ? 'Commissions gagnées' : 'Frais de livraison gagnés';
+    final label = widget.role == 'closer'
+        ? 'Commissions gagnées'
+        : 'Frais de livraison gagnés';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -893,9 +1010,13 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
               const Icon(Icons.payments_outlined, color: Color(0xFF4869F2)),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                child: Text(label,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w700)),
               ),
-              Text('${_earningsTotal.toStringAsFixed(2)} FCFA', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              Text('${_earningsTotal.toStringAsFixed(2)} FCFA',
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w800)),
             ],
           ),
           if (_earnings.isNotEmpty) ...[
@@ -904,15 +1025,19 @@ class _RoleWorkspacePageState extends State<RoleWorkspacePage> {
                   padding: const EdgeInsets.only(top: 6),
                   child: Row(
                     children: [
-                      Expanded(child: Text((earning['owner_name'] ?? 'Propriétaire').toString())),
-                      Text('${(double.tryParse(earning['total_amount'].toString()) ?? 0).toStringAsFixed(2)} FCFA'),
+                      Expanded(
+                          child: Text((earning['owner_name'] ?? 'Propriétaire')
+                              .toString())),
+                      Text(
+                          '${(double.tryParse(earning['total_amount'].toString()) ?? 0).toStringAsFixed(2)} FCFA'),
                     ],
                   ),
                 )),
           ] else
             const Padding(
               padding: EdgeInsets.only(top: 8),
-              child: Text('Aucun gain enregistré pour le moment.', style: TextStyle(color: Color(0xFF70798A))),
+              child: Text('Aucun gain enregistré pour le moment.',
+                  style: TextStyle(color: Color(0xFF70798A))),
             ),
         ],
       ),

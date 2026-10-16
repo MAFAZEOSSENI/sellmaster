@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import {
   Activity, ArrowDownRight, ArrowUpRight, Bell, Boxes, ChevronDown, CircleHelp,
   ClipboardList, Command, ExternalLink, LayoutDashboard, Link2, LogOut, MoreHorizontal, Package, Pencil,
@@ -127,7 +127,7 @@ function MoreView({ user, canAccessShopify, onNavigate, onLogout }) {
 }
 
 function MetricCard({ icon: Icon, label, value, note, tone }) {
-  return <article className="metric-card"><div className="metric-top"><span>{label}</span><span className={`metric-icon ${tone}`}><Icon size={17} /></span></div><strong className="metric-value">{value}</strong><div className="metric-note"><span className="neutral-dot" />{note}</div></article>
+  return <article className="metric-card"><div className="metric-top"><span>{label}</span><span className={`metric-icon ${tone}`}><Icon size={17} /></span></div><strong key={String(value)} className="metric-value metric-value-updated">{value}</strong><div className="metric-note"><span className="neutral-dot" />{note}</div></article>
 }
 
 function StatusBadge({ status }) {
@@ -540,8 +540,9 @@ function App() {
     if (order.status === 'reportee') summary.postponed += 1
     return summary
   }, { total_orders: 0, delivered: 0, cancelled: 0, postponed: 0, revenue: 0 })
-  const displayedStats = isTeamMemberView ? memberStats : stats
+  const displayedStats = isOwnerUser ? stats : memberStats
   const canEditCommission = canEditTeamCommissions(userRoles)
+  const dashboardRefreshInFlight = useRef(false)
 
   useEffect(() => {
     if (!authenticated || !currentUserId || isOwnerUser || !canAccessProducts) return undefined
@@ -577,6 +578,24 @@ function App() {
     setLoading(false)
     setRefreshing(false)
   }
+
+  const refreshDashboardSilently = useEffectEvent(async () => {
+    if (document.visibilityState !== 'visible' || dashboardRefreshInFlight.current) return
+    dashboardRefreshInFlight.current = true
+    try {
+      await loadDashboard(false)
+    } finally {
+      dashboardRefreshInFlight.current = false
+    }
+  })
+
+  useEffect(() => {
+    if (!authenticated) return undefined
+    const refreshTimer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') refreshDashboardSilently()
+    }, 20_000)
+    return () => window.clearInterval(refreshTimer)
+  }, [authenticated])
 
   const loadStores = useCallback(async () => {
     try {

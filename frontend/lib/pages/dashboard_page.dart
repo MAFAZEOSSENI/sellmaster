@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../auth/auth_provider.dart';
@@ -19,14 +20,28 @@ class DashboardPageState extends State<DashboardPage> {
   Map<String, dynamic>? _dashboardStats;
   bool isLoading = true;
   int? _selectedOwnerId;
+  Timer? _dashboardTimer;
+  bool _refreshInProgress = false;
 
   @override
   void initState() {
     super.initState();
     loadDashboardData();
+    _dashboardTimer = Timer.periodic(
+      const Duration(seconds: 20),
+      (_) => loadDashboardData(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _dashboardTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> loadDashboardData({int? ownerId}) async {
+    if (_refreshInProgress) return;
+    _refreshInProgress = true;
     try {
       final targetOwnerId = ownerId ?? _selectedOwnerId;
       final statsFuture = targetOwnerId == null
@@ -39,6 +54,7 @@ class DashboardPageState extends State<DashboardPage> {
         statsFuture,
       ]);
 
+      if (!mounted) return;
       setState(() {
         _selectedOwnerId = targetOwnerId;
         orders = List<Order>.from(results[0] as List<Order>)
@@ -50,9 +66,13 @@ class DashboardPageState extends State<DashboardPage> {
       });
     } catch (e) {
       debugPrint('Erreur chargement dashboard: $e');
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } finally {
+      _refreshInProgress = false;
     }
   }
 
