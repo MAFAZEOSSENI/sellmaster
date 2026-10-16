@@ -1028,6 +1028,20 @@
     if(placeholder)control.placeholder=placeholder;
     control.tabIndex=-1;control.setAttribute('aria-hidden','true');wrapper.appendChild(control);device.appendChild(wrapper);
   }
+  function addPreviewSection(device,label){
+    const section=document.createElement('section');
+    section.style.marginTop='14px';
+    section.style.paddingTop='12px';
+    section.style.borderTop='1px solid #dce6e5';
+    const heading=document.createElement('h5');
+    heading.textContent=label;
+    heading.style.margin='0 0 8px';
+    heading.style.font='700 12px system-ui,sans-serif';
+    heading.style.color='#172b32';
+    section.appendChild(heading);
+    device.appendChild(section);
+    return section;
+  }
   function renderLivePreview(){
     const device=document.getElementById('preview-device');
     if(!device)return;
@@ -1040,41 +1054,25 @@
     const urgencyText=document.getElementById('urgency-text').value.trim()||'Stock limité';
     if(urgencyEnabled){const urgency=document.createElement('p');urgency.className='preview-urgency';urgency.textContent=urgencyText;device.appendChild(urgency);}
 
-    addPreviewField(device,'Nom complet','input','Votre nom');
     const selectedFields=new Set(Array.from(document.querySelectorAll('[data-field]:checked')).map(input=>input.dataset.field));
-    if(selectedFields.has('phone'))addPreviewField(device,document.getElementById('phone-label').value.trim()||'Numéro WhatsApp','input','+229 ...');
-    if(selectedFields.has('city'))addPreviewField(device,'Ville','input','Votre ville');
-    if(selectedFields.has('address'))addPreviewField(device,'Adresse de livraison','input','Rue, quartier...');
-    if(selectedFields.has('delivery_note'))addPreviewField(device,'Heure de livraison souhaitée','textarea','Précisez une heure');
-
-    const countries=document.getElementById('country-options').value.split(/\r?\n/).map(line=>line.trim()).filter(Boolean).map(line=>line.split('|')[0].trim());
-    if(countries.length){
-      const wrapper=document.createElement('label');wrapper.className='preview-field';
-      const caption=document.createElement('span');caption.textContent='Pays';wrapper.appendChild(caption);
-      const select=document.createElement('select');select.tabIndex=-1;select.setAttribute('aria-hidden','true');
-      countries.forEach(country=>{const option=document.createElement('option');option.textContent=country;select.appendChild(option);});
-      wrapper.appendChild(select);device.appendChild(wrapper);
-    }
-    if(selectedFields.has('quantity'))addPreviewField(device,'Quantité','input','1');
-    if(selectedFields.has('otp_enabled')){
-      const otp=document.createElement('div');otp.className='preview-option';otp.textContent='Vérification du numéro par SMS';device.appendChild(otp);
-    }
+    const orderSection=addPreviewSection(device,'Votre commande');
+    if(selectedFields.has('quantity'))addPreviewField(orderSection,'Quantité','input','1');
 
     const shipping=document.getElementById('shipping-options').value.split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
-    shipping.forEach(line=>{const option=document.createElement('div');option.className='preview-option';option.textContent=line.split('|')[0].trim();device.appendChild(option);});
+    shipping.forEach(line=>{const option=document.createElement('div');option.className='preview-option';option.textContent=line.split('|')[0].trim();orderSection.appendChild(option);});
 
     const upsellLines=document.getElementById('upsell-list').value.split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
     upsellLines.forEach(line=>{
       const [title,,discount='0']=line.split('|');
       const offer=document.createElement('div');offer.className='preview-option';
       offer.textContent=(title&&title.trim()?title.trim():'Offre supplémentaire à configurer')+(Number(discount)>0?' (-'+Number(discount)+'%)':'');
-      device.appendChild(offer);
+      orderSection.appendChild(offer);
     });
 
     const quantityDiscount=document.getElementById('quantity-discount-enabled').checked;
     if(quantityDiscount){
       const promo=document.createElement('div');promo.className='preview-option';
-      promo.textContent='-'+(Number(document.getElementById('quantity-discount-percent').value)||0)+'% à partir de '+(Number(document.getElementById('quantity-discount-min').value)||2)+' articles';device.appendChild(promo);
+      promo.textContent='-'+(Number(document.getElementById('quantity-discount-percent').value)||0)+'% à partir de '+(Number(document.getElementById('quantity-discount-min').value)||2)+' articles';orderSection.appendChild(promo);
     }
 
     const shippingLine=shipping[0]||'';
@@ -1082,7 +1080,26 @@
     const summary=document.createElement('div');summary.className='preview-price';
     const summaryLabel=document.createElement('span');summaryLabel.textContent='Total estimé';
     const summaryPrice=document.createElement('span');summaryPrice.textContent=new Intl.NumberFormat('fr-FR').format(24900+shippingPrice)+' FCFA';
-    summary.append(summaryLabel,summaryPrice);device.appendChild(summary);
+    summary.append(summaryLabel,summaryPrice);orderSection.appendChild(summary);
+
+    const contactSection=addPreviewSection(device,'Vos coordonnées');
+    addPreviewField(contactSection,'Nom complet','input','Votre nom');
+    if(selectedFields.has('phone'))addPreviewField(contactSection,document.getElementById('phone-label').value.trim()||'Numéro WhatsApp','input','+229 ...');
+    if(selectedFields.has('city'))addPreviewField(contactSection,'Ville','input','Votre ville');
+    if(selectedFields.has('address'))addPreviewField(contactSection,'Adresse de livraison','input','Rue, quartier...');
+    if(selectedFields.has('delivery_note'))addPreviewField(contactSection,'Heure de livraison souhaitée','textarea','Précisez une heure');
+
+    const countries=document.getElementById('country-options').value.split(/\r?\n/).map(line=>line.trim()).filter(Boolean).map(line=>line.split('|')[0].trim());
+    if(countries.length){
+      const wrapper=document.createElement('label');wrapper.className='preview-field';
+      const caption=document.createElement('span');caption.textContent='Pays';wrapper.appendChild(caption);
+      const select=document.createElement('select');select.tabIndex=-1;select.setAttribute('aria-hidden','true');
+      countries.forEach(country=>{const option=document.createElement('option');option.textContent=country;select.appendChild(option);});
+      wrapper.appendChild(select);contactSection.appendChild(wrapper);
+    }
+    if(selectedFields.has('otp_enabled')){
+      const otp=document.createElement('div');otp.className='preview-option';otp.textContent='Vérification du numéro par SMS';contactSection.appendChild(otp);
+    }
 
     const submit=document.createElement('button');submit.className='preview-submit';submit.type='button';submit.textContent=document.getElementById('button-text').value.trim()||'Commander';
     submit.style.backgroundColor=/^#[0-9a-fA-F]{6}$/.test(document.getElementById('button-color').value)?document.getElementById('button-color').value:'#00a6b2';

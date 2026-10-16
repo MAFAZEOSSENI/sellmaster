@@ -33,17 +33,32 @@
     '.panel{position:relative;width:min(100%,480px);max-height:90vh;overflow:auto;background:#fff;border-radius:14px;padding:24px;box-shadow:0 20px 70px #0004}',
     '.panel.embedded{max-height:none;margin:0 auto;box-shadow:none}',
     'h2{margin:0 36px 18px 0;font:700 22px system-ui,sans-serif;color:#17202a}',
+    '.form-section{margin:0 0 18px;padding:0;border:0}',
+    '.section-heading{margin:0 0 10px;font:700 15px/1.3 system-ui,sans-serif;color:#17202a}',
+    '.product-summary{margin:0;padding:12px 14px;border:1px solid #dce5e8;border-radius:8px;background:#f7faf9;font:600 14px/1.45 system-ui,sans-serif;color:#344054}',
+    '.product-summary.loading{color:#52606d}.product-summary.error{border-color:#f1c6c2;background:#fff7f6;color:#b42318}',
+    '.quantity-control{display:grid;grid-template-columns:44px minmax(60px,100px) 44px;align-items:center;gap:6px;margin-top:12px}',
+    '.quantity-control label{grid-column:1/-1;margin:0 0 2px}',
+    '.quantity-step{height:42px;border:1px solid #cfd8df;border-radius:8px;background:#fff;color:#17202a;font:700 18px system-ui,sans-serif;cursor:pointer}',
+    '.quantity-control input{min-height:42px;padding:8px;text-align:center}',
     '.close{position:absolute;top:12px;right:12px;border:0;background:transparent;color:#52606d;font-size:26px;line-height:1;cursor:pointer}',
     'label{display:block;margin:12px 0 5px;font:600 13px system-ui,sans-serif;color:#344054}',
     'input,select,textarea{display:block;width:100%;min-height:44px;padding:10px 12px;border:1px solid #cfd8df;border-radius:8px;background:#fff;color:#17202a;font:15px system-ui,sans-serif}',
     'textarea{min-height:88px;resize:vertical}',
     '.shipping-option{display:flex;align-items:center;gap:10px;margin:8px 0;padding:10px;border:1px solid #cfd8df;border-radius:8px;font:14px system-ui,sans-serif;color:#17202a}',
     '.shipping-option input{width:18px;min-height:18px;margin:0}',
+    '.order-summary{margin:14px 0 4px;padding:14px;border:1px solid #dce5e8;border-radius:8px;background:#f7faf9}',
+    '.summary-title{margin:0 0 10px;font:700 14px system-ui,sans-serif;color:#17202a}',
+    '.summary-row{display:flex;justify-content:space-between;gap:12px;padding:5px 0;font:13px/1.4 system-ui,sans-serif;color:#52606d}',
+    '.summary-row span:last-child{flex:none;color:#344054;text-align:right}',
+    '.summary-divider{height:1px;margin:7px 0;background:#dce5e8}',
+    '.summary-total{display:flex;justify-content:space-between;gap:12px;padding-top:2px;font:700 16px system-ui,sans-serif;color:#17202a}',
+    '.summary-total span:last-child{text-align:right}',
+    '.contact-section{padding-top:16px;border-top:1px solid #e7ecef}',
     '.submit{width:100%;margin-top:18px;min-height:46px;border:0;border-radius:8px;background:#00a6b2;color:#fff;font:700 15px system-ui,sans-serif;cursor:pointer}',
     '.submit:disabled{opacity:.6;cursor:wait}',
     '.message{margin:12px 0 0;font:14px/1.45 system-ui,sans-serif}',
     '.error{color:#b42318}.success{color:#067647}.loading{color:#52606d}',
-    '.quantity{max-width:130px}',
     '@media(max-width:480px){.launcher{right:14px;bottom:14px}.panel{padding:20px}}'
   ].join('');
   shadow.appendChild(style);
@@ -81,7 +96,6 @@
   var message = document.createElement('p');
   message.className = 'message';
   message.setAttribute('aria-live', 'polite');
-  form.appendChild(makeInput('customer_name', 'Nom complet', 'text', true));
 
   var fields = null;
   var products = [];
@@ -92,6 +106,10 @@
   var quantityInput = null;
   var shippingOptions = [];
   var submitButton = null;
+  var summaryProduct = null;
+  var summaryUpsells = null;
+  var summaryShipping = null;
+  var summaryTotal = null;
   var otpState = {
     enabled: false,
     verified: false,
@@ -131,35 +149,55 @@
     return wrapper;
   }
 
-  function addConfiguredInput(name, labelText, type) {
+  function addConfiguredInput(name, labelText, type, target) {
     if (!fields || fields[name] !== true) return;
-    form.appendChild(makeInput(name, labelText, type || 'text', true));
+    (target || form).appendChild(makeInput(name, labelText, type || 'text', true));
   }
 
-  function addProductControls() {
+  function addProductControls(target) {
     productSummary = document.createElement('p');
-    productSummary.className = 'message loading';
+    productSummary.className = 'product-summary loading';
     productSummary.setAttribute('aria-live', 'polite');
-    form.appendChild(productSummary);
+    target.appendChild(productSummary);
 
     if (fields.quantity === true) {
       var quantityWrapper = document.createElement('div');
+      quantityWrapper.className = 'quantity-control';
       var quantityLabel = document.createElement('label');
       quantityLabel.htmlFor = 'sm-quantity';
       quantityLabel.textContent = 'Quantit\u00e9';
+      var decreaseButton = document.createElement('button');
+      decreaseButton.type = 'button';
+      decreaseButton.className = 'quantity-step';
+      decreaseButton.textContent = '−';
+      decreaseButton.setAttribute('aria-label', 'Diminuer la quantité');
       quantityInput = document.createElement('input');
       quantityInput.id = 'sm-quantity';
       quantityInput.name = 'quantity';
       quantityInput.type = 'number';
-      quantityInput.className = 'quantity';
       quantityInput.min = '1';
       quantityInput.max = '100';
       quantityInput.step = '1';
       quantityInput.value = '1';
       quantityInput.required = true;
+      var increaseButton = document.createElement('button');
+      increaseButton.type = 'button';
+      increaseButton.className = 'quantity-step';
+      increaseButton.textContent = '+';
+      increaseButton.setAttribute('aria-label', 'Augmenter la quantité');
       quantityWrapper.appendChild(quantityLabel);
+      quantityWrapper.appendChild(decreaseButton);
       quantityWrapper.appendChild(quantityInput);
-      form.appendChild(quantityWrapper);
+      quantityWrapper.appendChild(increaseButton);
+      decreaseButton.addEventListener('click', function () {
+        quantityInput.value = String(Math.max(1, (Number(quantityInput.value) || 1) - 1));
+        quantityInput.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      increaseButton.addEventListener('click', function () {
+        quantityInput.value = String(Math.min(100, (Number(quantityInput.value) || 1) + 1));
+        quantityInput.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      target.appendChild(quantityWrapper);
     }
 
     if (quantityInput) quantityInput.addEventListener('input', updateSubmitTotal);
@@ -199,7 +237,7 @@
     update();
   }
 
-  function addCountryControl() {
+  function addCountryControl(target) {
     if (!Array.isArray(fields.country) || !fields.country.length) return;
     var wrapper = document.createElement('div');
     var label = document.createElement('label');
@@ -223,10 +261,10 @@
     });
     wrapper.appendChild(label);
     wrapper.appendChild(select);
-    form.appendChild(wrapper);
+    (target || form).appendChild(wrapper);
   }
 
-  function addShippingOptions() {
+  function addShippingOptions(target) {
     shippingOptions = Array.isArray(fields.shipping_options) ? fields.shipping_options : [];
     if (!shippingOptions.length) return;
     var wrapper = document.createElement('fieldset');
@@ -253,10 +291,10 @@
       label.appendChild(text);
       wrapper.appendChild(label);
     });
-    form.appendChild(wrapper);
+    (target || form).appendChild(wrapper);
   }
 
-  function addUpsellOffers() {
+  function addUpsellOffers(target) {
     if (!Array.isArray(upsells) || !upsells.length) return;
 
     var wrapper = document.createElement('fieldset');
@@ -292,7 +330,28 @@
       wrapper.appendChild(label);
     });
 
-    form.appendChild(wrapper);
+    (target || form).appendChild(wrapper);
+  }
+
+  function addOrderSummary(target) {
+    var summary = document.createElement('section');
+    summary.className = 'order-summary';
+    summary.setAttribute('aria-label', 'Récapitulatif de la commande');
+    var heading = document.createElement('h3');
+    heading.className = 'summary-title';
+    heading.textContent = 'Récapitulatif';
+    summaryProduct = document.createElement('div');
+    summaryProduct.className = 'summary-row';
+    summaryUpsells = document.createElement('div');
+    summaryUpsells.className = 'summary-row';
+    summaryShipping = document.createElement('div');
+    summaryShipping.className = 'summary-row';
+    var divider = document.createElement('div');
+    divider.className = 'summary-divider';
+    summaryTotal = document.createElement('div');
+    summaryTotal.className = 'summary-total';
+    summary.append(heading, summaryProduct, summaryUpsells, summaryShipping, divider, summaryTotal);
+    target.appendChild(summary);
   }
 
   function readSelectedUpsells() {
@@ -317,7 +376,7 @@
     return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(amount) + ' FCFA';
   }
 
-  function addOtpVerification() {
+  function addOtpVerification(target) {
     otpState.phoneInput = form.elements.namedItem('phone');
     if (!otpState.phoneInput) return;
 
@@ -355,7 +414,7 @@
     codeRow.appendChild(otpState.verifyButton);
     otpState.wrapper.appendChild(otpState.sendButton);
     otpState.wrapper.appendChild(codeRow);
-    form.appendChild(otpState.wrapper);
+    (target || form).appendChild(otpState.wrapper);
 
     otpState.phoneInput.addEventListener('input', function () {
       otpState.verified = false;
@@ -449,12 +508,24 @@
     return selected ? Number(selected.value) : null;
   }
 
+  function setSummaryRow(row, labelText, valueText) {
+    if (!row) return;
+    row.replaceChildren();
+    var label = document.createElement('span');
+    label.textContent = labelText;
+    var value = document.createElement('span');
+    value.textContent = valueText;
+    row.append(label, value);
+  }
+
   function updateSubmitTotal() {
     if (!submitButton) return;
     var product = detectPageProduct();
     var quantity = quantityInput ? Math.max(1, Number(quantityInput.value) || 1) : 1;
+    var productSubtotal = product ? (Number(product.price) || 0) * quantity : 0;
     var selectedIndex = selectedShippingOption();
-    var deliveryPrice = selectedIndex !== null && shippingOptions[selectedIndex]
+    var selectedShipping = selectedIndex !== null ? shippingOptions[selectedIndex] : null;
+    var deliveryPrice = selectedShipping
       ? Number(shippingOptions[selectedIndex].price) || 0
       : 0;
     var upsellTotal = readSelectedUpsells().reduce(function (sum, upsell) {
@@ -467,13 +538,17 @@
       if (discountPercent > 0) price = price * (1 - discountPercent / 100);
       return sum + price * (Number(upsell.quantity) || 1);
     }, 0);
-    var total = product ? (Number(product.price) || 0) * quantity + deliveryPrice + upsellTotal : 0;
+    var total = productSubtotal + deliveryPrice + upsellTotal;
     if (productSummary) {
       productSummary.textContent = product
         ? product.name + ' - ' + formatPrice(product.price)
         : 'Produit non reconnu ou non synchronisé. Ouvrez une fiche produit synchronisée Shopify.';
-      productSummary.className = 'message ' + (product ? 'success' : 'error');
+      productSummary.className = 'product-summary' + (product ? '' : ' error');
     }
+    setSummaryRow(summaryProduct, product ? product.name + ' × ' + quantity : 'Produit', formatPrice(productSubtotal));
+    setSummaryRow(summaryUpsells, 'Offres supplémentaires', upsellTotal > 0 ? formatPrice(upsellTotal) : 'Aucune');
+    setSummaryRow(summaryShipping, 'Livraison', shippingOptions.length && !selectedShipping ? 'À sélectionner' : formatPrice(deliveryPrice));
+    setSummaryRow(summaryTotal, 'Total à payer', formatPrice(total));
     var otpRequired = fields && fields.otp_enabled === true;
     var otpBlocked = otpRequired && !otpState.verified;
     submitButton.textContent = 'Commander - ' + formatPrice(total);
@@ -484,15 +559,32 @@
 
   function renderConfiguredFields() {
     otpState.enabled = fields.otp_enabled === true;
-    addConfiguredInput('phone', fields.phone_label || 'Numéro WhatsApp', 'tel');
-    addConfiguredInput('city', 'Ville', 'text');
-    addConfiguredInput('address', 'Adresse de livraison', 'text');
-    if (fields.delivery_note === true) form.appendChild(makeTextarea('delivery_note', 'Heure de livraison souhaitée', true));
-    if (otpState.enabled) addOtpVerification();
-    addCountryControl();
-    addProductControls();
-    addShippingOptions();
-    addUpsellOffers();
+    var orderSection = document.createElement('section');
+    orderSection.className = 'form-section';
+    var orderHeading = document.createElement('h3');
+    orderHeading.className = 'section-heading';
+    orderHeading.textContent = 'Votre commande';
+    orderSection.appendChild(orderHeading);
+    form.appendChild(orderSection);
+    addProductControls(orderSection);
+    addShippingOptions(orderSection);
+    addUpsellOffers(orderSection);
+    addOrderSummary(orderSection);
+
+    var contactSection = document.createElement('section');
+    contactSection.className = 'form-section contact-section';
+    var contactHeading = document.createElement('h3');
+    contactHeading.className = 'section-heading';
+    contactHeading.textContent = 'Vos coordonnées';
+    contactSection.appendChild(contactHeading);
+    contactSection.appendChild(makeInput('customer_name', 'Nom complet', 'text', true));
+    addConfiguredInput('phone', fields.phone_label || 'Numéro WhatsApp', 'tel', contactSection);
+    addCountryControl(contactSection);
+    addConfiguredInput('city', 'Ville', 'text', contactSection);
+    addConfiguredInput('address', 'Adresse de livraison', 'text', contactSection);
+    if (fields.delivery_note === true) contactSection.appendChild(makeTextarea('delivery_note', 'Heure de livraison souhaitée', true));
+    if (otpState.enabled) addOtpVerification(contactSection);
+    form.appendChild(contactSection);
 
     var submit = document.createElement('button');
     submit.type = 'submit';
