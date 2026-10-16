@@ -102,6 +102,18 @@ document.getElementById('open-dashboard').addEventListener('click', async () => 
   await chrome.tabs.create({ url: new URL(appUrl).toString() });
 });
 
+document.getElementById('open-ads-library').addEventListener('click', async () => {
+  const url = new URL('https://www.facebook.com/ads/library/');
+  url.searchParams.set('active_status', 'active');
+  url.searchParams.set('ad_type', 'ALL');
+  url.searchParams.set('country', 'FR');
+  url.searchParams.set('q', 'myshopify');
+  url.searchParams.set('search_type', 'keyword_unordered');
+  url.searchParams.set('media_type', 'all');
+  await chrome.tabs.create({ url: url.toString() });
+  window.close();
+});
+
 document.getElementById('import-product').addEventListener('click', async () => {
   const productUrl = activeProductUrl || getProductPageUrl((await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0]?.url || '');
   if (!productUrl) {

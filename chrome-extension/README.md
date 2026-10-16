@@ -19,6 +19,15 @@ The extension calls the production API at `https://sellmaster-1.onrender.com/api
 
 The dashboard URL is centralized in `app-config.js` (`SELLMASTER_WEB_URL`) and can also be overridden from the extension options. The popup dashboard button and Shopify OAuth success link use that URL.
 
+## Ads Library product research
+
+1. Open the extension popup and choose **Rechercher des produits dans Ads Library**.
+2. In the Sellmaster panel on Facebook Ads Library, select a country and start the `myshopify` search.
+3. Load the desired Ads Library results (including additional cards via Meta's own controls), then choose **Analyser la page**. The panel keeps up to 20 distinct results with a detectable start date at least 10 days old, oldest first.
+4. Export the table as CSV, or choose PDF to open the browser print dialog and save the page as PDF.
+
+The scanner reads only ad cards currently rendered by Facebook. Meta can change the page markup, omit product destinations, or localize start-date text; in those cases some fields or ads will not be detected. A missing shop or product value is shown as unavailable rather than inferred. The country column reflects the selected Ads Library country, not an independently verified shipping market.
+
 ## Dedicated app setup
 
 1. Open the extension options and set the Shopify **App URL** (defaults to `https://www.sellmaster.site/`) and the fixed Sellmaster **Redirect URI**.
