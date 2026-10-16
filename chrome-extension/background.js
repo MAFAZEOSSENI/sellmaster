@@ -57,6 +57,24 @@ async function getShopifyProductDetails(productUrl) {
   return { title: typeof product.title === 'string' ? product.title : '', imageUrl };
 }
 
+async function validateSellmasterOwnerSession() {
+  const stored = await chrome.storage.local.get([TOKEN_KEY]);
+  if (!stored[TOKEN_KEY]) return { authenticated: false };
+
+  const response = await fetch(`${API_BASE}/auth/profile`, {
+    headers: { Authorization: `Bearer ${stored[TOKEN_KEY]}`, Accept: 'application/json' },
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.user) {
+    await chrome.storage.local.remove([TOKEN_KEY, 'sellmaster_user']);
+    return { authenticated: false, reason: 'expired' };
+  }
+
+  await chrome.storage.local.set({ sellmaster_user: data.user });
+  const isOwner = Array.isArray(data.user.roles) && data.user.roles.includes('owner');
+  return { authenticated: isOwner, email: isOwner ? data.user.email || '' : '', reason: isOwner ? '' : 'owner-required' };
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === 'SELLMASTER_API') {
     sendApi(message.path, message.method, message.body, sendResponse);
@@ -67,6 +85,17 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     getShopifyProductDetails(message.productUrl)
       .then(data => sendResponse({ ok: true, data }))
       .catch(error => sendResponse({ ok: false, error: error.message || 'Impossible de récupérer les données produit Shopify.' }));
+    return true;
+  }
+
+  if (message?.type === 'SELLMASTER_VALIDATE_ADS_SESSION') {
+    if (_sender.tab?.url && !/^https:\/\/www\.facebook\.com\/ads\/library\//i.test(_sender.tab.url)) {
+      sendResponse({ ok: false, error: 'Validation autorisée uniquement depuis Meta Ads Library.' });
+      return false;
+    }
+    validateSellmasterOwnerSession()
+      .then(session => sendResponse({ ok: true, data: session }))
+      .catch(() => sendResponse({ ok: true, data: { authenticated: false, reason: 'unavailable' } }));
     return true;
   }
 

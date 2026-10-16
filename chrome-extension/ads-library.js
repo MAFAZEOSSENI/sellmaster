@@ -36,12 +36,14 @@
     <style>
       #sellmaster-ads-library{position:fixed;z-index:2147483647;top:14px;right:14px;width:min(620px,calc(100vw - 28px));max-height:calc(100vh - 28px);overflow:auto;background:#fff;color:#193333;border:1px solid #d7e1dc;border-radius:10px;box-shadow:0 12px 42px #101f1d45;font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
       #sellmaster-ads-library *{box-sizing:border-box}#sellmaster-ads-library .head{display:flex;justify-content:space-between;align-items:center;padding:13px 15px;background:#173e3b;color:#fff}#sellmaster-ads-library .title{font-weight:800;font-size:15px}#sellmaster-ads-library .close{border:0;background:transparent;color:#fff;font-size:22px;cursor:pointer}
-      #sellmaster-ads-library .body{padding:14px}#sellmaster-ads-library .controls{display:grid;grid-template-columns:minmax(125px,1fr) minmax(165px,1.25fr) auto auto;gap:8px;align-items:end}#sellmaster-ads-library .scan-options{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}#sellmaster-ads-library label{display:block;margin:0 0 4px;font-size:11px;font-weight:700;color:#526662}#sellmaster-ads-library select,#sellmaster-ads-library input[type="number"],#sellmaster-ads-library button.action{height:38px;border:1px solid #cbd8d3;border-radius:6px;padding:0 10px;font:600 12px system-ui;cursor:pointer}#sellmaster-ads-library select,#sellmaster-ads-library input[type="number"]{width:100%;background:#fff;color:#193333}#sellmaster-ads-library button.action{background:#087f83;border-color:#087f83;color:white}#sellmaster-ads-library button.action.secondary{background:#f1f5f3;border-color:#cbd8d3;color:#284540}#sellmaster-ads-library button.action:disabled{opacity:.55;cursor:wait}
+      #sellmaster-ads-library .body{padding:14px}#sellmaster-ads-library .auth-required{padding:14px;background:#fff8e8;border:1px solid #ead7a8;border-radius:6px;color:#594b28;font-size:13px;line-height:1.5}#sellmaster-ads-library .tool-content.hidden,#sellmaster-ads-library .auth-required.hidden{display:none!important}#sellmaster-ads-library .controls{display:grid;grid-template-columns:minmax(125px,1fr) minmax(165px,1.25fr) auto auto;gap:8px;align-items:end}#sellmaster-ads-library .scan-options{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}#sellmaster-ads-library label{display:block;margin:0 0 4px;font-size:11px;font-weight:700;color:#526662}#sellmaster-ads-library select,#sellmaster-ads-library input[type="number"],#sellmaster-ads-library button.action{height:38px;border:1px solid #cbd8d3;border-radius:6px;padding:0 10px;font:600 12px system-ui;cursor:pointer}#sellmaster-ads-library select,#sellmaster-ads-library input[type="number"]{width:100%;background:#fff;color:#193333}#sellmaster-ads-library button.action{background:#087f83;border-color:#087f83;color:white}#sellmaster-ads-library button.action.secondary{background:#f1f5f3;border-color:#cbd8d3;color:#284540}#sellmaster-ads-library button.action:disabled{opacity:.55;cursor:wait}
       #sellmaster-ads-library .status{margin:10px 0;padding:8px 10px;background:#f1f5f3;color:#53645f;border-radius:5px;font-size:12px}#sellmaster-ads-library .status.error{background:#fff0ed;color:#a33220}#sellmaster-ads-library .status.success{background:#eaf7ef;color:#24623f}#sellmaster-ads-library .results{margin-top:10px;overflow:auto;border:1px solid #e0e8e4;border-radius:5px}#sellmaster-ads-library table{width:100%;border-collapse:collapse;font-size:11px;text-align:left}#sellmaster-ads-library th{position:sticky;top:0;background:#eef3f0;color:#39524b;font-weight:750}#sellmaster-ads-library th,#sellmaster-ads-library td{padding:8px;border-bottom:1px solid #e6ece9;vertical-align:top}#sellmaster-ads-library td a{color:#087f83;overflow-wrap:anywhere}#sellmaster-ads-library .product-image{display:block;width:58px;height:58px;object-fit:cover;border-radius:4px;background:#eef3f0}#sellmaster-ads-library .image-empty{display:grid;width:58px;height:58px;place-items:center;background:#f1f5f3;color:#778781;font-size:10px;text-align:center}#sellmaster-ads-library .empty{padding:18px;color:#667771;text-align:center}
       @media(max-width:560px){#sellmaster-ads-library .controls{grid-template-columns:1fr 1fr}#sellmaster-ads-library .controls>div{grid-column:1/-1}#sellmaster-ads-library button.action{font-size:11px;padding:0 7px}}
     </style>
     <div class="head"><span class="title">Sellmaster · Recherche de produits</span><button type="button" class="close" aria-label="Fermer">×</button></div>
     <div class="body">
+      <div class="auth-required" role="status">Vérification de votre session Sellmaster…</div>
+      <div class="tool-content hidden">
       <div class="controls">
         <div><label for="sm-country">Pays ciblé</label><select id="sm-country"></select></div>
         <div><label for="sm-ad-category">Catégorie de publicité</label><select id="sm-ad-category"><option value="all">Toutes les publicités</option><option value="political_and_issue_ads">Enjeux, élections ou politique</option></select></div>
@@ -58,6 +60,7 @@
         <button type="button" class="action secondary" data-csv disabled>Exporter CSV</button>
         <button type="button" class="action secondary" data-pdf disabled>Exporter PDF</button>
       </div>
+      </div>
     </div>`;
   document.documentElement.append(panel);
 
@@ -70,6 +73,8 @@
   const searchButton = panel.querySelector('[data-search]');
   const adLimitInput = panel.querySelector('#sm-ad-limit');
   const activeDaysInput = panel.querySelector('#sm-active-days');
+  const authNotice = panel.querySelector('.auth-required');
+  const toolContent = panel.querySelector('.tool-content');
   const scanOptionsStorageKey = 'sellmaster_ads_scan_options';
   const extensionStorage = globalThis.chrome?.storage?.local;
   const params = new URLSearchParams(location.search);
@@ -81,6 +86,7 @@
   let results = [];
   let lastScanOptions = { limit: 20, activeDays: 10 };
   const productDetailsCache = new Map();
+  let isAuthorized = false;
 
   adCategorySelect.value = currentAdCategory;
 
@@ -120,6 +126,37 @@
     status.textContent = text;
     status.className = `status${kind ? ` ${kind}` : ''}`;
   }
+
+  function sendRuntimeMessage(message) {
+    return new Promise((resolve, reject) => {
+      if (!globalThis.chrome?.runtime?.sendMessage) return reject(new Error('Extension Sellmaster indisponible.'));
+      chrome.runtime.sendMessage(message, response => {
+        if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+        resolve(response);
+      });
+    });
+  }
+
+  async function ensureOwnerSession() {
+    try {
+      const response = await sendRuntimeMessage({ type: 'SELLMASTER_VALIDATE_ADS_SESSION' });
+      isAuthorized = Boolean(response?.ok && response.data?.authenticated);
+    } catch (_) {
+      isAuthorized = false;
+    }
+
+    toolContent.classList.toggle('hidden', !isAuthorized);
+    authNotice.classList.toggle('hidden', isAuthorized);
+    if (!isAuthorized) {
+      authNotice.textContent = 'Connectez-vous avec un compte owner Sellmaster depuis le popup de l’extension, puis rechargez cette page. Une session active est nécessaire pour utiliser la recherche et exporter les résultats.';
+    }
+    return isAuthorized;
+  }
+
+  ensureOwnerSession();
+  chrome.storage?.onChanged?.addListener((changes, areaName) => {
+    if (areaName === 'local' && (changes.sellmaster_jwt || changes.sellmaster_user)) ensureOwnerSession();
+  });
 
   function decodedDestination(rawHref) {
     let current = rawHref;
@@ -334,6 +371,7 @@
   }
 
   async function searchAds() {
+    if (!await ensureOwnerSession()) return;
     await settingsReady;
     let options;
     try {
@@ -383,6 +421,7 @@
     let idleRounds = 0;
 
     try {
+      if (!await ensureOwnerSession()) return;
       await settingsReady;
       const options = readScanOptions();
       lastScanOptions = options;
@@ -426,7 +465,8 @@
     }
   }
 
-  function exportCsv() {
+  async function exportCsv() {
+    if (!await ensureOwnerSession()) return;
     const fields = ['Image du produit', 'Lien de la boutique', 'Nom du produit', 'Nom de la page', 'Pays', 'Actif depuis', 'Lien bibliothèque vidéo'];
     const lines = [fields, ...results.map(item => [item.imageUrl, item.store, item.product, item.page, item.country, item.startedAt.toLocaleDateString('fr-FR'), item.adLibraryUrl])]
       .map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(';'));
@@ -438,10 +478,14 @@
     URL.revokeObjectURL(link.href);
   }
 
-  function exportPdf() {
+  async function exportPdf() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       notify('Autorisez les fenêtres pop-up pour générer le PDF.', 'error');
+      return;
+    }
+    if (!await ensureOwnerSession()) {
+      printWindow.close();
       return;
     }
     const rows = results.map(item => `<tr><td>${item.imageUrl ? `<img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.product)}" style="width:58px;height:58px;object-fit:cover">` : 'Image indisponible'}</td><td>${item.store ? `<a href="${escapeHtml(item.store)}">${escapeHtml(item.store)}</a>` : 'Lien non détecté'}</td><td>${escapeHtml(item.product)}</td><td>${escapeHtml(item.page)}</td><td>${escapeHtml(item.country)}</td><td>${item.startedAt.toLocaleDateString('fr-FR')}</td><td><a href="${escapeHtml(item.adLibraryUrl)}">${escapeHtml(item.adLibraryUrl)}</a></td></tr>`).join('');
