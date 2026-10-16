@@ -34,7 +34,7 @@ export function canManageProducts(roles) {
 }
 
 export function canEditProducts(roles) {
-  return hasAnyRole(roles, 'owner', 'manager');
+  return canManageProducts(roles);
 }
 
 export function canInviteTeamMembers(roles) {

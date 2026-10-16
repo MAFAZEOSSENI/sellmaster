@@ -27,7 +27,7 @@ test('owner and manager keep all pages and allow product management', () => {
 
 test('closer can access products', () => {
   assert.equal(canManageProducts(['closer']), true);
-  assert.equal(canEditProducts(['closer']), false);
+  assert.equal(canEditProducts(['closer']), true);
   assert.deepEqual(getAvailablePages(['closer']), ['overview', 'orders', 'products', 'team']);
   assert.equal(canEditProducts(['manager']), true);
 });

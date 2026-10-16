@@ -501,9 +501,10 @@ function App() {
   const canAccessProducts = canManageProducts(userRoles)
   const canEditProducts = canEditProductsForRole(userRoles)
   const currentUserId = user?.id
-  const productOwnerId = !isOwnerUser && String(catalogTeam?.memberId) === String(currentUserId)
-    ? catalogTeam.ownerId
-    : null
+  const needsTeamCatalog = hasAnyRole(userRoles, 'manager', 'closer') && !isOwnerUser
+  const productScopeReady = !needsTeamCatalog || String(catalogTeam?.memberId) === String(currentUserId)
+  const productOwnerId = needsTeamCatalog && productScopeReady ? catalogTeam.ownerId : null
+  const shouldLoadProducts = canAccessProducts && productScopeReady && (!needsTeamCatalog || productOwnerId !== null)
   const canAccessShopify = hasAnyRole(userRoles, 'owner', 'manager')
   const navItems = baseNavItems.filter((item) => {
     if (item.id === 'products') return canAccessProducts
@@ -561,7 +562,7 @@ function App() {
   async function loadDashboard(quiet = false) {
     if (!authToken.get()) return
     if (quiet) setRefreshing(true)
-    const results = await Promise.allSettled([api.profile(), api.dashboardStats(), api.orders(), api.products(productOwnerId), api.notifications()])
+    const results = await Promise.allSettled([api.profile(), api.dashboardStats(), api.orders(), shouldLoadProducts ? api.products(productOwnerId) : Promise.resolve([]), api.notifications()])
     if (results[0].status === 'rejected') { setErrors([results[0].reason.message]); setLoading(false); setRefreshing(false); return }
     setUser(results[0].value.user)
     setStats(results[1].status === 'fulfilled' ? results[1].value : null)
@@ -605,7 +606,7 @@ function App() {
     if (!authenticated) return
     let active = true
     async function loadInitialDashboard() {
-      const results = await Promise.allSettled([api.profile(), api.dashboardStats(), api.orders(), api.products(productOwnerId), api.notifications()])
+      const results = await Promise.allSettled([api.profile(), api.dashboardStats(), api.orders(), shouldLoadProducts ? api.products(productOwnerId) : Promise.resolve([]), api.notifications()])
       if (!active) return
       if (results[0].status === 'rejected') {
         setErrors([results[0].reason.message])
@@ -625,7 +626,7 @@ function App() {
     }
     void loadInitialDashboard()
     return () => { active = false }
-  }, [authenticated, productOwnerId])
+  }, [authenticated, productOwnerId, shouldLoadProducts])
   useEffect(() => {
     if (!authenticated || activePage !== 'shopify') return
     let active = true
