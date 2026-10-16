@@ -33,6 +33,30 @@ export function canManageProducts(roles) {
   return hasAnyRole(roles, 'owner', 'manager', 'closer');
 }
 
+export function canEditProducts(roles) {
+  return hasAnyRole(roles, 'owner', 'manager');
+}
+
+export function canInviteTeamMembers(roles) {
+  return hasAnyRole(roles, 'owner');
+}
+
+export function canEditTeamCommissions(roles) {
+  return hasAnyRole(roles, 'owner', 'manager');
+}
+
+export function isTeamMemberRole(roles) {
+  return !hasAnyRole(roles, 'owner', 'manager');
+}
+
+export function getAllowedOrderStatuses(roles) {
+  if (hasAnyRole(roles, 'courier')) return ['livree'];
+  if (hasAnyRole(roles, 'owner', 'manager', 'closer')) {
+    return ['dashboard', 'livree', 'annulee', 'reportee'];
+  }
+  return [];
+}
+
 export function getAvailablePages(roles) {
   const normalized = normalizeRoles(roles);
 

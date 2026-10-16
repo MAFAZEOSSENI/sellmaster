@@ -1,5 +1,6 @@
 const { getConnection } = require('../config/database');
 const { formatCustomOrderNumber } = require('../utils/orderNumber');
+const { canViewOrderForRole } = require('../utils/orderPermissions');
 
 const Order = {
   async ensureAssignmentColumns() {
@@ -273,7 +274,11 @@ const Order = {
       }
       
       const [orders] = await conn.query(query, params);
-      return orders.length > 0 ? orders[0] : null;
+      const order = orders[0];
+      if (!order || !userId) return order || null;
+
+      const fixedRole = await require('./User').getFixedRole(Number(userId));
+      return canViewOrderForRole(order, fixedRole, userId) ? order : null;
     } finally {
       if (conn) conn.release();
     }
@@ -341,10 +346,15 @@ const Order = {
         console.log(`📦 ${orders.length} commandes trouvées (sans filtre user)`);
       }
       
-      const safeOrders = orders.map(order => ({
+      let safeOrders = orders.map(order => ({
         ...order,
         shopify_order_id: order.shopify_order_id_str
       }));
+
+      if (userId) {
+        const fixedRole = await require('./User').getFixedRole(Number(userId));
+        safeOrders = safeOrders.filter(order => canViewOrderForRole(order, fixedRole, userId));
+      }
       
       return safeOrders;
     } finally {
@@ -406,6 +416,11 @@ const Order = {
       if (orders.length === 0) return null;
       
       const order = orders[0];
+
+      if (userId) {
+        const fixedRole = await require('./User').getFixedRole(Number(userId));
+        if (!canViewOrderForRole(order, fixedRole, userId)) return null;
+      }
       
       const [items] = await conn.query(`
         SELECT 

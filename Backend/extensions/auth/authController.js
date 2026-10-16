@@ -13,15 +13,13 @@ class AuthController {
   try {
     console.log('📝 Tentative d\'inscription:', req.body);
     
-    const { email, password, phone, fullName, role } = req.body;
+    const { email, password, phone, fullName } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email et mot de passe requis' });
     }
 
-    const normalizedRole = ['owner', 'manager', 'closer', 'courier'].includes(String(role || '').toLowerCase())
-      ? String(role).toLowerCase()
-      : 'owner';
+    const normalizedRole = 'owner';
 
     console.log('🔍 Vérification si l\'utilisateur existe...');
     

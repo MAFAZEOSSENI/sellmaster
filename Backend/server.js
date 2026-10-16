@@ -91,6 +91,7 @@ app.get('/widget.js', (req, res) => {
 const Product = require('./models/Product');
 const Order = require('./models/Order');
 const Notification = require('./models/Notification');
+const { canTransitionOrderStatus } = require('./utils/orderPermissions');
 
 async function ensureOwnerMemberAccess(req, res, effectiveOwnerId, resourceLabel = 'cette ressource') {
   if (!effectiveOwnerId || Number(req.userId) === Number(effectiveOwnerId)) {
@@ -189,14 +190,20 @@ app.get('/api/products/profitability', authMiddleware, getProductProfitability);
 
 app.put('/api/products/:id', authMiddleware, async (req, res) => {
   try {
-    const { name, description, price, cost_price, stock } = req.body;
+    const { name, description, price, cost_price, stock, ownerId } = req.body;
+    const effectiveOwnerId = ownerId && Number(ownerId) > 0 ? Number(ownerId) : Number(req.userId);
+    if (Number(req.userId) !== effectiveOwnerId) {
+      const denied = await ensureOwnerMemberAccess(req, res, effectiveOwnerId, 'modifier un produit');
+      if (denied) return denied;
+    }
+
     const product = await Product.update(req.params.id, {
       name,
       description,
       price,
       cost_price,
       stock,
-    }, req.userId);
+    }, effectiveOwnerId);
     res.json(product);
   } catch (error) {
     console.error('❌ Erreur mise à jour produit:', error);
@@ -315,10 +322,7 @@ app.get('/api/user/orders', authMiddleware, async (req, res) => {
   try {
     console.log('📦 Récupération commandes user spécifique:', req.userId);
     
-    const orders = await Order.findAll({
-      where: { user_id: req.userId },
-      order: [['created_at', 'DESC']]
-    });
+    const orders = await Order.findAll(req.userId);
     
     console.log(`✅ ${orders.length} commandes pour user ${req.userId}`);
     res.json(orders);
@@ -537,6 +541,15 @@ app.patch('/api/orders/:id/status', authMiddleware, async (req, res) => {
     }
 
     const callerRole = await User.getFixedRole(Number(req.userId));
+    if (!canTransitionOrderStatus(callerRole, status)) {
+      return res.status(403).json({ error: 'Vous n’êtes pas autorisé à appliquer ce statut.', code: 'INVALID_STATUS_FOR_ROLE' });
+    }
+    if (callerRole === 'courier' && Number(order.assigned_to) !== Number(req.userId)) {
+      return res.status(403).json({ error: 'Un livreur ne peut mettre à jour que ses propres commandes.', code: 'ORDER_NOT_ASSIGNED_TO_COURIER' });
+    }
+    if (callerRole === 'closer' && order.assigned_to != null && Number(order.assigned_to) !== Number(req.userId)) {
+      return res.status(403).json({ error: 'Un closer ne peut pas modifier la commande attribuée à un autre livreur.', code: 'ORDER_NOT_ASSIGNED_TO_CLOSER' });
+    }
     const deliveryFee = Number(delivery_fee);
     if (status === 'livree' && callerRole === 'courier' && (!Number.isFinite(deliveryFee) || deliveryFee <= 0)) {
       return res.status(400).json({ error: 'Frais de livraison requis' });

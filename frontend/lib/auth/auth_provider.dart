@@ -7,7 +7,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'google_auth.dart';
 
 const googleWebClientId =
-  '679713157139-e8r3ahd7milpcuvng9vfiruiijcghm12.apps.googleusercontent.com';
+    '679713157139-e8r3ahd7milpcuvng9vfiruiijcghm12.apps.googleusercontent.com';
 
 class AuthProvider with ChangeNotifier {
   String? _token;
@@ -22,7 +22,8 @@ class AuthProvider with ChangeNotifier {
   List<String> get roles {
     final value = _user?['roles'];
     if (value is List) {
-      final normalized = value.whereType<String>().map((item) => item.toLowerCase()).toList();
+      final normalized =
+          value.whereType<String>().map((item) => item.toLowerCase()).toList();
       if (normalized.isNotEmpty) return normalized;
     }
     final directRole = _user?['role'];
@@ -31,6 +32,7 @@ class AuthProvider with ChangeNotifier {
     }
     return const [];
   }
+
   String get primaryRole => roles.isNotEmpty ? roles.first : 'owner';
 
   // ✅ CORRIGÉ : Vérification au démarrage avec SharedPreferences
@@ -42,16 +44,16 @@ class AuthProvider with ChangeNotifier {
       // CHARGEZ LE TOKEN DEPUIS SharedPreferences VIA AuthService
       final authService = AuthService();
       final storedToken = await authService.getToken();
-      
+
       if (storedToken != null && storedToken.isNotEmpty) {
         _token = storedToken;
-        
+
         // Configurez le token dans ApiService
         ApiService.setToken(_token!);
-        
+
         // Récupérer les données utilisateur
         await _fetchUserData();
-        
+
         if (kDebugMode) {
           print('✅ Session restaurée depuis SharedPreferences');
           print('🔑 Token chargé: ${_token!.substring(0, 20)}...');
@@ -61,10 +63,9 @@ class AuthProvider with ChangeNotifier {
           print('ℹ️  Aucune session précédente trouvée');
         }
       }
-      
+
       // Simuler un petit délai pour le loading
       await Future.delayed(const Duration(milliseconds: 500));
-      
     } catch (e) {
       if (kDebugMode) {
         print('❌ Erreur initialisation auth: $e');
@@ -103,57 +104,57 @@ class AuthProvider with ChangeNotifier {
   // Vérifier si l'utilisateur peut créer des commandes
   bool canCreateOrder() {
     if (_user == null) return false;
-    
+
     if (_user!['license_key'] != null) {
-      final expiry = _user!['license_expiry'] != null 
+      final expiry = _user!['license_expiry'] != null
           ? DateTime.parse(_user!['license_expiry'])
           : null;
       if (expiry != null && expiry.isAfter(DateTime.now())) {
         return true;
       }
     }
-    
+
     final orderCount = _user!['order_count'] ?? 0;
     final maxOrders = _user!['max_orders'] ?? 10;
-    
+
     return orderCount < maxOrders;
   }
 
   // Obtenir le nombre de commandes restantes
   int get remainingOrders {
     if (_user == null) return 0;
-    
+
     if (_user!['license_key'] != null) {
-      final expiry = _user!['license_expiry'] != null 
+      final expiry = _user!['license_expiry'] != null
           ? DateTime.parse(_user!['license_expiry'])
           : null;
       if (expiry != null && expiry.isAfter(DateTime.now())) {
         return 99999;
       }
     }
-    
+
     final orderCount = _user!['order_count'] ?? 0;
     final maxOrders = _user!['max_orders'] ?? 10;
-    
+
     return maxOrders - orderCount;
   }
 
   // ✅ CORRIGÉ : Inscription
-  Future<void> register(String email, String password, String phone, String fullName, String role) async {
+  Future<void> register(
+      String email, String password, String phone, String fullName) async {
     _isLoading = true;
     notifyListeners();
 
     try {
       final response = await http.post(
         Uri.parse('https://sellmaster-1.onrender.com/api/auth/register'),
-
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'email': email,
           'password': password,
           'phone': phone,
           'fullName': fullName,
-          'role': role,
+          'role': 'owner',
         }),
       );
 
@@ -161,17 +162,17 @@ class AuthProvider with ChangeNotifier {
         final data = json.decode(response.body);
         _token = data['token'];
         _user = data['user'];
-        
+
         // ✅ SAUVEGARDEZ DANS AuthService (SharedPreferences)
         await AuthService().saveToken(_token!);
-        
+
         // ✅ SAUVEGARDEZ DANS ApiService
         ApiService.setToken(_token!);
-        
+
         if (kDebugMode) {
           print('✅ Inscription réussie: ${_user!['email']}');
           print('💾 Token sauvegardé dans AuthService & ApiService');
-          
+
           // Vérification
           final savedToken = await AuthService().getToken();
           print('🔍 Token vérifié: ${savedToken != null ? "OK" : "PROBLÈME"}');
@@ -210,18 +211,18 @@ class AuthProvider with ChangeNotifier {
         final data = json.decode(response.body);
         _token = data['token'];
         _user = data['user'];
-        
+
         // ✅ SAUVEGARDEZ DANS AuthService (SharedPreferences)
         await AuthService().saveToken(_token!);
-        
+
         // ✅ SAUVEGARDEZ DANS ApiService
         ApiService.setToken(_token!);
-        
+
         if (kDebugMode) {
           print('✅ Connexion réussie: ${_user!['email']}');
           print('📊 Données utilisateur: $_user');
           print('💾 Token sauvegardé dans AuthService & ApiService');
-          
+
           // Vérification
           final savedToken = await AuthService().getToken();
           print('🔍 Token vérifié: ${savedToken != null ? "OK" : "PROBLÈME"}');
@@ -258,13 +259,15 @@ class AuthProvider with ChangeNotifier {
           clientId: googleWebClientId,
         ).signIn();
         if (googleUser == null) {
-          throw Exception('Connexion Google annulée ou bloquée par le navigateur. Vérifiez les pop-ups et le client OAuth Google.');
+          throw Exception(
+              'Connexion Google annulée ou bloquée par le navigateur. Vérifiez les pop-ups et le client OAuth Google.');
         }
 
         final authentication = await googleUser.authentication;
         idToken = authentication.idToken ?? '';
         if (idToken.isEmpty) {
-          throw Exception('Google n’a pas fourni de jeton de connexion valide. Vérifiez la configuration OAuth web et les permissions du compte.');
+          throw Exception(
+              'Google n’a pas fourni de jeton de connexion valide. Vérifiez la configuration OAuth web et les permissions du compte.');
         }
       }
 
@@ -282,7 +285,9 @@ class AuthProvider with ChangeNotifier {
       final data = json.decode(response.body);
       final receivedToken = data['token'];
       final receivedUser = data['user'];
-      if (receivedToken is! String || receivedToken.isEmpty || receivedUser is! Map<String, dynamic>) {
+      if (receivedToken is! String ||
+          receivedToken.isEmpty ||
+          receivedUser is! Map<String, dynamic>) {
         throw Exception('Réponse de connexion Google invalide');
       }
 
@@ -306,16 +311,16 @@ class AuthProvider with ChangeNotifier {
   Future<void> logout() async {
     // ✅ SUPPRIMEZ LE TOKEN DANS AuthService
     await AuthService().deleteToken();
-    
+
     // ✅ SUPPRIMEZ LE TOKEN DANS ApiService
     ApiService.clearToken();
-    
+
     _token = null;
     _user = null;
     _isLoading = false;
-    
+
     notifyListeners();
-    
+
     if (kDebugMode) {
       print('🔒 Déconnexion réussie - Token supprimé des deux services');
     }
@@ -328,20 +333,21 @@ class AuthProvider with ChangeNotifier {
   }
 
   // ✅ CORRIGÉ : Charger le token au démarrage
-  Future<void> loadStoredToken(String token, Map<String, dynamic> userData) async {
+  Future<void> loadStoredToken(
+      String token, Map<String, dynamic> userData) async {
     _token = token;
     _user = userData;
-    
+
     // ✅ SAUVEGARDEZ DANS AuthService
     await AuthService().saveToken(token);
-    
+
     // ✅ SAUVEGARDEZ DANS ApiService
     ApiService.setToken(token);
-    
+
     _isLoading = false;
     notifyListeners();
   }
-  
+
   // 🆕 MÉTHODE POUR DÉBOGUER
   Future<void> debugAuthState() async {
     print('\n🔍 AUTH PROVIDER DEBUG');
@@ -350,23 +356,26 @@ class AuthProvider with ChangeNotifier {
     print('👤 User: $_user');
     print('🔄 isLoading: $_isLoading');
     print('🔐 isAuthenticated: $isAuthenticated');
-    
+
     // Vérifier AuthService
     try {
       final authService = AuthService();
       final storedToken = await authService.getToken();
-      print('💾 Token AuthService: ${storedToken != null ? "PRÉSENT" : "ABSENT"}');
+      print(
+          '💾 Token AuthService: ${storedToken != null ? "PRÉSENT" : "ABSENT"}');
       if (storedToken != null) {
         print('📏 Longueur: ${storedToken.length}');
-        print('🔑 Début: ${storedToken.substring(0, min(30, storedToken.length))}...');
+        print(
+            '🔑 Début: ${storedToken.substring(0, min(30, storedToken.length))}...');
       }
     } catch (e) {
       print('❌ Erreur AuthService: $e');
     }
-    
+
     // Vérifier ApiService
-    print('⚙️  Token ApiService: ${ApiService.authToken != null ? "PRÉSENT" : "ABSENT"}');
-    
+    print(
+        '⚙️  Token ApiService: ${ApiService.authToken != null ? "PRÉSENT" : "ABSENT"}');
+
     print('=' * 40 + '\n');
   }
 }

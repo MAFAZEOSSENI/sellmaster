@@ -16,8 +16,6 @@ class _RegisterPageState extends State<RegisterPage> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _phoneController = TextEditingController();
-  final List<String> _roles = ['owner', 'manager', 'closer', 'courier'];
-  String _selectedRole = 'owner';
   bool _isLoading = false;
 
   void _register() async {
@@ -31,11 +29,10 @@ class _RegisterPageState extends State<RegisterPage> {
         _passwordController.text,
         _phoneController.text.trim(),
         _fullNameController.text.trim(),
-        _selectedRole,
       );
-      
+
       Navigator.of(context).pop();
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Inscription réussie! 🎉')),
       );
@@ -107,19 +104,6 @@ class _RegisterPageState extends State<RegisterPage> {
                   border: OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.phone,
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: _selectedRole,
-                decoration: const InputDecoration(
-                  labelText: 'Rôle',
-                  prefixIcon: Icon(Icons.badge),
-                  border: OutlineInputBorder(),
-                ),
-                items: _roles
-                    .map((role) => DropdownMenuItem(value: role, child: Text(role)))
-                    .toList(),
-                onChanged: (value) => setState(() => _selectedRole = value ?? 'owner'),
               ),
               const SizedBox(height: 16),
               TextFormField(

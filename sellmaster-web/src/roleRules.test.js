@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeRoles, getPrimaryRole, hasAnyRole, getAvailablePages, canManageProducts, filterOrdersForRole, sortOrdersNewestFirst } from './roleRules.js';
+import { normalizeRoles, getPrimaryRole, hasAnyRole, getAvailablePages, canManageProducts, canEditProducts, canInviteTeamMembers, canEditTeamCommissions, isTeamMemberRole, getAllowedOrderStatuses, filterOrdersForRole, sortOrdersNewestFirst } from './roleRules.js';
 
 test('normalizeRoles lowercases and filters blanks', () => {
   assert.deepEqual(normalizeRoles(['Owner', ' Manager ', '', null, undefined]), ['owner', 'manager']);
@@ -27,7 +27,24 @@ test('owner and manager keep all pages and allow product management', () => {
 
 test('closer can access products', () => {
   assert.equal(canManageProducts(['closer']), true);
+  assert.equal(canEditProducts(['closer']), false);
   assert.deepEqual(getAvailablePages(['closer']), ['overview', 'orders', 'products', 'team']);
+  assert.equal(canEditProducts(['manager']), true);
+});
+
+test('team permissions match owner and manager responsibilities', () => {
+  assert.equal(canInviteTeamMembers(['owner']), true);
+  assert.equal(canInviteTeamMembers(['manager']), false);
+  assert.equal(canEditTeamCommissions(['manager']), true);
+  assert.equal(isTeamMemberRole(['closer']), true);
+  assert.equal(isTeamMemberRole(['courier']), true);
+  assert.equal(isTeamMemberRole(['manager']), false);
+});
+
+test('courier can only mark orders delivered', () => {
+  assert.deepEqual(getAllowedOrderStatuses(['courier']), ['livree']);
+  assert.deepEqual(getAllowedOrderStatuses(['closer']), ['dashboard', 'livree', 'annulee', 'reportee']);
+  assert.deepEqual(getAllowedOrderStatuses(['owner']), ['dashboard', 'livree', 'annulee', 'reportee']);
 });
 
 const orders = [
