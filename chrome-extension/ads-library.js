@@ -3,11 +3,32 @@
   if (document.getElementById('sellmaster-ads-library')) return;
 
   const COUNTRIES = [
-    ['FR', 'France'], ['US', 'États-Unis'], ['CA', 'Canada'], ['GB', 'Royaume-Uni'],
-    ['AU', 'Australie'], ['DE', 'Allemagne'], ['IT', 'Italie'], ['ES', 'Espagne'],
-    ['NL', 'Pays-Bas'], ['BE', 'Belgique'], ['CH', 'Suisse'], ['SE', 'Suède'],
-    ['NO', 'Norvège'], ['DK', 'Danemark'], ['IE', 'Irlande'], ['NZ', 'Nouvelle-Zélande'],
-    ['BR', 'Brésil'], ['MX', 'Mexique'], ['AE', 'Émirats arabes unis'], ['IN', 'Inde'],
+    ['DZ', 'Algérie', 'Afrique'], ['AO', 'Angola', 'Afrique'], ['BJ', 'Bénin', 'Afrique'],
+    ['BW', 'Botswana', 'Afrique'], ['BF', 'Burkina Faso', 'Afrique'], ['BI', 'Burundi', 'Afrique'],
+    ['CV', 'Cap-Vert', 'Afrique'], ['CM', 'Cameroun', 'Afrique'], ['CF', 'République centrafricaine', 'Afrique'],
+    ['KM', 'Comores', 'Afrique'], ['CG', 'Congo', 'Afrique'], ['CD', 'République démocratique du Congo', 'Afrique'],
+    ['CI', 'Côte d’Ivoire', 'Afrique'], ['DJ', 'Djibouti', 'Afrique'], ['EG', 'Égypte', 'Afrique'],
+    ['ER', 'Érythrée', 'Afrique'], ['SZ', 'Eswatini', 'Afrique'], ['ET', 'Éthiopie', 'Afrique'],
+    ['GA', 'Gabon', 'Afrique'], ['GM', 'Gambie', 'Afrique'], ['GH', 'Ghana', 'Afrique'],
+    ['GN', 'Guinée', 'Afrique'], ['GW', 'Guinée-Bissau', 'Afrique'], ['GQ', 'Guinée équatoriale', 'Afrique'],
+    ['KE', 'Kenya', 'Afrique'], ['LS', 'Lesotho', 'Afrique'], ['LR', 'Libéria', 'Afrique'],
+    ['LY', 'Libye', 'Afrique'], ['MG', 'Madagascar', 'Afrique'], ['MW', 'Malawi', 'Afrique'],
+    ['ML', 'Mali', 'Afrique'], ['MA', 'Maroc', 'Afrique'], ['MU', 'Maurice', 'Afrique'],
+    ['MR', 'Mauritanie', 'Afrique'], ['MZ', 'Mozambique', 'Afrique'], ['NA', 'Namibie', 'Afrique'],
+    ['NE', 'Niger', 'Afrique'], ['NG', 'Nigeria', 'Afrique'], ['UG', 'Ouganda', 'Afrique'],
+    ['RW', 'Rwanda', 'Afrique'], ['ST', 'Sao Tomé-et-Principe', 'Afrique'], ['SN', 'Sénégal', 'Afrique'],
+    ['SC', 'Seychelles', 'Afrique'], ['SL', 'Sierra Leone', 'Afrique'], ['SO', 'Somalie', 'Afrique'],
+    ['ZA', 'Afrique du Sud', 'Afrique'], ['SS', 'Soudan du Sud', 'Afrique'], ['SD', 'Soudan', 'Afrique'],
+    ['TZ', 'Tanzanie', 'Afrique'], ['TD', 'Tchad', 'Afrique'], ['TG', 'Togo', 'Afrique'],
+    ['TN', 'Tunisie', 'Afrique'], ['ZM', 'Zambie', 'Afrique'], ['ZW', 'Zimbabwe', 'Afrique'],
+    ['FR', 'France', 'Europe'], ['GB', 'Royaume-Uni', 'Europe'], ['DE', 'Allemagne', 'Europe'],
+    ['IT', 'Italie', 'Europe'], ['ES', 'Espagne', 'Europe'], ['NL', 'Pays-Bas', 'Europe'],
+    ['BE', 'Belgique', 'Europe'], ['CH', 'Suisse', 'Europe'], ['SE', 'Suède', 'Europe'],
+    ['NO', 'Norvège', 'Europe'], ['DK', 'Danemark', 'Europe'], ['IE', 'Irlande', 'Europe'],
+    ['US', 'États-Unis', 'Amérique'], ['CA', 'Canada', 'Amérique'], ['BR', 'Brésil', 'Amérique'],
+    ['MX', 'Mexique', 'Amérique'], ['AU', 'Australie', 'Asie-Pacifique'],
+    ['NZ', 'Nouvelle-Zélande', 'Asie-Pacifique'], ['IN', 'Inde', 'Asie-Pacifique'],
+    ['AE', 'Émirats arabes unis', 'Moyen-Orient'],
   ];
   const panel = document.createElement('aside');
   panel.id = 'sellmaster-ads-library';
@@ -24,9 +45,9 @@
       <div class="controls">
         <div><label for="sm-country">Pays ciblé</label><select id="sm-country"></select></div>
         <button type="button" class="action" data-search>Rechercher « myshopify »</button>
-        <button type="button" class="action secondary" data-scan>Analyser la page</button>
+        <button type="button" class="action secondary" data-scan>Analyser + charger</button>
       </div>
-      <div class="status" role="status" aria-live="polite">Chargez les résultats Ads Library, puis lancez l’analyse. Les annonces doivent afficher une date de démarrage.</div>
+      <div class="status" role="status" aria-live="polite">Lancez l’analyse pour parcourir progressivement les annonces chargées. Meta doit afficher une date de démarrage pour vérifier les 10 jours.</div>
       <div class="results"><div class="empty">Aucun résultat analysé.</div></div>
       <div class="controls" style="margin-top:9px;grid-template-columns:1fr 1fr">
         <button type="button" class="action secondary" data-csv disabled>Exporter CSV</button>
@@ -40,16 +61,24 @@
   const resultsContainer = panel.querySelector('.results');
   const csvButton = panel.querySelector('[data-csv]');
   const pdfButton = panel.querySelector('[data-pdf]');
+  const scanButton = panel.querySelector('[data-scan]');
   const params = new URLSearchParams(location.search);
   const currentCountry = COUNTRIES.some(([code]) => code === params.get('country')) ? params.get('country') : 'FR';
   let results = [];
 
-  COUNTRIES.forEach(([code, name]) => {
+  const countryGroups = new Map();
+  COUNTRIES.forEach(([code, name, region]) => {
+    if (!countryGroups.has(region)) {
+      const group = document.createElement('optgroup');
+      group.label = region;
+      countryGroups.set(region, group);
+      countrySelect.append(group);
+    }
     const option = document.createElement('option');
     option.value = code;
     option.textContent = name;
     option.selected = code === currentCountry;
-    countrySelect.append(option);
+    countryGroups.get(region).append(option);
   });
 
   function notify(text, kind = '') {
@@ -144,20 +173,50 @@
     location.assign(url.toString());
   }
 
-  function scanAds() {
-    const cards = [...document.querySelectorAll('[role="article"]')];
+  function wait(milliseconds) {
+    return new Promise(resolve => setTimeout(resolve, milliseconds));
+  }
+
+  async function scanAds() {
+    scanButton.disabled = true;
     const unique = new Map();
-    cards.forEach(card => {
-      const item = getCardValue(card);
-      if (!item) return;
-      const key = [item.store, item.product, item.page].join('|');
-      if (!unique.has(key)) unique.set(key, item);
-    });
-    results = [...unique.values()]
-      .sort((left, right) => left.startedAt - right.startedAt)
-      .slice(0, 20);
-    render();
-    notify(`${results.length} annonce(s) trouvée(s) avec une date de démarrage d’au moins 10 jours. Seules les cartes déjà chargées par Ads Library sont analysées.`, results.length ? 'success' : '');
+    let previousCardCount = 0;
+    let idleRounds = 0;
+
+    try {
+      for (let round = 0; round < 30; round += 1) {
+        const cards = [...document.querySelectorAll('[role="article"]')];
+        cards.forEach(card => {
+          const item = getCardValue(card);
+          if (!item) return;
+          const key = [item.store, item.product, item.page].join('|');
+          if (!unique.has(key)) unique.set(key, item);
+        });
+
+        results = [...unique.values()]
+          .sort((left, right) => left.startedAt - right.startedAt)
+          .slice(0, 20);
+        render();
+        notify(`Parcours en cours : ${cards.length} cartes visibles, ${results.length}/20 annonces qualifiées.`, '');
+        if (results.length === 20) break;
+
+        const cardCount = document.querySelectorAll('[role="article"]').length;
+        idleRounds = cardCount > previousCardCount ? 0 : idleRounds + 1;
+        previousCardCount = cardCount;
+        if (idleRounds >= 5) break;
+
+        window.scrollBy({ top: Math.max(500, Math.floor(window.innerHeight * 0.75)), behavior: 'smooth' });
+        await wait(900);
+      }
+
+      render();
+      const summary = `${results.length}/20 annonce(s) qualifiée(s), collectées pendant le parcours. Les cartes sans date lisible sont exclues.`;
+      notify(summary, results.length ? 'success' : '');
+    } catch (error) {
+      notify(`Analyse interrompue : ${error.message || 'erreur inconnue'}`, 'error');
+    } finally {
+      scanButton.disabled = false;
+    }
   }
 
   function exportCsv() {
@@ -186,7 +245,7 @@
 
   panel.querySelector('.close').addEventListener('click', () => panel.remove());
   panel.querySelector('[data-search]').addEventListener('click', searchAds);
-  panel.querySelector('[data-scan]').addEventListener('click', scanAds);
+  scanButton.addEventListener('click', scanAds);
   csvButton.addEventListener('click', exportCsv);
   pdfButton.addEventListener('click', exportPdf);
 })();

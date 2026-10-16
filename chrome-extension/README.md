@@ -22,11 +22,11 @@ The dashboard URL is centralized in `app-config.js` (`SELLMASTER_WEB_URL`) and c
 ## Ads Library product research
 
 1. Open the extension popup and choose **Rechercher des produits dans Ads Library**.
-2. In the Sellmaster panel on Facebook Ads Library, select a country and start the `myshopify` search.
-3. Load the desired Ads Library results (including additional cards via Meta's own controls), then choose **Analyser la page**. The panel keeps up to 20 distinct results with a detectable start date at least 10 days old, oldest first.
+2. In the Sellmaster panel on Facebook Ads Library, select a country and start the `myshopify` search. All 54 African countries are included in the **Afrique** group.
+3. Choose **Analyser + charger**. The scanner progressively scrolls the page, waits for Meta to load more cards, and deduplicates ads as it goes. It stops at 20 distinct qualified results, after 30 passes, or after five passes without additional loaded cards. Results with a detectable start date at least 10 days old are sorted oldest first.
 4. Export the table as CSV, or choose PDF to open the browser print dialog and save the page as PDF.
 
-The scanner reads only ad cards currently rendered by Facebook. Meta can change the page markup, omit product destinations, or localize start-date text; in those cases some fields or ads will not be detected. A missing shop or product value is shown as unavailable rather than inferred. The country column reflects the selected Ads Library country, not an independently verified shipping market.
+The scanner reads ad cards rendered by Facebook while progressively scrolling; it does not bypass Meta's login, rate limits, result limits, or access restrictions. Meta can change the page markup, omit product destinations, or localize start-date text; missing destinations are shown as unavailable and ads without a parseable date are excluded rather than guessed. The country column reflects the selected Ads Library country, not an independently verified shipping market. Meta may not offer every country as a selectable ad audience in every account or search context.
 
 ## Dedicated app setup
 
