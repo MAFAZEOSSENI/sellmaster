@@ -75,6 +75,34 @@ async function validateSellmasterOwnerSession() {
   return { authenticated: isOwner, email: isOwner ? data.user.email || '' : '', reason: isOwner ? '' : 'owner-required' };
 }
 
+async function downloadAdVideo(videoUrl, libraryId, sender) {
+  if (!/^https:\/\/www\.facebook\.com\/ads\/library\//i.test(sender.tab?.url || '')) {
+    throw new Error('Téléchargement autorisé uniquement depuis Meta Ads Library.');
+  }
+
+  const session = await validateSellmasterOwnerSession();
+  if (!session.authenticated) throw new Error('Une session owner Sellmaster active est requise.');
+
+  let url;
+  try {
+    url = new URL(videoUrl);
+  } catch (_) {
+    throw new Error('URL vidéo invalide.');
+  }
+  if (url.protocol !== 'https:' || !/(^|\.)fbcdn\.net$/i.test(url.hostname)) {
+    throw new Error('Seules les vidéos hébergées sur le CDN Meta sont autorisées.');
+  }
+
+  const safeLibraryId = String(libraryId || '').replace(/\D/g, '').slice(0, 32) || String(Date.now());
+  const extension = url.pathname.match(/\.(mp4|mov|webm)$/i)?.[1]?.toLowerCase() || 'mp4';
+  return chrome.downloads.download({
+    url: url.toString(),
+    filename: `Sellmaster-Ads-${safeLibraryId}.${extension}`,
+    saveAs: true,
+    conflictAction: 'uniquify',
+  });
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === 'SELLMASTER_API') {
     sendApi(message.path, message.method, message.body, sendResponse);
@@ -96,6 +124,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     validateSellmasterOwnerSession()
       .then(session => sendResponse({ ok: true, data: session }))
       .catch(() => sendResponse({ ok: true, data: { authenticated: false, reason: 'unavailable' } }));
+    return true;
+  }
+
+  if (message?.type === 'SELLMASTER_DOWNLOAD_AD_VIDEO') {
+    downloadAdVideo(message.videoUrl, message.libraryId, _sender)
+      .then(downloadId => sendResponse({ ok: true, downloadId }))
+      .catch(error => sendResponse({ ok: false, error: error.message || 'Téléchargement vidéo impossible.' }));
     return true;
   }
 

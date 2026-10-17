@@ -10,7 +10,8 @@
   },
   "permissions": [
     "storage",
-    "activeTab"
+    "activeTab",
+    "downloads"
   ],
   "host_permissions": [
     "https://sellmaster-1.onrender.com/*",
