@@ -178,15 +178,20 @@
     return '';
   }
 
+  function normalizeMetaText(text) {
+    return String(text || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  }
+
   function parseStartDate(text) {
-    const match = text.match(/(?:started running(?: on)?|active since|diffus(?:e|ée) depuis|d[eé]but de diffusion\s*:?)\s*([a-zéû]+\s+\d{1,2},?\s+\d{4}|\d{1,2}\s+[a-zéû]+\s+\d{4}|\d{1,2}[/.]\d{1,2}[/.]\d{4})/i);
+    const normalizedText = normalizeMetaText(text);
+    const match = normalizedText.match(/(?:started running(?: on)?|active since|running since|diffuse depuis|debut de diffusion(?: le)?|date de debut de diffusion(?: le)?)\s*:?\s*([a-z.]+\s+\d{1,2},?\s+\d{4}|\d{1,2}\s+[a-z.]+\s+\d{4}|\d{1,2}[/.]\d{1,2}[/.]\d{4})/i);
     if (!match) return null;
-    const value = match[1].replace(/,/g, '').trim().toLowerCase();
-    const months = { jan: 0, january: 0, janvier: 0, feb: 1, february: 1, février: 1, fevrier: 1, mar: 2, march: 2, mars: 2, apr: 3, april: 3, avril: 3, may: 4, mai: 4, jun: 5, june: 5, juin: 5, jul: 6, july: 6, juillet: 6, aug: 7, august: 7, août: 7, aout: 7, sep: 8, sept: 8, september: 8, septembre: 8, oct: 9, october: 9, octobre: 9, nov: 10, november: 10, novembre: 10, dec: 11, december: 11, décembre: 11, decembre: 11 };
+    const value = match[1].replace(/,/g, '').replace(/\./g, '').trim().toLowerCase();
+    const months = { jan: 0, january: 0, janvier: 0, feb: 1, february: 1, fevrier: 1, fev: 1, fevr: 1, mar: 2, march: 2, mars: 2, apr: 3, april: 3, avril: 3, avr: 3, may: 4, mai: 4, jun: 5, june: 5, juin: 5, jul: 6, july: 6, juillet: 6, juil: 6, aug: 7, august: 7, aout: 7, sep: 8, sept: 8, september: 8, septembre: 8, oct: 9, october: 9, octobre: 9, nov: 10, november: 10, novembre: 10, dec: 11, december: 11, decembre: 11 };
     const numeric = value.match(/^(\d{1,2})[/.](\d{1,2})[/.](\d{4})$/);
     if (numeric) return new Date(Number(numeric[3]), Number(numeric[2]) - 1, Number(numeric[1]));
-    const english = value.match(/^([a-zéû]+)\s+(\d{1,2})\s+(\d{4})$/);
-    const french = value.match(/^(\d{1,2})\s+([a-zéû]+)\s+(\d{4})$/);
+    const english = value.match(/^([a-z.]+)\s+(\d{1,2})\s+(\d{4})$/);
+    const french = value.match(/^(\d{1,2})\s+([a-z.]+)\s+(\d{4})$/);
     const dateParts = english
       ? [english[3], months[english[1]], english[2]]
       : french ? [french[3], months[french[2]], french[1]] : null;
@@ -303,7 +308,7 @@
     }) || destinations.find(destination => !/adspo\.co$/i.test(new URL(destination).hostname)) || '';
     const headings = [...card.querySelectorAll('h1,h2,h3,h4,[role="heading"]')]
       .map(element => element.innerText.trim())
-      .filter(value => value && !/^(sponsored|sponsoris[eé]|publicit[eé])$/i.test(value));
+      .filter(value => value && !/^(sponsored|sponsorise|publicite)$/i.test(normalizeMetaText(value)));
     const pageLink = anchors.find(anchor => /facebook\.com\/(?!ads\/library)/i.test(anchor.href) && anchor.innerText.trim());
     const pageName = pageLink?.innerText.trim() || 'Page non détectée';
     const productName = headings.find(value => value !== pageName)
@@ -397,14 +402,16 @@
 
   function findAdCards() {
     const markers = [...document.querySelectorAll('span, div')]
-      .filter(element => element.children.length === 0 && /Started running on/i.test(element.textContent || ''));
+      .filter(element => element.children.length === 0 && /(?:started running(?: on)?|active since|running since|diffuse depuis|debut de diffusion)/i.test(normalizeMetaText(element.textContent || '')));
     const cards = new Set();
 
     markers.forEach(marker => {
       let element = marker;
       for (let depth = 0; element && depth < 10; depth += 1, element = element.parentElement) {
-        const text = element.innerText || '';
-        if (/Library ID:/i.test(text) && /Sponsored/i.test(text) && element.querySelector('a[href]')) {
+        const text = normalizeMetaText(element.innerText || '');
+        const hasLibraryId = /(?:library id|id dans la bibliotheque)\s*:?\s*\d+/i.test(text);
+        const isSponsored = /\b(?:sponsored|sponsorise|publicite)\b/i.test(text);
+        if (hasLibraryId && isSponsored && element.querySelector('a[href]')) {
           cards.add(element);
           break;
         }
