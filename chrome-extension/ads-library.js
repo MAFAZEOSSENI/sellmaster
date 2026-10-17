@@ -3,6 +3,7 @@
   if (document.getElementById('sellmaster-ads-library')) return;
 
   const COUNTRIES = [
+    ['ALL', 'Tous les pays', 'Tous'],
     ['DZ', 'Algérie', 'Afrique'], ['AO', 'Angola', 'Afrique'], ['BJ', 'Bénin', 'Afrique'],
     ['BW', 'Botswana', 'Afrique'], ['BF', 'Burkina Faso', 'Afrique'], ['BI', 'Burundi', 'Afrique'],
     ['CV', 'Cap-Vert', 'Afrique'], ['CM', 'Cameroun', 'Afrique'], ['CF', 'République centrafricaine', 'Afrique'],
@@ -63,6 +64,7 @@
       </div>
       </div>
     </div>`;
+  panel.querySelector('style').textContent += '#sellmaster-ads-library .creative-search-start{display:inline-flex;align-items:center;margin-top:5px;padding:5px 7px;border:1px solid #b5d9d4;border-radius:5px;background:#eaf7f4;color:#075e64;font:700 10px system-ui;cursor:pointer}#sellmaster-ads-library .match-confidence{display:inline-block;padding:3px 6px;border-radius:4px;background:#eaf7ef;color:#24623f;font-weight:700}#sellmaster-ads-library .match-confidence.medium{background:#fff6df;color:#755b15}#sellmaster-ads-library .match-confidence.low{background:#f1f3f4;color:#5c686b}';
   document.documentElement.append(panel);
 
   const countrySelect = panel.querySelector('#sm-country');
@@ -78,6 +80,7 @@
   const authNotice = panel.querySelector('.auth-required');
   const toolContent = panel.querySelector('.tool-content');
   const scanOptionsStorageKey = 'sellmaster_ads_scan_options';
+  const creativeJobStorageKey = 'sellmaster_creative_search_job';
   const extensionStorage = globalThis.chrome?.storage?.local;
   const params = new URLSearchParams(location.search);
   const currentCountry = COUNTRIES.some(([code]) => code === params.get('country')) ? params.get('country') : 'FR';
@@ -87,6 +90,7 @@
   const currentKeyword = (params.get('q') || '').trim();
   const adCategorySelect = panel.querySelector('#sm-ad-category');
   let results = [];
+  let resultsMode = 'standard';
   let lastScanOptions = { limit: 20, activeDays: 10 };
   const productDetailsCache = new Map();
   let isAuthorized = false;
@@ -341,7 +345,24 @@
     await Promise.all(Array.from({ length: Math.min(5, items.length) }, worker));
   }
 
-  function getCardValue(card, minimumActiveDays) {
+  function creativeMatchEvidence(product, store, page, adText, query, targetProduct) {
+    const normalizeWords = value => normalizeMetaText(value).match(/[a-z0-9]+/g) || [];
+    const ignored = new Set(['avec', 'dans', 'pour', 'sur', 'the', 'and', 'for', 'with', 'from', 'les', 'des', 'une', 'un', 'aux', 'par', 'est', 'qui', 'vous', 'votre', 'produit', 'product', 'gelule', 'gelules', 'capsule', 'capsules', 'creme', 'huile', 'serum', 'pack', 'lot']);
+    const targetTerms = [...new Set(normalizeWords(targetProduct).filter(word => word.length > 2 && !ignored.has(word)))];
+    const queryTerms = [...new Set(normalizeWords(query).filter(word => word.length > 2 && !ignored.has(word)))];
+    const directEvidence = normalizeMetaText(`${product} ${store}`);
+    const fullEvidence = normalizeMetaText(`${product} ${store} ${page} ${adText}`);
+    const directMatches = targetTerms.filter(term => directEvidence.includes(term)).length;
+    const queryMatches = queryTerms.filter(term => fullEvidence.includes(term)).length;
+    const directRatio = targetTerms.length ? directMatches / targetTerms.length : 0;
+    const queryRatio = queryTerms.length ? queryMatches / queryTerms.length : 0;
+
+    if (canonicalProductPageUrl(store) && directRatio >= 0.75) return { label: 'Élevée', score: 3 };
+    if (directRatio >= 0.5 || (queryTerms.length > 0 && queryRatio >= 0.75)) return { label: 'Moyenne', score: 2 };
+    return { label: 'Faible', score: 1 };
+  }
+
+  function getCardValue(card, minimumActiveDays, creativeQuery = '', targetProduct = '') {
     const text = card.innerText || '';
     const startedAt = parseStartDate(text);
     if (!startedAt || startedAt.getTime() > Date.now() || (Date.now() - startedAt.getTime()) < minimumActiveDays * 86400000) return null;
@@ -373,6 +394,9 @@
     const productName = headings.find(value => value !== pageName)
       || productNameFromDestination(storeUrl)
       || 'Nom non détecté';
+    const match = creativeQuery
+      ? creativeMatchEvidence(productName, storeUrl, pageName, text, creativeQuery, targetProduct)
+      : null;
     return {
       store: storeUrl,
       productPageUrl: canonicalProductPageUrl(storeUrl),
@@ -382,6 +406,9 @@
       imageUrl: '',
       product: productName,
       page: pageName,
+      matchedQueries: creativeQuery ? [creativeQuery] : [],
+      matchConfidence: match?.label || '',
+      matchScore: match?.score || 0,
       country: COUNTRIES.find(([code]) => code === countrySelect.value)?.[1] || countrySelect.value,
       startedAt,
     };
@@ -394,8 +421,15 @@
       pdfButton.disabled = true;
       return;
     }
-    const rows = results.map(item => `<tr><td>${item.imageUrl ? `<img class="product-image" src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.product)}" loading="lazy">` : '<span class="image-empty">Image<br>indisponible</span>'}</td><td>${item.store ? `<a href="${escapeHtml(item.store)}" target="_blank" rel="noopener noreferrer">${escapeHtml(new URL(item.store).hostname)}</a>` : 'Lien non détecté'}</td><td>${escapeHtml(item.product)}</td><td>${escapeHtml(item.page)}</td><td>${escapeHtml(item.country)}</td><td>${item.startedAt.toLocaleDateString('fr-FR')}</td><td>${activeDaysSince(item.startedAt)}</td><td>${item.videoUrl ? `<button type="button" class="download-video" data-download-video="${escapeHtml(item.videoUrl)}" data-library-id="${escapeHtml(item.adLibraryUrl.split('id=')[1] || '')}" title="Télécharger la vidéo de cette publicité">Télécharger vidéo</button>` : 'Vidéo non détectée'}</td><td><a href="${escapeHtml(item.adLibraryUrl)}" target="_blank" rel="noopener noreferrer">Voir la publicité</a></td></tr>`).join('');
-    resultsContainer.innerHTML = `<table><thead><tr><th>Image</th><th>Boutique</th><th>Produit</th><th>Page</th><th>Pays</th><th>Début de diffusion</th><th>Jours actifs</th><th>Vidéo</th><th>Bibliothèque vidéo</th></tr></thead><tbody>${rows}</tbody></table>`;
+    const rows = results.map((item, index) => {
+      const provenance = resultsMode === 'creative'
+        ? `<td>${(item.matchedQueries || []).map(escapeHtml).join('<br>') || 'Recherche produit'}</td><td><span class="match-confidence${item.matchConfidence === 'Faible' ? ' low' : item.matchConfidence === 'Moyenne' ? ' medium' : ''}">${escapeHtml(item.matchConfidence || 'Moyenne')}</span></td>`
+        : '';
+      const libraryActions = `<a href="${escapeHtml(item.adLibraryUrl)}" target="_blank" rel="noopener noreferrer">Voir la publicité</a><br><button type="button" class="creative-search-start" data-creative-index="${index}" title="Chercher d’autres annonces pour ${escapeHtml(item.product)}">Recherche Créa</button>`;
+      return `<tr><td>${item.imageUrl ? `<img class="product-image" src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.product)}" loading="lazy">` : '<span class="image-empty">Image<br>indisponible</span>'}</td><td>${item.store ? `<a href="${escapeHtml(item.store)}" target="_blank" rel="noopener noreferrer">${escapeHtml(new URL(item.store).hostname)}</a>` : 'Lien non détecté'}</td><td>${escapeHtml(item.product)}</td><td>${escapeHtml(item.page)}</td><td>${escapeHtml(item.country)}</td><td>${item.startedAt.toLocaleDateString('fr-FR')}</td><td>${activeDaysSince(item.startedAt)}</td><td>${item.videoUrl ? `<button type="button" class="download-video" data-download-video="${escapeHtml(item.videoUrl)}" data-library-id="${escapeHtml(item.adLibraryUrl.split('id=')[1] || '')}" title="Télécharger la vidéo de cette publicité">Télécharger vidéo</button>` : 'Vidéo non détectée'}</td>${provenance}<td>${libraryActions}</td></tr>`;
+    }).join('');
+    const creativeHeaders = resultsMode === 'creative' ? '<th>Requêtes trouvées</th><th>Pertinence</th>' : '';
+    resultsContainer.innerHTML = `<table><thead><tr><th>Image</th><th>Boutique</th><th>Produit</th><th>Page</th><th>Pays</th><th>Début de diffusion</th><th>Jours actifs</th><th>Vidéo</th>${creativeHeaders}<th>Bibliothèque vidéo / Recherche Créa</th></tr></thead><tbody>${rows}</tbody></table>`;
     resultsContainer.querySelectorAll('.product-image').forEach(image => image.addEventListener('error', () => {
       const placeholder = document.createElement('span');
       placeholder.className = 'image-empty';
@@ -418,12 +452,214 @@
         button.disabled = false;
       }
     }));
+    resultsContainer.querySelectorAll('[data-creative-index]').forEach(button => button.addEventListener('click', () => {
+      const item = results[Number(button.dataset.creativeIndex)];
+      if (item) startCreativeResearch(item);
+    }));
     csvButton.disabled = false;
     pdfButton.disabled = false;
   }
 
   function activeDaysSince(startedAt) {
     return Math.max(0, Math.floor((Date.now() - startedAt.getTime()) / 86400000));
+  }
+
+  function creativeQueryCandidates(item) {
+    const sourceTitle = String(item.product || '').replace(/^collection\s*:\s*/i, '').trim();
+    const title = /^(nom non d[eé]tect[eé]|catalogue de la boutique)$/i.test(sourceTitle)
+      ? productNameFromDestination(item.store).replace(/^collection\s*:\s*/i, '').trim()
+      : sourceTitle;
+    if (!title || /^(nom non d[eé]tect[eé]|catalogue de la boutique)$/i.test(title)) return [];
+
+    const candidates = [];
+    const add = value => {
+      const phrase = String(value || '').trim().replace(/\s+/g, ' ').slice(0, 120);
+      const normalized = phrase.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+      if (phrase && normalized && !candidates.some(existing => existing.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim() === normalized)) {
+        candidates.push(phrase);
+      }
+    };
+
+    add(title);
+    const unaccentedTitle = title.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (unaccentedTitle !== title) add(unaccentedTitle);
+    if (item.store) {
+      try {
+        const url = new URL(item.store);
+        const segments = url.pathname.split('/').filter(Boolean);
+        const productIndex = segments.findIndex(segment => segment.toLowerCase() === 'products');
+        const collectionIndex = segments.findIndex(segment => segment.toLowerCase() === 'collections');
+        const slug = segments[productIndex >= 0 ? productIndex + 1 : collectionIndex + 1];
+        if (slug) add(decodeURIComponent(slug).replace(/[-_]+/g, ' '));
+      } catch (_) {
+        return candidates.slice(0, 4);
+      }
+    }
+
+    const stopWords = new Set(['avec', 'dans', 'pour', 'sur', 'the', 'and', 'for', 'with', 'from', 'les', 'des', 'une', 'un', 'aux', 'par', 'est', 'qui', 'vous', 'votre']);
+    const genericWords = new Set(['produit', 'product', 'gélule', 'gelule', 'gélules', 'gelules', 'capsule', 'capsules', 'creme', 'crème', 'huile', 'serum', 'sérum', 'pack', 'lot']);
+    const titleTerms = normalizeMetaText(title).match(/[a-z0-9]+/g) || [];
+    const coreTerms = titleTerms.filter(term => term.length > 2 && !stopWords.has(term) && !genericWords.has(term));
+    if (coreTerms.length >= 2) add(coreTerms.join(' '));
+    if (coreTerms.length >= 3) add(coreTerms.slice(-2).join(' '));
+    if (coreTerms.length >= 4) add(coreTerms.slice(0, 2).join(' '));
+    return candidates.slice(0, 4);
+  }
+
+  function creativeSearchUrl(query) {
+    const url = new URL('https://www.facebook.com/ads/library/');
+    url.searchParams.set('active_status', 'all');
+    url.searchParams.set('ad_type', 'all');
+    url.searchParams.set('country', 'ALL');
+    url.searchParams.set('is_targeted_country', 'false');
+    url.searchParams.set('media_type', 'all');
+    url.searchParams.set('q', query);
+    url.searchParams.set('search_type', 'keyword_unordered');
+    return url.toString();
+  }
+
+  function deserializeCreativeItems(items) {
+    return (Array.isArray(items) ? items : []).map(item => ({
+      ...item,
+      startedAt: item.startedAt instanceof Date ? item.startedAt : new Date(item.startedAt),
+      matchedQueries: Array.isArray(item.matchedQueries) ? item.matchedQueries : [],
+    })).filter(item => item.startedAt instanceof Date && !Number.isNaN(item.startedAt.getTime()));
+  }
+
+  function mergeCreativeItem(map, item) {
+    const key = item.productPageUrl || item.adLibraryUrl;
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, item);
+      return;
+    }
+
+    existing.matchedQueries = [...new Set([...(existing.matchedQueries || []), ...(item.matchedQueries || [])])];
+    if ((item.matchScore || 0) > (existing.matchScore || 0)) {
+      existing.matchScore = item.matchScore;
+      existing.matchConfidence = item.matchConfidence;
+    }
+    if (item.startedAt < existing.startedAt) {
+      const matchedQueries = existing.matchedQueries;
+      const matchScore = existing.matchScore;
+      const matchConfidence = existing.matchConfidence;
+      Object.assign(existing, item, { matchedQueries, matchScore, matchConfidence });
+    }
+  }
+
+  async function scanCreativeQuery(job) {
+    const query = job.queries[job.queryIndex];
+    const unique = new Map(deserializeCreativeItems(job.results).map(item => [item.productPageUrl || item.adLibraryUrl, item]));
+    let previousCardCount = 0;
+    let idleRounds = 0;
+
+    for (let round = 0; round < 30; round += 1) {
+      const cards = findAdCards();
+      cards.forEach(card => {
+        const item = getCardValue(card, job.activeDays, query, job.productName);
+        if (item) mergeCreativeItem(unique, item);
+      });
+
+      const collected = [...unique.values()]
+        .sort((left, right) => right.startedAt - left.startedAt)
+        .slice(0, job.limit);
+      notify(`Recherche Créa ${job.queryIndex + 1}/${job.queries.length} « ${query} » · ${collected.length}/${job.limit} annonces uniques`, '');
+      if (collected.length >= job.limit) return collected;
+
+      const cardCount = findAdCards().length;
+      idleRounds = cardCount > previousCardCount ? 0 : idleRounds + 1;
+      previousCardCount = cardCount;
+      if (idleRounds >= 5) return collected;
+
+      window.scrollBy({ top: Math.max(500, Math.floor(window.innerHeight * 0.75)), behavior: 'smooth' });
+      await wait(900);
+    }
+
+    return [...unique.values()]
+      .sort((left, right) => right.startedAt - left.startedAt)
+      .slice(0, job.limit);
+  }
+
+  async function startCreativeResearch(item) {
+    if (!await ensureOwnerSession()) return;
+    await settingsReady;
+    let options;
+    try {
+      options = readScanOptions();
+    } catch (error) {
+      notify(error.message, 'error');
+      return;
+    }
+
+    const queries = creativeQueryCandidates(item);
+    if (!queries.length) {
+      notify('Aucun mot-clé exploitable pour ce produit.', 'error');
+      return;
+    }
+    const productName = String(item.product || '').replace(/^collection\s*:\s*/i, '').trim();
+
+    try {
+      await persistScanOptions(options);
+      const response = await sendRuntimeMessage({
+        type: 'SELLMASTER_BEGIN_CREATIVE_SEARCH',
+        queries,
+        productName,
+        limit: options.limit,
+        activeDays: options.activeDays,
+      });
+      if (!response?.ok) throw new Error(response?.error || 'Impossible de démarrer Recherche Créa.');
+      notify(`Recherche Créa démarrée : ${queries.length} variantes du nom produit.`, 'success');
+    } catch (error) {
+      notify(error.message || 'Impossible de démarrer Recherche Créa.', 'error');
+    }
+  }
+
+  async function resumeCreativeResearch() {
+    if (!await ensureOwnerSession()) return;
+    const response = await sendRuntimeMessage({ type: 'SELLMASTER_GET_CREATIVE_SEARCH_JOB' });
+    if (!response?.ok || !response.data) return;
+
+    const job = response.data;
+    if (!Array.isArray(job.queries) || !job.queries[job.queryIndex]) return;
+    const expectedQuery = job.queries[job.queryIndex];
+    const currentQuery = (new URLSearchParams(location.search).get('q') || '').trim();
+    if (normalizeMetaText(currentQuery) !== normalizeMetaText(expectedQuery)) {
+      location.assign(creativeSearchUrl(expectedQuery));
+      return;
+    }
+
+    resultsMode = 'creative';
+    searchButton.disabled = true;
+    scanButton.disabled = true;
+    try {
+      await settingsReady;
+      const collected = await scanCreativeQuery(job);
+      const nextIndex = job.queryIndex + 1;
+      if (nextIndex < job.queries.length && collected.length < job.limit) {
+        job.results = collected.map(item => ({ ...item, startedAt: item.startedAt.toISOString() }));
+        job.queryIndex = nextIndex;
+        await chrome.storage.local.set({ [creativeJobStorageKey]: job });
+        location.assign(creativeSearchUrl(job.queries[nextIndex]));
+        return;
+      }
+
+      results = collected.slice(0, job.limit);
+      const queriesSearched = job.queryIndex + 1;
+      lastScanOptions = { limit: job.limit, activeDays: job.activeDays, keyword: `Recherche Créa · ${job.productName}` };
+      keywordInput.value = job.queries.join(' · ');
+      await chrome.storage.local.remove(creativeJobStorageKey);
+      notify(`Recherche Créa terminée : ${results.length} annonce(s) uniques depuis ${queriesSearched} requête(s). Les résultats sont fusionnés par lien produit.`, results.length ? 'success' : '');
+      render();
+      notify(`Récupération des images produit pour ${results.length} annonce(s)...`, '');
+      await hydrateProductImages(results);
+      render();
+      notify(`Recherche Créa terminée : ${results.length} annonce(s) uniques depuis ${queriesSearched} requête(s).`, results.length ? 'success' : '');
+    } catch (error) {
+      notify(`Recherche Créa interrompue : ${error.message || 'erreur inconnue'}`, 'error');
+    } finally {
+      searchButton.disabled = false;
+      scanButton.disabled = false;
+    }
   }
 
   function escapeHtml(value) {
@@ -465,6 +701,7 @@
     try {
       options = readScanOptions();
       await persistScanOptions(options);
+      await sendRuntimeMessage({ type: 'SELLMASTER_CANCEL_CREATIVE_SEARCH' });
     } catch (error) {
       notify(error.message, 'error');
       return;
@@ -506,11 +743,13 @@
 
   async function scanAds() {
     scanButton.disabled = true;
+    resultsMode = 'standard';
     const unique = new Map();
     let previousCardCount = 0;
     let idleRounds = 0;
 
     try {
+      await sendRuntimeMessage({ type: 'SELLMASTER_CANCEL_CREATIVE_SEARCH' });
       if (!await ensureOwnerSession()) return;
       await settingsReady;
       const options = readScanOptions();
@@ -557,8 +796,9 @@
 
   async function exportCsv() {
     if (!await ensureOwnerSession()) return;
-    const fields = ['Image du produit', 'Lien de la boutique', 'Nom du produit', 'Nom de la page', 'Pays', 'Début de diffusion', 'Jours actifs', 'Lien vidéo', 'Lien bibliothèque vidéo'];
-    const lines = [fields, ...results.map(item => [item.imageUrl, item.store, item.product, item.page, item.country, item.startedAt.toLocaleDateString('fr-FR'), activeDaysSince(item.startedAt), item.videoUrl, item.adLibraryUrl])]
+    const creativeFields = resultsMode === 'creative' ? ['Requêtes trouvées', 'Pertinence'] : [];
+    const fields = ['Image du produit', 'Lien de la boutique', 'Nom du produit', 'Nom de la page', 'Pays', 'Début de diffusion', 'Jours actifs', 'Lien vidéo', ...creativeFields, 'Lien bibliothèque vidéo'];
+    const lines = [fields, ...results.map(item => [item.imageUrl, item.store, item.product, item.page, item.country, item.startedAt.toLocaleDateString('fr-FR'), activeDaysSince(item.startedAt), item.videoUrl, ...(resultsMode === 'creative' ? [(item.matchedQueries || []).join(' | '), item.matchConfidence || ''] : []), item.adLibraryUrl])]
       .map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(';'));
     const blob = new Blob([`\ufeff${lines.join('\r\n')}`], { type: 'text/csv;charset=utf-8' });
     const link = document.createElement('a');
@@ -578,11 +818,12 @@
       printWindow.close();
       return;
     }
-    const rows = results.map(item => `<tr><td>${item.imageUrl ? `<img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.product)}" style="width:58px;height:58px;object-fit:cover">` : 'Image indisponible'}</td><td>${item.store ? `<a class="shop-link" href="${escapeHtml(item.store)}">${escapeHtml(item.store)}</a>` : 'Lien non détecté'}</td><td>${escapeHtml(item.product)}</td><td>${escapeHtml(item.page)}</td><td>${escapeHtml(item.country)}</td><td>${item.startedAt.toLocaleDateString('fr-FR')}</td><td>${activeDaysSince(item.startedAt)}</td><td>${item.videoUrl ? `<a class="video-link" href="${escapeHtml(item.videoUrl)}">Télécharger vidéo</a>` : 'Vidéo non détectée'}</td><td class="library-link-cell"><a class="library-link" href="${escapeHtml(item.adLibraryUrl)}">${escapeHtml(item.adLibraryUrl)}</a></td></tr>`).join('');
+    const rows = results.map(item => `<tr><td>${item.imageUrl ? `<img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.product)}" style="width:58px;height:58px;object-fit:cover">` : 'Image indisponible'}</td><td>${item.store ? `<a class="shop-link" href="${escapeHtml(item.store)}">${escapeHtml(item.store)}</a>` : 'Lien non détecté'}</td><td>${escapeHtml(item.product)}</td><td>${escapeHtml(item.page)}</td><td>${escapeHtml(item.country)}</td><td>${item.startedAt.toLocaleDateString('fr-FR')}</td><td>${activeDaysSince(item.startedAt)}</td><td>${item.videoUrl ? `<a class="video-link" href="${escapeHtml(item.videoUrl)}">Télécharger vidéo</a>` : 'Vidéo non détectée'}</td>${resultsMode === 'creative' ? `<td>${escapeHtml((item.matchedQueries || []).join(' | '))}</td><td>${escapeHtml(item.matchConfidence || '')}</td>` : ''}<td class="library-link-cell"><a class="library-link" href="${escapeHtml(item.adLibraryUrl)}">${escapeHtml(item.adLibraryUrl)}</a></td></tr>`).join('');
     const minimumDays = lastScanOptions.activeDays;
     const searchedKeyword = lastScanOptions.keyword || 'myshopify';
     const pdfFilename = exportFilenameStem();
-    printWindow.document.write(`<!doctype html><html lang="fr"><meta charset="utf-8"><title>${escapeHtml(pdfFilename)}</title><style>body{font:12px Arial,sans-serif;color:#193333}h1{font-size:18px}table{width:100%;table-layout:fixed;border-collapse:collapse}th,td{padding:7px 6px;border:1px solid #cbd8d3;text-align:left;vertical-align:middle;overflow-wrap:anywhere}th{background:#eef3f0}th:nth-child(1){width:6%}th:nth-child(2){width:12%}th:nth-child(3){width:14%}th:nth-child(4){width:11%}th:nth-child(5){width:7%}th:nth-child(6){width:8%}th:nth-child(7){width:6%}th:nth-child(8){width:12%}th:nth-child(9){width:24%}a{color:#087f83}.shop-link,.video-link{overflow-wrap:anywhere;word-break:break-word}.library-link-cell{text-align:center}.library-link{display:block;max-width:100%;text-align:center;overflow-wrap:anywhere;word-break:break-all;line-height:1.35}@page{size:landscape;margin:10mm}</style><h1>Résultats Ads Library · ${escapeHtml(searchedKeyword)}</h1><p>Mot-clé : ${escapeHtml(searchedKeyword)} · ${results.length} annonce(s), actives depuis au moins ${minimumDays} jour(s) · ${new Date().toLocaleDateString('fr-FR')}</p><table><thead><tr><th>Image</th><th>Boutique</th><th>Produit</th><th>Page</th><th>Pays</th><th>Début de diffusion</th><th>Jours actifs</th><th>Vidéo</th><th>Bibliothèque vidéo</th></tr></thead><tbody>${rows}</tbody></table></html>`);
+    const creativeHeaders = resultsMode === 'creative' ? '<th>Requêtes trouvées</th><th>Pertinence</th>' : '';
+    printWindow.document.write(`<!doctype html><html lang="fr"><meta charset="utf-8"><title>${escapeHtml(pdfFilename)}</title><style>body{font:12px Arial,sans-serif;color:#193333}h1{font-size:18px}table{width:100%;table-layout:fixed;border-collapse:collapse}th,td{padding:7px 6px;border:1px solid #cbd8d3;text-align:left;vertical-align:middle;overflow-wrap:anywhere}th{background:#eef3f0}th:nth-child(1){width:6%}th:nth-child(2){width:12%}th:nth-child(3){width:14%}th:nth-child(4){width:11%}th:nth-child(5){width:7%}th:nth-child(6){width:8%}th:nth-child(7){width:6%}th:nth-child(8){width:12%}th:nth-child(9){width:24%}a{color:#087f83}.shop-link,.video-link{overflow-wrap:anywhere;word-break:break-word}.library-link-cell{text-align:center}.library-link{display:block;max-width:100%;text-align:center;overflow-wrap:anywhere;word-break:break-all;line-height:1.35}@page{size:landscape;margin:10mm}</style><h1>Résultats Ads Library · ${escapeHtml(searchedKeyword)}</h1><p>Mot-clé : ${escapeHtml(searchedKeyword)} · ${results.length} annonce(s), actives depuis au moins ${minimumDays} jour(s) · ${new Date().toLocaleDateString('fr-FR')}</p><table><thead><tr><th>Image</th><th>Boutique</th><th>Produit</th><th>Page</th><th>Pays</th><th>Début de diffusion</th><th>Jours actifs</th><th>Vidéo</th>${creativeHeaders}<th>Bibliothèque vidéo</th></tr></thead><tbody>${rows}</tbody></table></html>`);
     printWindow.document.close();
     printWindow.addEventListener('load', () => printWindow.print(), { once: true });
   }
@@ -603,4 +844,5 @@
   scanButton.addEventListener('click', scanAds);
   csvButton.addEventListener('click', exportCsv);
   pdfButton.addEventListener('click', exportPdf);
+  resumeCreativeResearch().catch(error => notify(error.message || 'Impossible de reprendre Recherche Créa.', 'error'));
 })();

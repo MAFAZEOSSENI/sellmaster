@@ -103,6 +103,10 @@ async function downloadAdVideo(videoUrl, libraryId, sender) {
   });
 }
 
+function isAdsLibraryTab(sender) {
+  return /^https:\/\/www\.facebook\.com\/ads\/library\//i.test(sender.tab?.url || '');
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === 'SELLMASTER_API') {
     sendApi(message.path, message.method, message.body, sendResponse);
@@ -131,6 +135,69 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     downloadAdVideo(message.videoUrl, message.libraryId, _sender)
       .then(downloadId => sendResponse({ ok: true, downloadId }))
       .catch(error => sendResponse({ ok: false, error: error.message || 'Téléchargement vidéo impossible.' }));
+    return true;
+  }
+
+  if (message?.type === 'SELLMASTER_BEGIN_CREATIVE_SEARCH') {
+    if (!isAdsLibraryTab(_sender) || !Number.isInteger(_sender.tab?.id)) {
+      sendResponse({ ok: false, error: 'Recherche Créa autorisée uniquement depuis Meta Ads Library.' });
+      return false;
+    }
+    validateSellmasterOwnerSession().then(async session => {
+      if (!session.authenticated) throw new Error('Une session owner Sellmaster active est requise.');
+      const queries = [...new Set((Array.isArray(message.queries) ? message.queries : [])
+        .map(query => String(query || '').trim().replace(/\s+/g, ' ').slice(0, 120))
+        .filter(Boolean))].slice(0, 4);
+      if (!queries.length) throw new Error('Aucun mot-clé utile n’a été généré pour ce produit.');
+      const researchTab = await chrome.tabs.create({ url: 'about:blank', active: true });
+      const job = {
+        tabId: researchTab.id,
+        queries,
+        queryIndex: 0,
+        results: [],
+        limit: Math.min(200, Math.max(1, Number(message.limit) || 20)),
+        activeDays: Math.min(3650, Math.max(0, Number(message.activeDays) || 0)),
+        productName: String(message.productName || '').trim().slice(0, 160),
+        createdAt: Date.now(),
+      };
+      await chrome.storage.local.set({ sellmaster_creative_search_job: job });
+      sendResponse({ ok: true, data: { queryCount: queries.length } });
+      chrome.tabs.update(researchTab.id, { url: buildCreativeQueryUrl(queries[0]) }).catch(async error => {
+        await chrome.storage.local.remove('sellmaster_creative_search_job');
+        await chrome.tabs.remove(researchTab.id).catch(() => {});
+        console.error('[Sellmaster Creative Search] Navigation failed:', error.message);
+      });
+    }).catch(error => sendResponse({ ok: false, error: error.message || 'Impossible de démarrer Recherche Créa.' }));
+    return true;
+  }
+
+  if (message?.type === 'SELLMASTER_GET_CREATIVE_SEARCH_JOB') {
+    if (!isAdsLibraryTab(_sender) || !Number.isInteger(_sender.tab?.id)) {
+      sendResponse({ ok: false, error: 'Reprise Recherche Créa autorisée uniquement depuis Meta Ads Library.' });
+      return false;
+    }
+    chrome.storage.local.get('sellmaster_creative_search_job').then(result => {
+      const job = result.sellmaster_creative_search_job;
+      if (!job || job.tabId !== _sender.tab.id || Date.now() - job.createdAt > 60 * 60 * 1000) {
+        if (job && Date.now() - job.createdAt > 60 * 60 * 1000) chrome.storage.local.remove('sellmaster_creative_search_job');
+        sendResponse({ ok: true, data: null });
+        return;
+      }
+      sendResponse({ ok: true, data: job });
+    }).catch(() => sendResponse({ ok: false, error: 'Impossible de reprendre Recherche Créa.' }));
+    return true;
+  }
+
+  if (message?.type === 'SELLMASTER_CANCEL_CREATIVE_SEARCH') {
+    if (!isAdsLibraryTab(_sender) || !Number.isInteger(_sender.tab?.id)) {
+      sendResponse({ ok: false, error: 'Annulation autorisée uniquement depuis Meta Ads Library.' });
+      return false;
+    }
+    chrome.storage.local.get('sellmaster_creative_search_job').then(async result => {
+      const job = result.sellmaster_creative_search_job;
+      if (job?.tabId === _sender.tab.id) await chrome.storage.local.remove('sellmaster_creative_search_job');
+      sendResponse({ ok: true, data: { cancelled: job?.tabId === _sender.tab.id } });
+    }).catch(() => sendResponse({ ok: false, error: 'Impossible d’annuler Recherche Créa.' }));
     return true;
   }
 
