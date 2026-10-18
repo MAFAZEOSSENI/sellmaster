@@ -1,9 +1,14 @@
+importScripts('visual-hash.js');
+
 const API_BASE = 'https://sellmaster-1.onrender.com/api';
 const TOKEN_KEY = 'sellmaster_jwt';
 const OAUTH_TABS_KEY = 'sellmaster_oauth_tabs';
 
 function sendApi(path, method, body, sendResponse) {
-  const allowed = path === '/shopify/auth/start' || path === '/shopify/register-store-credentials';
+  const allowed = path === '/shopify/auth/start'
+    || path === '/shopify/register-store-credentials'
+    || path === '/creative-visual/index'
+    || path === '/creative-visual/search';
   if (!allowed || !['GET', 'POST'].includes(method)) {
     sendResponse({ ok: false, error: 'Requête refusée par la politique de l’extension.' });
     return;
@@ -75,7 +80,7 @@ async function validateSellmasterOwnerSession() {
   return { authenticated: isOwner, email: isOwner ? data.user.email || '' : '', reason: isOwner ? '' : 'owner-required' };
 }
 
-async function downloadAdVideo(videoUrl, libraryId, sender) {
+async function downloadAdVideo(videoUrl, libraryId, productName, sender) {
   if (!/^https:\/\/www\.facebook\.com\/ads\/library\//i.test(sender.tab?.url || '')) {
     throw new Error('Téléchargement autorisé uniquement depuis Meta Ads Library.');
   }
@@ -95,9 +100,14 @@ async function downloadAdVideo(videoUrl, libraryId, sender) {
 
   const safeLibraryId = String(libraryId || '').replace(/\D/g, '').slice(0, 32) || String(Date.now());
   const extension = url.pathname.match(/\.(mp4|mov|webm)$/i)?.[1]?.toLowerCase() || 'mp4';
+  const detectedProductName = String(productName || '').trim();
+  const safeProductName = /^(nom non détecté|nom non detecte|catalogue de la boutique)$/i.test(detectedProductName)
+    ? ''
+    : detectedProductName.replace(/[<>:"/\\|?*\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+  const filename = `${['Creative', safeProductName, safeLibraryId].filter(Boolean).join(' - ')}.${extension}`;
   return chrome.downloads.download({
     url: url.toString(),
-    filename: `Sellmaster-Ads-${safeLibraryId}.${extension}`,
+    filename,
     saveAs: true,
     conflictAction: 'uniquify',
   });
@@ -105,6 +115,18 @@ async function downloadAdVideo(videoUrl, libraryId, sender) {
 
 function isAdsLibraryTab(sender) {
   return /^https:\/\/www\.facebook\.com\/ads\/library\//i.test(sender.tab?.url || '');
+}
+
+function buildCreativeQueryUrl(query) {
+  const url = new URL('https://www.facebook.com/ads/library/');
+  url.searchParams.set('active_status', 'all');
+  url.searchParams.set('ad_type', 'all');
+  url.searchParams.set('country', 'ALL');
+  url.searchParams.set('is_targeted_country', 'false');
+  url.searchParams.set('media_type', 'all');
+  url.searchParams.set('q', query);
+  url.searchParams.set('search_type', 'keyword_unordered');
+  return url.toString();
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -120,6 +142,24 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
+  if (message?.type === 'SELLMASTER_HASH_IMAGE') {
+    (async () => {
+      const imageUrl = new URL(String(message.imageUrl || ''));
+      const allowedHost = imageUrl.hostname === 'cdn.shopify.com'
+        || /(^|\.)myshopify\.com$/i.test(imageUrl.hostname)
+        || /(^|\.)fbcdn\.net$/i.test(imageUrl.hostname);
+      if (imageUrl.protocol !== 'https:' || !allowedHost) throw new Error('Source d’image non autorisée.');
+      const response = await fetch(imageUrl.toString(), { credentials: 'omit', redirect: 'error' });
+      if (!response.ok) throw new Error(`Image inaccessible (${response.status}).`);
+      const contentType = response.headers.get('content-type') || '';
+      const blob = await response.blob();
+      if (!contentType.startsWith('image/') || blob.size > 8 * 1024 * 1024) throw new Error('Format ou taille d’image non pris en charge.');
+      return SellmasterVisualHash.hashBlob(blob);
+    })().then(imageHash => sendResponse({ ok: true, imageHash }))
+      .catch(error => sendResponse({ ok: false, error: error.message || 'Impossible de lire cette image.' }));
+    return true;
+  }
+
   if (message?.type === 'SELLMASTER_VALIDATE_ADS_SESSION') {
     if (_sender.tab?.url && !/^https:\/\/www\.facebook\.com\/ads\/library\//i.test(_sender.tab.url)) {
       sendResponse({ ok: false, error: 'Validation autorisée uniquement depuis Meta Ads Library.' });
@@ -132,7 +172,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message?.type === 'SELLMASTER_DOWNLOAD_AD_VIDEO') {
-    downloadAdVideo(message.videoUrl, message.libraryId, _sender)
+    downloadAdVideo(message.videoUrl, message.libraryId, message.productName, _sender)
       .then(downloadId => sendResponse({ ok: true, downloadId }))
       .catch(error => sendResponse({ ok: false, error: error.message || 'Téléchargement vidéo impossible.' }));
     return true;
@@ -185,19 +225,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       }
       sendResponse({ ok: true, data: job });
     }).catch(() => sendResponse({ ok: false, error: 'Impossible de reprendre Recherche Créa.' }));
-    return true;
-  }
-
-  if (message?.type === 'SELLMASTER_CANCEL_CREATIVE_SEARCH') {
-    if (!isAdsLibraryTab(_sender) || !Number.isInteger(_sender.tab?.id)) {
-      sendResponse({ ok: false, error: 'Annulation autorisée uniquement depuis Meta Ads Library.' });
-      return false;
-    }
-    chrome.storage.local.get('sellmaster_creative_search_job').then(async result => {
-      const job = result.sellmaster_creative_search_job;
-      if (job?.tabId === _sender.tab.id) await chrome.storage.local.remove('sellmaster_creative_search_job');
-      sendResponse({ ok: true, data: { cancelled: job?.tabId === _sender.tab.id } });
-    }).catch(() => sendResponse({ ok: false, error: 'Impossible d’annuler Recherche Créa.' }));
     return true;
   }
 

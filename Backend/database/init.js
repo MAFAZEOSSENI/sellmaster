@@ -236,6 +236,25 @@ async function createTables() {
     await ensureColumnExists(conn, 'notifications', 'is_read', 'ADD COLUMN "is_read" BOOLEAN NOT NULL DEFAULT FALSE');
 
     await conn.query(`
+      CREATE TABLE IF NOT EXISTS "creative_visual_index" (
+        id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        owner_user_id INT NOT NULL REFERENCES "app_users"(id) ON DELETE CASCADE,
+        library_id VARCHAR(32) NOT NULL,
+        image_hash CHAR(16) NOT NULL,
+        image_url TEXT NOT NULL,
+        store_url TEXT NULL,
+        video_url TEXT NULL,
+        product_name VARCHAR(300) NULL,
+        page_name VARCHAR(300) NULL,
+        country VARCHAR(100) NULL,
+        started_at TIMESTAMP NULL,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (owner_user_id, library_id)
+      )
+    `);
+    await conn.query('CREATE INDEX IF NOT EXISTS creative_visual_index_owner_updated_idx ON "creative_visual_index" (owner_user_id, updated_at DESC)');
+
+    await conn.query(`
       CREATE TABLE IF NOT EXISTS "team_memberships" (
         id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         owner_user_id INT NOT NULL,

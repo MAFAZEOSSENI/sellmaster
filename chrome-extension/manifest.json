@@ -16,7 +16,9 @@
   "host_permissions": [
     "https://sellmaster-1.onrender.com/*",
     "https://www.sellmaster.site/*",
-    "https://*.myshopify.com/*"
+    "https://*.myshopify.com/*",
+    "https://cdn.shopify.com/*",
+    "https://*.fbcdn.net/*"
   ],
   "action": {
     "default_title": "Sellmaster",
@@ -45,7 +47,7 @@
     },
     {
       "matches": ["https://www.facebook.com/ads/library/*"],
-      "js": ["ads-library.js"],
+      "js": ["visual-hash.js", "ads-library.js"],
       "run_at": "document_idle"
     },
     {
