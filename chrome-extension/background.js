@@ -48,6 +48,16 @@ async function getShopifyProductDetails(productUrl) {
   const response = await fetch(endpoint, { headers: { Accept: 'application/json' } });
   if (!response.ok) throw new Error(`Shopify a répondu ${response.status}.`);
   const product = await response.json();
+
+  const cents = value => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) return null;
+    return numeric >= 100 ? numeric / 100 : numeric;
+  };
+
+  const price = cents(product.price);
+  const compareAt = cents(product.compare_at_price);
+  const discounted = price && compareAt && compareAt > price;
   const firstImage = Array.isArray(product.images) ? product.images[0] : '';
   const imageValue = product.featured_image || (typeof firstImage === 'string' ? firstImage : firstImage?.src) || '';
   let imageUrl = '';
@@ -59,7 +69,15 @@ async function getShopifyProductDetails(productUrl) {
     }
   }
 
-  return { title: typeof product.title === 'string' ? product.title : '', imageUrl };
+  return {
+    title: typeof product.title === 'string' ? product.title : '',
+    imageUrl,
+    price,
+    discountPercent: discounted ? Math.round((1 - price / compareAt) * 100) : null,
+    available: product.available !== false,
+    variantCount: Array.isArray(product.variants) ? product.variants.length : 0,
+    publishedAt: product.published_at || null,
+  };
 }
 
 async function validateSellmasterOwnerSession() {

@@ -2,7 +2,7 @@ const express = require('express');
 const authMiddleware = require('../middleware/authMiddleware');
 const { requireRole } = require('../middleware/rbacMiddleware');
 const { getConnection } = require('../config/database');
-const { isValidVisualHash, hammingDistance, similarityPercent } = require('../utils/visualHash');
+const { isValidVisualHash, hammingDistance, similarityPercent, resolveVisualSearchMaxDistance } = require('../utils/visualHash');
 
 const router = express.Router();
 router.use(authMiddleware, requireRole('owner'));
@@ -66,8 +66,7 @@ router.post('/search', async (req, res) => {
   const imageHash = String(req.body?.imageHash || '').toLowerCase();
   if (!isValidVisualHash(imageHash)) return res.status(400).json({ error: 'Image de référence invalide.' });
   const limit = Math.min(100, Math.max(1, Number.parseInt(req.body?.limit, 10) || 30));
-  const parsedDistance = Number.parseInt(req.body?.maxDistance, 10);
-  const maxDistance = Math.min(32, Math.max(0, Number.isInteger(parsedDistance) ? parsedDistance : 20));
+  const maxDistance = resolveVisualSearchMaxDistance(req.body?.maxDistance);
 
   const conn = await getConnection();
   try {

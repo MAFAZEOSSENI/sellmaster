@@ -18,6 +18,7 @@ const adminRoutes = require('./extensions/admin/adminRoutes');
 const publicFormRoutes = require('./routes/publicForm.routes');
 const orderFormsRoutes = require('./routes/orderForms.routes');
 const creativeVisualRoutes = require('./routes/creativeVisual.routes');
+const adResearchSnapshotsRoutes = require('./routes/adResearchSnapshots.routes');
 
 // Middleware de base
 app.use(cors({
@@ -132,6 +133,7 @@ app.use('/api/shopify', shopifyRoutesV2);
 app.use('/api/public/forms', publicFormRoutes);
 app.use('/api/order-forms', orderFormsRoutes);
 app.use('/api/creative-visual', creativeVisualRoutes);
+app.use('/api/ad-research-snapshots', adResearchSnapshotsRoutes);
 
 // ==================== ROUTES API ====================
 

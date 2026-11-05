@@ -255,6 +255,22 @@ async function createTables() {
     await conn.query('CREATE INDEX IF NOT EXISTS creative_visual_index_owner_updated_idx ON "creative_visual_index" (owner_user_id, updated_at DESC)');
 
     await conn.query(`
+      CREATE TABLE IF NOT EXISTS "ad_research_snapshots" (
+        id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        owner_id INT NOT NULL REFERENCES "app_users"(id) ON DELETE CASCADE,
+        product_url TEXT NOT NULL,
+        ad_count INT NOT NULL DEFAULT 0,
+        page_count INT NOT NULL DEFAULT 0,
+        price DECIMAL(12,2) NULL,
+        available BOOLEAN NULL,
+        score INT NOT NULL DEFAULT 0,
+        scanned_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await conn.query('CREATE INDEX IF NOT EXISTS ad_research_snapshots_owner_scanned_idx ON "ad_research_snapshots" (owner_id, scanned_at DESC)');
+    await conn.query('CREATE INDEX IF NOT EXISTS ad_research_snapshots_product_url_idx ON "ad_research_snapshots" (owner_id, product_url)');
+
+    await conn.query(`
       CREATE TABLE IF NOT EXISTS "team_memberships" (
         id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         owner_user_id INT NOT NULL,

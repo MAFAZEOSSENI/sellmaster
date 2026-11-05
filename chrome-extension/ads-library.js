@@ -243,6 +243,90 @@
     return String(text || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   }
 
+  const COD_PATTERN = /paiement\s+a\s+la\s+(?:livraison|reception)|payez\s+a\s+la\s+(?:livraison|reception)|livraison\s+gratuite|cash\s+on\s+delivery|cod\b/i;
+  const LOCAL_CURRENCY_PATTERN = /\b(?:fcfa|cfa|xof|xaf)\b/i;
+
+  const WEIGHTS = {
+    days: 10,
+    ads: 14,
+    pages: 6,
+    cod: 8,
+    local: 5,
+    soldOut: 40,
+  };
+
+  function ingestAd(products, item) {
+    const key = item.productPageUrl || item.adLibraryUrl || item.store || item.page || item.product;
+    const entry = products.get(key);
+
+    if (!entry) {
+      products.set(key, {
+        ...item,
+        libraryIds: new Set([item.libraryId || item.adLibraryUrl]),
+        pages: new Set([item.page || 'Page non détectée']),
+        codMention: Boolean(item.codMention),
+        localCurrency: Boolean(item.localCurrency),
+        startedAt: item.startedAt instanceof Date ? item.startedAt : new Date(item.startedAt || 0),
+      });
+      return;
+    }
+
+    if (item.libraryId) entry.libraryIds.add(item.libraryId);
+    if (item.page) entry.pages.add(item.page);
+    entry.codMention = entry.codMention || Boolean(item.codMention);
+    entry.localCurrency = entry.localCurrency || Boolean(item.localCurrency);
+    if (item.store && !entry.store) entry.store = item.store;
+    if (item.product && (!entry.product || entry.product === 'Nom non détecté')) entry.product = item.product;
+    if (item.adImageUrl && !entry.adImageUrl) entry.adImageUrl = item.adImageUrl;
+    if (item.videoUrl && !entry.videoUrl) entry.videoUrl = item.videoUrl;
+    if (item.startedAt instanceof Date && (!entry.startedAt || item.startedAt < entry.startedAt)) {
+      const reference = {
+        ...entry,
+        ...item,
+        libraryIds: entry.libraryIds,
+        pages: entry.pages,
+        codMention: entry.codMention,
+        localCurrency: entry.localCurrency,
+        startedAt: item.startedAt,
+      };
+      Object.assign(entry, reference);
+    }
+  }
+
+  function winnerScore(item) {
+    const startedAt = item?.startedAt instanceof Date ? item.startedAt.getTime() : Number(item?.startedAt) || 0;
+    const days = Math.max(0, Math.floor((Date.now() - startedAt) / 86400000));
+    const adCount = Math.max(1, Number(item?.adCount || item?.libraryIds?.size || 1));
+    const pageCount = Math.max(1, Number(item?.pageCount || item?.pages?.size || 1));
+
+    let score =
+      Math.log2(1 + Math.max(0, days)) * WEIGHTS.days +
+      Math.log2(1 + adCount) * WEIGHTS.ads +
+      (pageCount > 1 ? WEIGHTS.pages : 0) +
+      (item?.codMention ? WEIGHTS.cod : 0) +
+      (item?.localCurrency ? WEIGHTS.local : 0);
+
+    if (item?.available === false) score -= WEIGHTS.soldOut;
+
+    return Math.round(score);
+  }
+
+  function rankProducts(products) {
+    return [...products.values()]
+      .map(({ libraryIds, pages, ...rest }) => {
+        const item = {
+          ...rest,
+          adCount: Math.max(1, libraryIds?.size || 1),
+          pageCount: Math.max(1, pages?.size || 1),
+        };
+        return {
+          ...item,
+          score: winnerScore(item),
+        };
+      })
+      .sort((left, right) => (right.score - left.score) || (left.startedAt - right.startedAt));
+  }
+
   function parseStartDate(text) {
     const normalizedText = normalizeMetaText(text);
     const match = normalizedText.match(/(?:started running(?: on)?|active since|running since|diffuse depuis|debut de diffusion(?: le)?|date de debut de diffusion(?: le)?)\s*:?\s*([a-z.]+\s+\d{1,2},?\s+\d{4}|\d{1,2}\s+[a-z.]+\s+\d{4}|\d{1,2}[/.]\d{1,2}[/.]\d{4})/i);
@@ -361,7 +445,17 @@
         })();
         const details = productPath ? await requestShopifyProductDetails(item.store) : null;
         item.imageUrl = details?.imageUrl || item.adImageUrl || '';
+        if (details) {
+          Object.assign(item, {
+            price: details.price,
+            discountPercent: details.discountPercent,
+            available: typeof details.available === 'boolean' ? details.available : item.available,
+            variantCount: details.variantCount,
+            publishedAt: details.publishedAt,
+          });
+        }
         if (details?.title && item.product === 'Nom non détecté') item.product = details.title;
+        if (typeof item.score === 'number') item.score = winnerScore(item);
       }
     };
     await Promise.all(Array.from({ length: Math.min(5, items.length) }, worker));
@@ -386,13 +480,15 @@
 
   function getCardValue(card, minimumActiveDays, creativeQuery = '', targetProduct = '') {
     const text = card.innerText || '';
+    const normalizedText = normalizeMetaText(text);
     const startedAt = parseStartDate(text);
     if (!startedAt || startedAt.getTime() > Date.now() || (Date.now() - startedAt.getTime()) < minimumActiveDays * 86400000) return null;
-    const libraryId = normalizeMetaText(text).match(/(?:library id|id dans la bibliotheque)\s*:?\s*(\d+)/i)?.[1] || '';
+    const libraryMatch = normalizedText.match(/(?:library id|id dans la bibliotheque)\s*:?\s*(\d+)/i)?.[1];
+    const libraryId = libraryMatch || ''; 
     if (!libraryId) return null;
 
     const anchors = [...card.querySelectorAll('a[href]')];
-      const destinations = adDestinations(card, text);
+    const destinations = adDestinations(card, text);
     const productDestination = destinations.find(destination => Boolean(canonicalProductPageUrl(destination)));
     const storeUrl = productDestination || destinations.find(destination => {
       try {
@@ -419,10 +515,15 @@
     const match = creativeQuery
       ? creativeMatchEvidence(productName, storeUrl, pageName, text, creativeQuery, targetProduct)
       : null;
+    const codMention = COD_PATTERN.test(normalizedText);
+    const localCurrency = LOCAL_CURRENCY_PATTERN.test(normalizedText);
+    const available = !/\b(?:sold out|out of stock|rupture de stock|stock epuise|epuise|indisponible|on backorder|not available)\b/i.test(normalizedText);
+
     return {
       store: storeUrl,
       productPageUrl: canonicalProductPageUrl(storeUrl),
       adLibraryUrl: `https://www.facebook.com/ads/library/?id=${encodeURIComponent(libraryId)}`,
+      libraryId,
       videoUrl: adVideoFromCard(card),
       adImageUrl: adImageFromCard(card),
       imageUrl: '',
@@ -433,6 +534,9 @@
       matchScore: match?.score || 0,
       country: COUNTRIES.find(([code]) => code === countrySelect.value)?.[1] || countrySelect.value,
       startedAt,
+      codMention,
+      localCurrency,
+      available,
     };
   }
 
@@ -444,16 +548,20 @@
       return;
     }
     const rows = results.map((item, index) => {
+      const priceText = typeof item.price === 'number' ? `${item.price.toFixed(2).replace(/\.00$/, '')} €` : '—';
+      const discountText = typeof item.discountPercent === 'number' ? `${item.discountPercent}%` : '—';
+      const stockText = item.available === false ? 'Épuisé' : 'Disponible';
+      const scoreText = typeof item.score === 'number' ? `${item.score}` : '—';
       const provenance = resultsMode === 'creative'
         ? `<td>${(item.matchedQueries || []).map(escapeHtml).join('<br>') || 'Recherche produit'}</td><td><span class="match-confidence${item.matchConfidence === 'Faible' ? ' low' : item.matchConfidence === 'Moyenne' ? ' medium' : ''}">${escapeHtml(item.matchConfidence || 'Moyenne')}</span></td>`
         : resultsMode === 'visual'
           ? `<td><span class="match-confidence${item.visualSimilarity < 75 ? ' low' : item.visualSimilarity < 88 ? ' medium' : ''}">${escapeHtml(item.visualSimilarity)} %</span></td>`
           : '';
       const libraryActions = `<a href="${escapeHtml(item.adLibraryUrl)}" target="_blank" rel="noopener noreferrer">Voir la publicité</a><br><button type="button" class="creative-search-start" data-creative-index="${index}" title="Chercher d’autres annonces pour ${escapeHtml(item.product)}">Recherche Créa</button><button type="button" class="visual-source-start" data-visual-source-index="${index}" title="Comparer les créations à cette image produit">Recherche visuelle</button>`;
-      return `<tr><td>${item.imageUrl ? `<img class="product-image" src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.product)}" loading="lazy">` : '<span class="image-empty">Image<br>indisponible</span>'}</td><td>${item.store ? `<a href="${escapeHtml(item.store)}" target="_blank" rel="noopener noreferrer">${escapeHtml(new URL(item.store).hostname)}</a>` : 'Lien non détecté'}</td><td>${escapeHtml(item.product)}</td><td>${escapeHtml(item.page)}</td><td>${escapeHtml(item.country)}</td><td>${item.startedAt.toLocaleDateString('fr-FR')}</td><td>${activeDaysSince(item.startedAt)}</td><td>${item.videoUrl ? `<button type="button" class="download-video" data-download-video="${escapeHtml(item.videoUrl)}" data-library-id="${escapeHtml(item.adLibraryUrl.split('id=')[1] || '')}" data-product-name="${escapeHtml(item.product)}" data-creative-search="${resultsMode === 'creative'}" title="Télécharger la vidéo de cette publicité">Télécharger vidéo</button>` : 'Vidéo non détectée'}</td>${provenance}<td>${libraryActions}</td></tr>`;
+      return `<tr><td>${item.imageUrl ? `<img class="product-image" src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.product)}" loading="lazy">` : '<span class="image-empty">Image<br>indisponible</span>'}</td><td>${item.store ? `<a href="${escapeHtml(item.store)}" target="_blank" rel="noopener noreferrer">${escapeHtml(new URL(item.store).hostname)}</a>` : 'Lien non détecté'}</td><td>${escapeHtml(item.product)}</td><td>${escapeHtml(item.page)}</td><td>${escapeHtml(item.country)}</td><td>${item.startedAt ? item.startedAt.toLocaleDateString('fr-FR') : '—'}</td><td>${item.startedAt ? activeDaysSince(item.startedAt) : '—'}</td><td>${item.videoUrl ? `<button type="button" class="download-video" data-download-video="${escapeHtml(item.videoUrl)}" data-library-id="${escapeHtml(item.adLibraryUrl.split('id=')[1] || '')}" data-product-name="${escapeHtml(item.product)}" data-creative-search="${resultsMode === 'creative'}" title="Télécharger la vidéo de cette publicité">Télécharger vidéo</button>` : 'Vidéo non détectée'}</td><td>${escapeHtml(String(item.adCount || item.libraryIds?.size || 1))}</td><td>${escapeHtml(String(item.pageCount || item.pages?.size || 1))}</td><td>${escapeHtml(priceText)}</td><td>${escapeHtml(discountText)}</td><td>${escapeHtml(stockText)}</td><td>${escapeHtml(scoreText)}</td>${provenance}<td>${libraryActions}</td></tr>`;
     }).join('');
     const creativeHeaders = resultsMode === 'creative' ? '<th>Requêtes trouvées</th><th>Pertinence</th>' : resultsMode === 'visual' ? '<th>Similarité visuelle</th>' : '';
-    resultsContainer.innerHTML = `<table><thead><tr><th>Image</th><th>Boutique</th><th>Produit</th><th>Page</th><th>Pays</th><th>Début de diffusion</th><th>Jours actifs</th><th>Vidéo</th>${creativeHeaders}<th>Bibliothèque vidéo / Recherche Créa</th></tr></thead><tbody>${rows}</tbody></table>`;
+    resultsContainer.innerHTML = `<table><thead><tr><th>Image</th><th>Boutique</th><th>Produit</th><th>Page</th><th>Pays</th><th>Début de diffusion</th><th>Jours actifs</th><th>Vidéo</th><th>Publicités</th><th>Pages</th><th>Prix</th><th>Réduction</th><th>Stock</th><th>Score</th>${creativeHeaders}<th>Bibliothèque vidéo / Recherche Créa</th></tr></thead><tbody>${rows}</tbody></table>`;
     resultsContainer.querySelectorAll('.product-image').forEach(image => image.addEventListener('error', () => {
       const placeholder = document.createElement('span');
       placeholder.className = 'image-empty';
@@ -872,7 +980,7 @@
         type: 'SELLMASTER_API',
         path: '/creative-visual/search',
         method: 'POST',
-        body: { imageHash, limit: 50, maxDistance: 20 },
+        body: { imageHash, limit: 50, maxDistance: 32 },
       });
       if (!response?.ok) throw new Error(response?.error || 'Recherche visuelle impossible.');
       const data = response.data || {};
@@ -907,7 +1015,8 @@
   async function scanAds() {
     scanButton.disabled = true;
     resultsMode = 'standard';
-    const unique = new Map();
+    const products = new Map();
+    const processed = new WeakSet();
     let previousCardCount = 0;
     let idleRounds = 0;
 
@@ -915,26 +1024,25 @@
       if (!await ensureOwnerSession()) return;
       await settingsReady;
       const options = readScanOptions();
+      const poolTarget = Math.min(options.limit * 3, 300);
       lastScanOptions = options;
       await persistScanOptions(options);
       for (let round = 0; round < 30; round += 1) {
         const cards = findAdCards();
         cards.forEach(card => {
+          if (processed.has(card)) return;
           const item = getCardValue(card, options.activeDays);
           if (!item) return;
-          const key = item.productPageUrl || item.adLibraryUrl;
-          const existing = unique.get(key);
-          if (!existing || item.startedAt < existing.startedAt) unique.set(key, item);
+          if (item.store) processed.add(card);
+          ingestAd(products, item);
         });
 
-        results = [...unique.values()]
-          .sort((left, right) => right.startedAt - left.startedAt)
-          .slice(0, options.limit);
+        results = rankProducts(products).slice(0, options.limit);
         render();
-        notify(`Parcours en cours : ${cards.length} cartes visibles, ${results.length}/${options.limit} annonces qualifiées.`, '');
-        if (results.length === options.limit) break;
+        notify(`Parcours en cours : ${cards.length} cartes visibles, ${products.size} produits candidats, ${results.length}/${options.limit} résultats retenus.`, '');
+        if (products.size >= Math.min(options.limit * 3, 300)) break;
 
-        const cardCount = findAdCards().length;
+        const cardCount = cards.length;
         idleRounds = cardCount > previousCardCount ? 0 : idleRounds + 1;
         previousCardCount = cardCount;
         if (idleRounds >= 5) break;
@@ -946,6 +1054,9 @@
       render();
       notify(`Récupération des images produit pour ${results.length} annonce(s)...`, '');
       await hydrateProductImages(results);
+      results = results
+        .map(item => ({ ...item, score: winnerScore(item) }))
+        .sort((left, right) => (right.score - left.score) || (left.startedAt - right.startedAt));
       render();
       try {
         notify('Ajout des visuels à votre bibliothèque Sellmaster...', '');
@@ -967,8 +1078,26 @@
     if (!await ensureOwnerSession()) return;
     const creativeFields = resultsMode === 'creative' ? ['Requêtes trouvées', 'Pertinence'] : [];
     const visualFields = resultsMode === 'visual' ? ['Similarité visuelle'] : [];
-    const fields = ['Image du produit', 'Lien de la boutique', 'Nom du produit', 'Nom de la page', 'Pays', 'Début de diffusion', 'Jours actifs', 'Lien vidéo', ...creativeFields, ...visualFields, 'Lien bibliothèque vidéo'];
-    const lines = [fields, ...results.map(item => [item.imageUrl, item.store, item.product, item.page, item.country, item.startedAt.toLocaleDateString('fr-FR'), activeDaysSince(item.startedAt), item.videoUrl, ...(resultsMode === 'creative' ? [(item.matchedQueries || []).join(' | '), item.matchConfidence || ''] : []), ...(resultsMode === 'visual' ? [`${item.visualSimilarity}%`] : []), item.adLibraryUrl])]
+    const fields = ['Image du produit', 'Lien de la boutique', 'Nom du produit', 'Nom de la page', 'Pays', 'Début de diffusion', 'Jours actifs', 'Nombre de publicités', 'Nombre de pages', 'Prix', 'Réduction', 'Disponibilité', 'Score', 'Lien vidéo', ...creativeFields, ...visualFields, 'Lien bibliothèque vidéo'];
+    const lines = [fields, ...results.map(item => [
+      item.imageUrl,
+      item.store,
+      item.product,
+      item.page,
+      item.country,
+      item.startedAt ? item.startedAt.toLocaleDateString('fr-FR') : '—',
+      item.startedAt ? activeDaysSince(item.startedAt) : '—',
+      item.adCount || item.libraryIds?.size || 1,
+      item.pageCount || item.pages?.size || 1,
+      typeof item.price === 'number' ? item.price.toFixed(2).replace(/\.00$/, '') : '',
+      typeof item.discountPercent === 'number' ? `${item.discountPercent}%` : '',
+      item.available === false ? 'Épuisé' : 'Disponible',
+      typeof item.score === 'number' ? item.score : '',
+      item.videoUrl,
+      ...(resultsMode === 'creative' ? [(item.matchedQueries || []).join(' | '), item.matchConfidence || ''] : []),
+      ...(resultsMode === 'visual' ? [`${item.visualSimilarity}%`] : []),
+      item.adLibraryUrl,
+    ])]
       .map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(';'));
     const blob = new Blob([`\ufeff${lines.join('\r\n')}`], { type: 'text/csv;charset=utf-8' });
     const link = document.createElement('a');
@@ -988,13 +1117,18 @@
       printWindow.close();
       return;
     }
-    const rows = results.map(item => `<tr><td>${item.imageUrl ? `<img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.product)}" style="width:58px;height:58px;object-fit:cover">` : 'Image indisponible'}</td><td>${item.store ? `<a class="shop-link" href="${escapeHtml(item.store)}">${escapeHtml(item.store)}</a>` : 'Lien non détecté'}</td><td>${escapeHtml(item.product)}</td><td>${escapeHtml(item.page)}</td><td>${escapeHtml(item.country)}</td><td>${item.startedAt.toLocaleDateString('fr-FR')}</td><td>${activeDaysSince(item.startedAt)}</td><td>${item.videoUrl ? `<a class="video-link" href="${escapeHtml(item.videoUrl)}">Télécharger vidéo</a>` : 'Vidéo non détectée'}</td>${resultsMode === 'creative' ? `<td>${escapeHtml((item.matchedQueries || []).join(' | '))}</td><td>${escapeHtml(item.matchConfidence || '')}</td>` : resultsMode === 'visual' ? `<td>${escapeHtml(item.visualSimilarity)} %</td>` : ''}<td class="library-link-cell"><a class="library-link" href="${escapeHtml(item.adLibraryUrl)}">${escapeHtml(item.adLibraryUrl)}</a></td></tr>`).join('');
+    const rows = results.map(item => {
+      const askedPrice = typeof item.price === 'number' ? `${item.price.toFixed(2).replace(/\.00$/, '')} €` : '—';
+      const askedDiscount = typeof item.discountPercent === 'number' ? `${item.discountPercent}%` : '—';
+      const stockState = item.available === false ? 'Épuisé' : 'Disponible';
+      return `<tr><td>${item.imageUrl ? `<img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.product)}" style="width:58px;height:58px;object-fit:cover">` : 'Image indisponible'}</td><td>${item.store ? `<a class="shop-link" href="${escapeHtml(item.store)}">${escapeHtml(item.store)}</a>` : 'Lien non détecté'}</td><td>${escapeHtml(item.product)}</td><td>${escapeHtml(item.page)}</td><td>${escapeHtml(item.country)}</td><td>${item.startedAt ? item.startedAt.toLocaleDateString('fr-FR') : '—'}</td><td>${item.startedAt ? activeDaysSince(item.startedAt) : '—'}</td><td>${escapeHtml(String(item.adCount || item.libraryIds?.size || 1))}</td><td>${escapeHtml(String(item.pageCount || item.pages?.size || 1))}</td><td>${escapeHtml(askedPrice)}</td><td>${escapeHtml(askedDiscount)}</td><td>${escapeHtml(stockState)}</td><td>${escapeHtml(String(typeof item.score === 'number' ? item.score : '—'))}</td><td>${item.videoUrl ? `<a class="video-link" href="${escapeHtml(item.videoUrl)}">Télécharger vidéo</a>` : 'Vidéo non détectée'}</td>${resultsMode === 'creative' ? `<td>${escapeHtml((item.matchedQueries || []).join(' | '))}</td><td>${escapeHtml(item.matchConfidence || '')}</td>` : resultsMode === 'visual' ? `<td>${escapeHtml(item.visualSimilarity)} %</td>` : ''}<td class="library-link-cell"><a class="library-link" href="${escapeHtml(item.adLibraryUrl)}">${escapeHtml(item.adLibraryUrl)}</a></td></tr>`;
+    }).join('');
     const minimumDays = lastScanOptions.activeDays;
     const searchedKeyword = lastScanOptions.keyword || 'myshopify';
     const pdfFilename = exportFilenameStem();
     const creativeHeaders = resultsMode === 'creative' ? '<th>Requêtes trouvées</th><th>Pertinence</th>' : '';
     const visualHeaders = resultsMode === 'visual' ? '<th>Similarité visuelle</th>' : '';
-    printWindow.document.write(`<!doctype html><html lang="fr"><meta charset="utf-8"><title>${escapeHtml(pdfFilename)}</title><style>body{font:12px Arial,sans-serif;color:#193333}h1{font-size:18px}table{width:100%;table-layout:fixed;border-collapse:collapse}th,td{padding:7px 6px;border:1px solid #cbd8d3;text-align:left;vertical-align:middle;overflow-wrap:anywhere}th{background:#eef3f0}th:nth-child(1){width:6%}th:nth-child(2){width:12%}th:nth-child(3){width:14%}th:nth-child(4){width:11%}th:nth-child(5){width:7%}th:nth-child(6){width:8%}th:nth-child(7){width:6%}th:nth-child(8){width:12%}th:nth-child(9){width:24%}a{color:#087f83}.shop-link,.video-link{overflow-wrap:anywhere;word-break:break-word}.library-link-cell{text-align:center}.library-link{display:block;max-width:100%;text-align:center;overflow-wrap:anywhere;word-break:break-all;line-height:1.35}@page{size:landscape;margin:10mm}</style><h1>Résultats Ads Library · ${escapeHtml(searchedKeyword)}</h1><p>Mot-clé : ${escapeHtml(searchedKeyword)} · ${results.length} annonce(s), actives depuis au moins ${minimumDays} jour(s) · ${new Date().toLocaleDateString('fr-FR')}</p><table><thead><tr><th>Image</th><th>Boutique</th><th>Produit</th><th>Page</th><th>Pays</th><th>Début de diffusion</th><th>Jours actifs</th><th>Vidéo</th>${creativeHeaders}${visualHeaders}<th>Bibliothèque vidéo</th></tr></thead><tbody>${rows}</tbody></table></html>`);
+    printWindow.document.write(`<!doctype html><html lang="fr"><meta charset="utf-8"><title>${escapeHtml(pdfFilename)}</title><style>body{font:12px Arial,sans-serif;color:#193333}h1{font-size:18px}table{width:100%;table-layout:fixed;border-collapse:collapse}th,td{padding:7px 6px;border:1px solid #cbd8d3;text-align:left;vertical-align:middle;overflow-wrap:anywhere}th{background:#eef3f0}th:nth-child(1){width:6%}th:nth-child(2){width:12%}th:nth-child(3){width:14%}th:nth-child(4){width:11%}th:nth-child(5){width:7%}th:nth-child(6){width:8%}th:nth-child(7){width:6%}th:nth-child(8){width:6%}th:nth-child(9){width:6%}th:nth-child(10){width:8%}th:nth-child(11){width:8%}th:nth-child(12){width:8%}th:nth-child(13){width:8%}th:nth-child(14){width:8%}th:nth-child(15){width:12%}a{color:#087f83}.shop-link,.video-link{overflow-wrap:anywhere;word-break:break-word}.library-link-cell{text-align:center}.library-link{display:block;max-width:100%;text-align:center;overflow-wrap:anywhere;word-break:break-all;line-height:1.35}@page{size:landscape;margin:10mm}</style><h1>Résultats Ads Library · ${escapeHtml(searchedKeyword)}</h1><p>Mot-clé : ${escapeHtml(searchedKeyword)} · ${results.length} annonce(s), actives depuis au moins ${minimumDays} jour(s) · ${new Date().toLocaleDateString('fr-FR')}</p><table><thead><tr><th>Image</th><th>Boutique</th><th>Produit</th><th>Page</th><th>Pays</th><th>Début de diffusion</th><th>Jours actifs</th><th>Publicités</th><th>Pages</th><th>Prix</th><th>Réduction</th><th>Stock</th><th>Score</th><th>Vidéo</th>${creativeHeaders}${visualHeaders}<th>Bibliothèque vidéo</th></tr></thead><tbody>${rows}</tbody></table></html>`);
     printWindow.document.close();
     printWindow.addEventListener('load', () => printWindow.print(), { once: true });
   }

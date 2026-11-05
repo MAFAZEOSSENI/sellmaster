@@ -19,4 +19,12 @@ function similarityPercent(distance) {
   return Math.max(0, Math.round((1 - distance / 64) * 100));
 }
 
-module.exports = { isValidVisualHash, hammingDistance, similarityPercent };
+function resolveVisualSearchMaxDistance(requestedDistance) {
+  const parsedDistance = Number.parseInt(requestedDistance, 10);
+  if (Number.isInteger(parsedDistance)) {
+    return Math.min(32, Math.max(0, parsedDistance));
+  }
+  return 32;
+}
+
+module.exports = { isValidVisualHash, hammingDistance, similarityPercent, resolveVisualSearchMaxDistance };
