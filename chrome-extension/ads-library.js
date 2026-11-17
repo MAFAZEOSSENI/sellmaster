@@ -1284,8 +1284,10 @@
     if (Number.isInteger(requestedLimit) && requestedLimit >= 1 && requestedLimit <= 200) adLimitInput.value = String(requestedLimit);
     if (Number.isInteger(requestedDays) && requestedDays >= 0 && requestedDays <= 3650) activeDaysInput.value = String(requestedDays);
     setTimeout(() => {
-      if (isAuthorized) scanAds();
-      else notify('Connectez-vous avec votre compte Owner dans l’extension puis rechargez la page pour démarrer cette recherche.', 'error');
+      ensureOwnerSession().then(authorized => {
+        if (authorized) scanAds();
+        else notify('Connectez-vous avec votre compte Owner dans l’extension puis rechargez la page pour démarrer cette recherche.', 'error');
+      });
     }, 900);
   }
 })();
