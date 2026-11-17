@@ -85,12 +85,6 @@ export const api = {
   syncShopifyOrders: (storeId) => request(`/shopify/stores/${encodeURIComponent(storeId)}/orders/sync`),
   syncShopifyProducts: (storeId) => request(`/shopify/stores/${encodeURIComponent(storeId)}/products/sync`),
   deleteShopifyStore: (storeId) => request(`/shopify/stores/${encodeURIComponent(storeId)}`, { method: 'DELETE' }),
-  productResearchJobs: () => request('/ad-research/jobs'),
-  productResearchJob: (id) => request(\`/ad-research/jobs/\${encodeURIComponent(id)}\`),
-  createProductResearchJob: (job) => request('/ad-research/jobs', {
-    method: 'POST',
-    body: JSON.stringify(job),
-  }),
   teamMembers: (options = {}) => {
     const config = typeof options === 'boolean' ? { includePending: options } : options
     const params = new URLSearchParams()
