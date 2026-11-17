@@ -460,14 +460,26 @@ function ProductResearchView() {
   }, [])
   useEffect(() => {
     let active = true
-    api.productResearchJobs().then(result => { if (active) setJobs(result.jobs || []) })
-      .catch(err => { if (active) setError(err.message) })
+    const loadJobs = () => api.productResearchJobs().then(result => {
+      if (active) setJobs(result.jobs || [])
+    })
+    const loadSelectedJob = () => {
+      if (!selectedJob?.id) return Promise.resolve()
+      return api.productResearchJob(selectedJob.id).then(result => {
+        if (active) {
+          setSelectedJob(result.job)
+          setJobAds(result.ads || [])
+        }
+      })
+    }
+    loadJobs().catch(err => { if (active) setError(err.message) })
       .finally(() => { if (active) setLoading(false) })
     const timer = window.setInterval(() => {
-      api.productResearchJobs().then(result => { if (active) setJobs(result.jobs || []) }).catch(() => {})
+      loadJobs().catch(() => {})
+      loadSelectedJob().catch(() => {})
     }, 5000)
     return () => { active = false; window.clearInterval(timer) }
-  }, [])
+  }, [selectedJob?.id])
   async function createResearch(event) {
     event.preventDefault()
     setError('')
@@ -489,12 +501,17 @@ function ProductResearchView() {
       url.searchParams.set('sm_job_id', String(job.id))
       url.searchParams.set('sm_limit', String(job.ad_limit))
       url.searchParams.set('sm_active_days', String(job.active_days))
-      if (popup) popup.location = url.toString()
-      else setNotice('Recherche créée. Autorisez les fenêtres pop-up puis ouvrez la recherche depuis l’historique.')
-      setNotice('Recherche créée. La collecte démarre dans Meta Ads Library avec l’extension Sellmaster.')
+      if (popup) {
+        popup.location = url.toString()
+        setNotice('Recherche créée. La collecte démarre dans Meta Ads Library avec l’extension Sellmaster.')
+      } else {
+        setNotice('Recherche enregistrée, mais le navigateur a bloqué l’ouverture de Meta Ads Library. Autorisez les fenêtres pop-up puis relancez la recherche.')
+      }
       setKeyword('')
-    } catch (err) { setError(err.message) }
-    finally { setCreating(false) }
+    } catch (err) {
+      if (popup && !popup.closed) popup.close()
+      setError(err.message)
+    } finally { setCreating(false) }
   }
   async function openJob(job) {
     setSelectedJob(job)
