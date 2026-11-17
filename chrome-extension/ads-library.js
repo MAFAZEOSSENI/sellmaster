@@ -524,6 +524,7 @@
       productPageUrl: canonicalProductPageUrl(storeUrl),
       adLibraryUrl: `https://www.facebook.com/ads/library/?id=${encodeURIComponent(libraryId)}`,
       libraryId,
+      adText: String(text || '').slice(0, 5000),
       videoUrl: adVideoFromCard(card),
       adImageUrl: adImageFromCard(card),
       imageUrl: '',
@@ -1040,11 +1041,66 @@
     return Number(response.data?.inserted || 0);
   }
 
+  async function productResearchApi(path, method, body) {
+    const response = await sendRuntimeMessage({ type: 'SELLMASTER_API', path, method, body });
+    if (!response?.ok) throw new Error(response?.error || 'API Product Research indisponible.');
+    return response.data || {};
+  }
+
+  function currentProductResearchJobId() {
+    const value = new URLSearchParams(location.search).get('sm_job_id');
+    return /^\d+$/.test(value || '') ? value : '';
+  }
+
+  async function saveProductResearchResults(jobId, items) {
+    const payload = items.map(item => ({
+      metaAdId: item.libraryIds?.values?.().next?.().value || item.libraryId || '',
+      advertiserName: item.page || '',
+      adLibraryUrl: item.adLibraryUrl || '',
+      productUrl: item.productPageUrl || item.store || '',
+      productName: item.product || '',
+      adText: item.adText || '',
+      imageUrl: item.adImageUrl || item.imageUrl || '',
+      videoUrl: item.videoUrl || '',
+      country: item.country || '',
+      startedAt: item.startedAt instanceof Date ? item.startedAt.toISOString() : item.startedAt,
+      productData: {
+        price: item.price ?? null,
+        discountPercent: item.discountPercent ?? null,
+        available: item.available ?? null,
+        adCount: item.adCount || item.libraryIds?.size || 1,
+        pageCount: item.pageCount || item.pages?.size || 1,
+        score: item.score ?? null,
+        imageUrl: item.imageUrl || '',
+      },
+    })).filter(item => item.adLibraryUrl);
+    let saved = 0;
+    for (let offset = 0; offset < payload.length; offset += 50) {
+      const result = await productResearchApi('/ad-research/jobs/' + jobId + '/ads', 'POST', { items: payload.slice(offset, offset + 50) });
+      saved += Number(result.saved || 0);
+    }
+    return saved;
+  }
+
+  async function updateProductResearchProgress(jobId, stage, scannedCount, collectedCount, message) {
+    return productResearchApi('/ad-research/jobs/' + jobId + '/progress', 'PATCH', {
+      stage, scannedCount, collectedCount, message,
+    });
+  }
+
+  async function finishProductResearchJob(jobId, status, scannedCount, message, error = '') {
+    return productResearchApi('/ad-research/jobs/' + jobId + '/complete', 'POST', {
+      status, scannedCount, message, error,
+    });
+  }
+
   async function scanAds() {
     scanButton.disabled = true;
     resultsMode = 'standard';
     const products = new Map();
     const processed = new WeakSet();
+    const researchJobId = currentProductResearchJobId();
+    let researchJobFinished = false;
     let previousCardCount = 0;
     let idleRounds = 0;
 
@@ -1053,6 +1109,7 @@
       await settingsReady;
       const options = readScanOptions();
       const poolTarget = Math.min(options.limit * 3, 300);
+      if (researchJobId) await updateProductResearchProgress(researchJobId, 'starting', 0, 0, 'Extension connectée, préparation du scan Meta Ads Library.');
       lastScanOptions = options;
       await persistScanOptions(options);
       for (let round = 0; round < 30; round += 1) {
@@ -1068,6 +1125,7 @@
         results = rankProducts(products).slice(0, options.limit);
         render();
         notify(`Parcours en cours : ${cards.length} cartes visibles, ${products.size} produits candidats, ${results.length}/${options.limit} résultats retenus.`, '');
+        if (researchJobId) await updateProductResearchProgress(researchJobId, 'collecting', cards.length, results.length, 'Analyse des annonces Meta en cours.');
         if (products.size >= Math.min(options.limit * 3, 300)) break;
 
         const cardCount = cards.length;
@@ -1100,8 +1158,17 @@
         console.warn('[Sellmaster] Impossible d’enregistrer l’historique du scan:', error);
       }
       const summary = `${results.length}/${options.limit} annonce(s) qualifiée(s), actives depuis au moins ${options.activeDays} jour(s). Les cartes sans date lisible sont exclues.`;
+      if (researchJobId) {
+        const saved = await saveProductResearchResults(researchJobId, results);
+        await finishProductResearchJob(researchJobId, 'completed', previousCardCount, summary + ' ' + saved + ' résultat(s) sauvegardé(s).');
+        researchJobFinished = true;
+      }
       notify(summary, results.length ? 'success' : '');
     } catch (error) {
+      if (researchJobId && !researchJobFinished) {
+        try { await finishProductResearchJob(researchJobId, 'failed', previousCardCount, 'La collecte a échoué.', error.message || 'Erreur inconnue'); } catch (_) {}
+        researchJobFinished = true;
+      }
       notify(`Analyse interrompue : ${error.message || 'erreur inconnue'}`, 'error');
     } finally {
       scanButton.disabled = false;
