@@ -416,51 +416,6 @@ async function createTables() {
       ON CONFLICT DO NOTHING
     `);
 
-    await conn.query(\`
-      CREATE TABLE IF NOT EXISTS ad_research_jobs (
-        id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-        owner_id INT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
-        status VARCHAR(20) NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','starting','collecting','completed','failed','cancelled')),
-        country VARCHAR(3) NOT NULL DEFAULT 'ALL',
-        ad_category VARCHAR(40) NOT NULL DEFAULT 'all',
-        keyword VARCHAR(120) NOT NULL,
-        ad_limit INT NOT NULL DEFAULT 50 CHECK (ad_limit BETWEEN 1 AND 200),
-        active_days INT NOT NULL DEFAULT 10 CHECK (active_days BETWEEN 0 AND 3650),
-        scanned_count INT NOT NULL DEFAULT 0,
-        collected_count INT NOT NULL DEFAULT 0,
-        progress_stage VARCHAR(40) NOT NULL DEFAULT 'queued',
-        progress_message VARCHAR(240) NULL,
-        error_message TEXT NULL,
-        started_at TIMESTAMP NULL,
-        completed_at TIMESTAMP NULL,
-        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )
-    \`);
-    await conn.query('ALTER TABLE ad_research_jobs ALTER COLUMN country TYPE VARCHAR(3)');
-    await conn.query('CREATE INDEX IF NOT EXISTS ad_research_jobs_owner_created_idx ON ad_research_jobs (owner_id, created_at DESC)');
-    await conn.query(\`
-      CREATE TABLE IF NOT EXISTS ad_research_ads (
-        id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-        job_id BIGINT NOT NULL REFERENCES ad_research_jobs(id) ON DELETE CASCADE,
-        owner_id INT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
-        meta_ad_id VARCHAR(64) NULL,
-        advertiser_name VARCHAR(255) NULL,
-        ad_library_url TEXT NOT NULL,
-        product_url TEXT NULL,
-        product_name VARCHAR(300) NULL,
-        ad_text TEXT NULL,
-        image_url TEXT NULL,
-        video_url TEXT NULL,
-        country VARCHAR(100) NULL,
-        started_at TIMESTAMP NULL,
-        observed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        product_data JSONB NULL
-      )
-    \`);
-    await conn.query(\`CREATE UNIQUE INDEX IF NOT EXISTS ad_research_ads_job_meta_uidx ON ad_research_ads (job_id, meta_ad_id) WHERE meta_ad_id IS NOT NULL\`);
-    await conn.query('CREATE INDEX IF NOT EXISTS ad_research_ads_owner_job_idx ON ad_research_ads (owner_id, job_id, started_at DESC)');
-
     console.log('✅ Tables créées avec succès!');
   } catch (error) {
     console.error('❌ Erreur création tables:', error);

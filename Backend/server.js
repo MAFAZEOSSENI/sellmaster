@@ -19,7 +19,6 @@ const publicFormRoutes = require('./routes/publicForm.routes');
 const orderFormsRoutes = require('./routes/orderForms.routes');
 const creativeVisualRoutes = require('./routes/creativeVisual.routes');
 const adResearchSnapshotsRoutes = require('./routes/adResearchSnapshots.routes');
-const adResearchRoutes = require('./routes/adResearch.routes');
 const deviceRoutes = require('./routes/devices.routes');
 
 // Middleware de base
@@ -136,7 +135,6 @@ app.use('/api/public/forms', publicFormRoutes);
 app.use('/api/order-forms', orderFormsRoutes);
 app.use('/api/creative-visual', creativeVisualRoutes);
 app.use('/api/ad-research-snapshots', adResearchSnapshotsRoutes);
-app.use('/api/ad-research', adResearchRoutes);
 app.use('/api/devices', deviceRoutes);
 
 // ==================== ROUTES API ====================

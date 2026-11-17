@@ -9,10 +9,8 @@ function sendApi(path, method, body, sendResponse) {
     || path === '/shopify/register-store-credentials'
     || path === '/creative-visual/index'
     || path === '/creative-visual/search'
-    || path === '/ad-research-snapshots'
-    || path === '/ad-research/jobs'
-    || /^\/ad-research\/jobs\/\d+(?:\/progress|\/ads|\/complete)?$/.test(path);
-  if (!allowed || !['GET', 'POST', 'PATCH'].includes(method)) {
+    || path === '/ad-research-snapshots';
+  if (!allowed || !['GET', 'POST'].includes(method)) {
     sendResponse({ ok: false, error: 'Requête refusée par la politique de l’extension.' });
     return;
   }
@@ -26,9 +24,9 @@ function sendApi(path, method, body, sendResponse) {
       headers: {
         Authorization: `Bearer ${stored[TOKEN_KEY]}`,
         Accept: 'application/json',
-        ...(['POST', 'PATCH'].includes(method) ? { 'Content-Type': 'application/json' } : {}),
+        ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
       },
-      ...(['POST', 'PATCH'].includes(method) ? { body: JSON.stringify(body || {}) } : {}),
+      ...(method === 'POST' ? { body: JSON.stringify(body || {}) } : {}),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || `Sellmaster a répondu ${response.status}.`);

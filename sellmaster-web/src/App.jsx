@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import {
-  Activity, ArrowDownRight, ArrowUpRight, Bell, Boxes, ChevronDown, CircleHelp, SearchCode,
+  Activity, ArrowDownRight, ArrowUpRight, Bell, Boxes, ChevronDown, CircleHelp,
   ClipboardList, Command, ExternalLink, LayoutDashboard, Link2, LogOut, MoreHorizontal, Package, Pencil,
   RefreshCw, Search, Settings2, ShieldCheck, ShoppingBag, Store, Trash2, Truck, Users,
 } from 'lucide-react'
@@ -20,7 +20,6 @@ const baseNavItems = [
   { id: 'overview', label: 'Vue d’ensemble', icon: LayoutDashboard },
   { id: 'orders', label: 'Commandes', icon: ClipboardList },
   { id: 'products', label: 'Produits', icon: Package },
-  { id: 'research', label: 'Product Research', icon: SearchCode },
   { id: 'shopify', label: 'Boutiques Shopify', icon: ShoppingBag },
   { id: 'team', label: 'Équipe', icon: Users },
 ]
@@ -440,123 +439,6 @@ function TeamView({ members, loading, error, isMemberView, canInvite, canEditCom
   )
 }
 
-
-function ProductResearchView() {
-  const [jobs, setJobs] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [creating, setCreating] = useState(false)
-  const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
-  const [keyword, setKeyword] = useState('')
-  const [country, setCountry] = useState('BJ')
-  const [adLimit, setAdLimit] = useState(50)
-  const [activeDays, setActiveDays] = useState(10)
-  const [selectedJob, setSelectedJob] = useState(null)
-  const [jobAds, setJobAds] = useState([])
-  const refresh = useCallback(async () => {
-    const result = await api.productResearchJobs()
-    setJobs(result.jobs || [])
-    setLoading(false)
-  }, [])
-  useEffect(() => {
-    let active = true
-    const loadJobs = () => api.productResearchJobs().then(result => {
-      if (active) setJobs(result.jobs || [])
-    })
-    const loadSelectedJob = () => {
-      if (!selectedJob?.id) return Promise.resolve()
-      return api.productResearchJob(selectedJob.id).then(result => {
-        if (active) {
-          setSelectedJob(result.job)
-          setJobAds(result.ads || [])
-        }
-      })
-    }
-    loadJobs().catch(err => { if (active) setError(err.message) })
-      .finally(() => { if (active) setLoading(false) })
-    const timer = window.setInterval(() => {
-      loadJobs().catch(() => {})
-      loadSelectedJob().catch(() => {})
-    }, 5000)
-    return () => { active = false; window.clearInterval(timer) }
-  }, [selectedJob?.id])
-  async function createResearch(event) {
-    event.preventDefault()
-    setError('')
-    setNotice('')
-    setCreating(true)
-    const popup = window.open('about:blank', '_blank')
-    try {
-      const result = await api.createProductResearchJob({ keyword, country, adLimit: Number(adLimit), activeDays: Number(activeDays), adCategory: 'all' })
-      const job = result.job
-      await refresh()
-      const url = new URL('https://www.facebook.com/ads/library/')
-      url.searchParams.set('active_status', 'all')
-      url.searchParams.set('ad_type', 'all')
-      url.searchParams.set('country', country)
-      url.searchParams.set('is_targeted_country', country === 'ALL' ? 'false' : 'true')
-      url.searchParams.set('media_type', 'all')
-      url.searchParams.set('q', keyword.trim())
-      url.searchParams.set('search_type', 'keyword_unordered')
-      url.searchParams.set('sm_job_id', String(job.id))
-      url.searchParams.set('sm_limit', String(job.ad_limit))
-      url.searchParams.set('sm_active_days', String(job.active_days))
-      if (popup) {
-        popup.location = url.toString()
-        setNotice('Recherche créée. La collecte démarre dans Meta Ads Library avec l’extension Sellmaster.')
-      } else {
-        setNotice('Recherche enregistrée, mais le navigateur a bloqué l’ouverture de Meta Ads Library. Autorisez les fenêtres pop-up puis relancez la recherche.')
-      }
-      setKeyword('')
-    } catch (err) {
-      if (popup && !popup.closed) popup.close()
-      setError(err.message)
-    } finally { setCreating(false) }
-  }
-  async function openJob(job) {
-    setSelectedJob(job)
-    setJobAds([])
-    try {
-      const result = await api.productResearchJob(job.id)
-      setSelectedJob(result.job)
-      setJobAds(result.ads || [])
-    } catch (err) { setError(err.message) }
-  }
-  const statusLabels = { queued: 'En attente', starting: 'Démarrage', collecting: 'Collecte', completed: 'Terminée', failed: 'Échec', cancelled: 'Annulée' }
-  return <div className="research-layout">
-    <section className="content-panel research-create">
-      <div className="panel-heading"><div><span className="panel-overline">META ADS LIBRARY · EXTENSION SELLMASTER</span><h2>Nouvelle recherche produit</h2></div></div>
-      <p className="research-help">Lancez une collecte depuis Sellmaster. L’extension ouvre Meta Ads Library, analyse les annonces visibles et enregistre les résultats dans votre espace Owner.</p>
-      <form className="research-form" onSubmit={createResearch}>
-        <label>Mot-clé produit<input required maxLength="120" value={keyword} onChange={event => setKeyword(event.target.value)} placeholder="Ex. extracteur de jus, mini ventilateur…" /></label>
-        <div className="research-fields">
-          <label>Pays<select value={country} onChange={event => setCountry(event.target.value)}><option value="BJ">Bénin</option><option value="CI">Côte d’Ivoire</option><option value="TG">Togo</option><option value="SN">Sénégal</option><option value="NG">Nigeria</option><option value="GH">Ghana</option><option value="FR">France</option><option value="US">États-Unis</option><option value="ALL">Tous les pays</option></select></label>
-          <label>Nombre d’annonces<input type="number" min="1" max="200" value={adLimit} onChange={event => setAdLimit(event.target.value)} /></label>
-          <label>Actives depuis (jours)<input type="number" min="0" max="3650" value={activeDays} onChange={event => setActiveDays(event.target.value)} /></label>
-        </div>
-        {error && <p className="research-error" role="alert">{error}</p>}
-        {notice && <p className="research-notice" role="status">{notice}</p>}
-        <button className="button button-primary" disabled={creating || !keyword.trim()}>{creating ? 'Création…' : 'Créer et ouvrir Meta Ads Library'}</button>
-      </form>
-    </section>
-    <section className="content-panel research-history">
-      <div className="panel-heading"><div><span className="panel-overline">VOTRE ESPACE OWNER</span><h2>Historique des recherches</h2></div><button className="text-button" onClick={() => refresh().catch(err => setError(err.message))}>Actualiser</button></div>
-      {loading ? <div className="loading-area">Chargement…</div> : jobs.length === 0 ? <div className="empty-state"><SearchCode size={24}/><strong>Aucune recherche</strong><span>Vos recherches apparaîtront ici après leur création.</span></div> :
-        <div className="research-job-list">{jobs.map(job => <button className="research-job" key={job.id} onClick={() => openJob(job)}>
-          <span><strong>{job.keyword}</strong><small>{job.country} · {formatDate(job.created_at)}</small></span>
-          <span className={'research-status status-' + job.status}>{statusLabels[job.status] || job.status}</span>
-          <span className="research-job-count">{job.collected_count || 0}/{job.ad_limit}</span>
-          <small>{job.progress_message || '—'}</small>
-        </button>)}</div>}
-    </section>
-    {selectedJob && <section className="content-panel research-results">
-      <div className="panel-heading"><div><span className="panel-overline">RÉSULTATS DE RECHERCHE</span><h2>{selectedJob.keyword}</h2></div><button className="text-button" onClick={() => setSelectedJob(null)}>Fermer</button></div>
-      <p>{selectedJob.progress_message} · {jobAds.length} annonce(s) sauvegardée(s)</p>
-      {jobAds.length ? <div className="table-scroll"><table className="data-table"><thead><tr><th>Produit</th><th>Annonceur</th><th>Pays</th><th>Début</th><th>Liens</th></tr></thead><tbody>{jobAds.map(ad => <tr key={ad.id}><td>{ad.product_name || 'Non détecté'}</td><td>{ad.advertiser_name || '—'}</td><td>{ad.country || '—'}</td><td>{formatDate(ad.started_at)}</td><td><a href={ad.ad_library_url} target="_blank" rel="noreferrer">Meta Ads</a>{ad.product_url && <> · <a href={ad.product_url} target="_blank" rel="noreferrer">Produit</a></>}</td></tr>)}</tbody></table></div> : <p className="research-help">Aucune annonce sauvegardée pour cette recherche.</p>}
-    </section>}
-  </div>
-}
-
 function App() {
   const [user, setUser] = useState(null)
   const [authenticated, setAuthenticated] = useState(Boolean(authToken.get()))
@@ -625,7 +507,6 @@ function App() {
   const shouldLoadProducts = canAccessProducts && productScopeReady && (!needsTeamCatalog || productOwnerId !== null)
   const canAccessShopify = hasAnyRole(userRoles, 'owner', 'manager')
   const navItems = baseNavItems.filter((item) => {
-    if (item.id === 'research') return isOwnerUser
     if (item.id === 'products') return canAccessProducts
     if (item.id === 'shopify') return canAccessShopify
     return true
@@ -637,7 +518,7 @@ function App() {
   ]
   const isTeamMemberView = isTeamMemberRole(userRoles)
   const isTeamOwner = canInviteTeamMembers(userRoles)
-  const allowedPages = isOwnerUser ? [...getAvailablePages(userRoles), 'research'] : getAvailablePages(userRoles)
+  const allowedPages = getAvailablePages(userRoles)
   const activePage = user
     && !allowedPages.includes(requestedPage)
     && !(requestedPage === 'productImport' && canAccessProducts)
@@ -1042,7 +923,7 @@ function App() {
   }
   const filteredOrders = roleFilteredOrders.filter((order) => [order.custom_order_number, order.client_name, order.client_phone, order.status].join(' ').toLowerCase().includes(search.toLowerCase()))
   const filteredProducts = products.filter((product) => [product.name, product.description].join(' ').toLowerCase().includes(search.toLowerCase()))
-  const pageTitle = activePage === 'research' ? 'Product Research' : activePage === 'orders' ? 'Commandes' : activePage === 'products' ? 'Produits' : activePage === 'productImport' ? 'Importer un produit' : activePage === 'shopify' ? 'Boutiques Shopify' : activePage === 'team' ? 'Équipe' : activePage === 'more' ? 'Plus' : 'Vue d’ensemble'
+  const pageTitle = activePage === 'orders' ? 'Commandes' : activePage === 'products' ? 'Produits' : activePage === 'productImport' ? 'Importer un produit' : activePage === 'shopify' ? 'Boutiques Shopify' : activePage === 'team' ? 'Équipe' : activePage === 'more' ? 'Plus' : 'Vue d’ensemble'
 
   if (!authenticated) {
     const openAuth = (mode) => {
@@ -1083,7 +964,6 @@ function App() {
           {activePage === 'orders' && <section className="content-panel full-table-panel"><div className="panel-heading"><div><span className="panel-overline">VENTES</span><h2>{isTeamMemberView ? 'Mes commandes' : 'Toutes les commandes'} <span className="title-count">{numberFormat.format(filteredOrders.length)}</span></h2></div><label className="search-control"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher une commande" aria-label="Rechercher une commande" /></label></div><OrdersTable orders={filteredOrders} allowedStatuses={allowedOrderStatuses} onStatusChange={updateOrderStatus} updatingOrderId={updatingOrderId} isCourier={isCourier} canAssign={canAssignOrders} couriersByOwner={couriersByOwner} onAssign={assignOrder} assigningOrderId={assigningOrderId} /></section>}
           {activePage === 'products' && canAccessProducts && <section className="content-panel full-table-panel"><div className="panel-heading"><div><span className="panel-overline">CATALOGUE</span><h2>{canEditProducts ? 'Vos produits' : 'Catalogue produits'} <span className="title-count">{numberFormat.format(products.length)}</span></h2></div><div className="product-heading-actions"><label className="search-control"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher un produit" aria-label="Rechercher un produit" /></label>{canEditProducts && <><button className="button button-quiet" onClick={() => openProductImport()}><Link2 size={16} /> Importer depuis une URL</button><button className="button button-primary" onClick={() => { setEditingProduct(null); setProductDialogOpen(true) }}><Package size={16} /> Nouveau produit</button></>}</div></div><ProductsTable products={filteredProducts} canEdit={canEditProducts} onEdit={(product) => setEditingProduct(product)} /></section>}
           {activePage === 'productImport' && canAccessProducts && <ProductImportView key={productImportUrl || 'manual-import'} initialUrl={productImportUrl} onBack={closeProductImport} onImported={(product) => setProducts((current) => [product, ...current.filter((item) => String(item.id) !== String(product.id))])} />}
-          {activePage === 'research' && isOwnerUser && <ProductResearchView />}
           {activePage === 'shopify' && canAccessShopify && <ShopifyStoresView stores={stores} loading={storesLoading} error={shopifyError} notice={shopifyNotice} busyStoreId={busyStoreId} onRefresh={() => { setStoresLoading(true); setShopifyError(''); void loadStores() }} onConnect={() => setConnectDialogOpen(true)} onSyncOrders={(store) => syncShopifyStore(store, 'orders')} onSyncProducts={(store) => syncShopifyStore(store, 'products')} onDelete={deleteShopifyStore} />}
           {activePage === 'team' && <>{mutationMessage && <div className="mutation-notice" role="status">{mutationMessage}<button className="notice-dismiss" onClick={() => setMutationMessage('')} aria-label="Fermer">×</button></div>}<TeamView members={teamMembers} loading={teamLoading} error={teamError} isMemberView={isTeamMemberView} canInvite={isTeamOwner} canEditCommission={canEditCommission} acceptingId={acceptingInvitationId} onAccept={acceptTeamInvitation} onInvite={() => setInviteDialogOpen(true)} onRefresh={loadTeam} onUpdateMyTeam={updateMyTeam} onUpdateCommission={updateCloserCommission} /></>}
           {activePage === 'more' && <MoreView user={user} canAccessShopify={canAccessShopify} onNavigate={navigateToPage} onLogout={logout} />}
