@@ -473,6 +473,7 @@ function ProductResearchView() {
     setError('')
     setNotice('')
     setCreating(true)
+    const popup = window.open('about:blank', '_blank')
     try {
       const result = await api.createProductResearchJob({ keyword, country, adLimit: Number(adLimit), activeDays: Number(activeDays), adCategory: 'all' })
       const job = result.job
@@ -488,7 +489,8 @@ function ProductResearchView() {
       url.searchParams.set('sm_job_id', String(job.id))
       url.searchParams.set('sm_limit', String(job.ad_limit))
       url.searchParams.set('sm_active_days', String(job.active_days))
-      window.open(url.toString(), '_blank', 'noopener,noreferrer')
+      if (popup) popup.location = url.toString()
+      else setNotice('Recherche créée. Autorisez les fenêtres pop-up puis ouvrez la recherche depuis l’historique.')
       setNotice('Recherche créée. La collecte démarre dans Meta Ads Library avec l’extension Sellmaster.')
       setKeyword('')
     } catch (err) { setError(err.message) }
@@ -606,6 +608,7 @@ function App() {
   const shouldLoadProducts = canAccessProducts && productScopeReady && (!needsTeamCatalog || productOwnerId !== null)
   const canAccessShopify = hasAnyRole(userRoles, 'owner', 'manager')
   const navItems = baseNavItems.filter((item) => {
+    if (item.id === 'research') return isOwnerUser
     if (item.id === 'products') return canAccessProducts
     if (item.id === 'shopify') return canAccessShopify
     return true
