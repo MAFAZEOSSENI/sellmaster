@@ -1,5 +1,6 @@
 const ShopifyConfig = require('../models/ShopifyConfig');
 const Order = require('../models/Order');
+const Notification = require('../models/Notification');
 const axios = require('axios');
 const {
   extractCustomerPhone,
@@ -346,7 +347,16 @@ class ShopifyService {
     
     if (!existingOrder) {
       // Créer une nouvelle commande
-      await Order.createFromShopify(orderData, this.userId);
+      const createdOrder = await Order.createFromShopify(orderData, this.userId);
+      const isPublicFormOrder = String(shopifyOrder.tags || '').split(',').some(tag => tag.trim().toUpperCase() === 'SELLMASTER_FORM');
+      if (!isPublicFormOrder) {
+        await Notification.notifyEvent({
+          ownerUserId: Number(this.userId),
+          event: 'new_order',
+          actorUserId: null,
+          order: { id: createdOrder?.id, custom_order_number: createdOrder?.custom_order_number },
+        });
+      }
       console.log(`✅ Commande #${orderData.order_number} créée (Shopify ID: ${shopifyOrder.id})`);
       return 'created';
     } else {

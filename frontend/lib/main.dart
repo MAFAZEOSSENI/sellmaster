@@ -37,7 +37,11 @@ Future<void> main() async {
   );
 
   final notificationService = NotificationService();
-  await FcmService().initialize(notificationService);
+  final navigatorKey = GlobalKey<NavigatorState>();
+  await FcmService().initialize(
+    notificationService,
+    navigatorKey: navigatorKey,
+  );
 
   Uri? initialLink;
   if (!kIsWeb) {
@@ -48,14 +52,17 @@ Future<void> main() async {
     }
   }
   runApp(MyApp(
-      initialLink: initialLink, notificationService: notificationService));
+      initialLink: initialLink,
+      notificationService: notificationService,
+      navigatorKey: navigatorKey));
 }
 
 class MyApp extends StatefulWidget {
   final Uri? initialLink;
   final NotificationService notificationService;
+  final GlobalKey<NavigatorState>? navigatorKey;
 
-  const MyApp({Key? key, this.initialLink, required this.notificationService})
+  const MyApp({Key? key, this.initialLink, required this.notificationService, this.navigatorKey})
       : super(key: key);
 
   @override
@@ -63,8 +70,8 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  static final GlobalKey<NavigatorState> _navigatorKey =
-      GlobalKey<NavigatorState>();
+  late final GlobalKey<NavigatorState> _navigatorKey =
+      widget.navigatorKey ?? GlobalKey<NavigatorState>();
   StreamSubscription<Uri>? _linkSubscription;
   String? _initialConnectedStore;
 
@@ -109,6 +116,7 @@ class _MyAppState extends State<MyApp> {
   @override
   void dispose() {
     _linkSubscription?.cancel();
+    FcmService().dispose();
     super.dispose();
   }
 
@@ -240,8 +248,93 @@ class _MyAppState extends State<MyApp> {
   }
 }
 
-class AuthWrapper extends StatelessWidget {
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({Key? key}) : super(key: key);
+
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
+  AuthProvider? _authProvider;
+  NotificationService? _notificationService;
+  Timer? _notificationSyncTimer;
+  bool? _wasAuthenticated;
+  bool _isForeground = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final auth = context.read<AuthProvider>();
+    _notificationService = context.read<NotificationService>();
+    if (_authProvider != auth) {
+      _authProvider?.removeListener(_onAuthChanged);
+      _authProvider = auth..addListener(_onAuthChanged);
+      _wasAuthenticated = auth.isAuthenticated;
+      if (auth.isAuthenticated) _onConnected();
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  void _onAuthChanged() {
+    final authenticated = _authProvider?.isAuthenticated ?? false;
+    if (_wasAuthenticated == authenticated) return;
+    _wasAuthenticated = authenticated;
+    if (authenticated) {
+      _onConnected();
+    } else {
+      _notificationSyncTimer?.cancel();
+      _notificationSyncTimer = null;
+    }
+  }
+
+  void _onConnected() {
+    final service = _notificationService;
+    if (service == null) return;
+    unawaited(service.syncFromServer());
+    unawaited(FcmService().registerDeviceAfterLogin());
+    FcmService().handlePendingNavigation();
+    _startNotificationSyncTimer();
+  }
+
+  void _startNotificationSyncTimer() {
+    _notificationSyncTimer?.cancel();
+    if (!_isForeground || !(_authProvider?.isAuthenticated ?? false)) return;
+    _notificationSyncTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      final service = _notificationService;
+      if (_isForeground && (_authProvider?.isAuthenticated ?? false)) {
+        if (service != null) unawaited(service.syncFromServer());
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _isForeground = state == AppLifecycleState.resumed;
+    if (!_isForeground) {
+      _notificationSyncTimer?.cancel();
+      _notificationSyncTimer = null;
+      return;
+    }
+    if (_authProvider?.isAuthenticated ?? false) {
+      final service = _notificationService;
+      if (service != null) unawaited(service.syncFromServer());
+      _startNotificationSyncTimer();
+    }
+  }
+
+  @override
+  void dispose() {
+    _notificationSyncTimer?.cancel();
+    _authProvider?.removeListener(_onAuthChanged);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -273,20 +366,6 @@ class AuthWrapper extends StatelessWidget {
         if (!auth.isAuthenticated) {
           return const LoginPage();
         }
-
-        final notificationService = context.read<NotificationService>();
-        WidgetsBinding.instance.addPostFrameCallback((_) async {
-          if (auth.isAuthenticated) {
-            await notificationService.syncFromServer();
-            if (notificationService.items.isEmpty) {
-              notificationService.show(
-                title: 'Bienvenue',
-                message: 'Vos notifications s\'afficheront ici.',
-                type: AppNotificationType.success,
-              );
-            }
-          }
-        });
 
         // ✅ Seulement aller au dashboard si authentifié
         return const MainNavigationPage();

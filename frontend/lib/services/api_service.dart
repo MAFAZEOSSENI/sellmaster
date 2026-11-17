@@ -358,6 +358,40 @@ class ApiService {
     }
   }
 
+  static Future<void> registerDeviceToken(String token, String platform) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/devices/register'),
+      headers: await _getHeaders(),
+      body: json.encode({'token': token, 'platform': platform}),
+    );
+    if (response.statusCode != 200) {
+      final body = json.decode(response.body);
+      throw Exception(body['error'] ?? 'Erreur enregistrement appareil');
+    }
+  }
+
+  static Future<void> unregisterDeviceToken(String token) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/devices/${Uri.encodeComponent(token)}'),
+      headers: await _getHeaders(),
+    );
+    if (response.statusCode != 200) {
+      final body = json.decode(response.body);
+      throw Exception(body['error'] ?? 'Erreur suppression appareil');
+    }
+  }
+
+  static Future<void> markNotificationAsRead(int id) async {
+    final response = await http.patch(
+      Uri.parse('$baseUrl/notifications/$id/read'),
+      headers: await _getHeaders(),
+    );
+    if (response.statusCode != 200) {
+      final body = json.decode(response.body);
+      throw Exception(body['error'] ?? 'Erreur marquage notification');
+    }
+  }
+
   static Future<void> markNotificationsAsRead() async {
     try {
       final response = await http.patch(

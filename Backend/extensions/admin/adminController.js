@@ -1,6 +1,7 @@
 const { getConnection } = require('../../config/database');
 const User = require('../../models/User');
 const Rbac = require('../../models/Rbac');
+const Notification = require('../../models/Notification');
 
 const allowedTeamRoles = ['manager', 'closer', 'courier'];
 
@@ -234,6 +235,13 @@ const adminController = {
       } finally {
         conn.release();
       }
+
+      await Notification.notifyEvent({
+        ownerUserId,
+        event: 'invitation',
+        actorUserId: Number(req.userId),
+        order: { memberUserId, membershipId: null },
+      });
 
       res.status(201).json({
         message: 'Membre ajouté à l’équipe',
@@ -527,6 +535,13 @@ const adminController = {
         conn.release();
       }
 
+      await Notification.notifyEvent({
+        ownerUserId: Number(req.userId),
+        event: 'invitation',
+        actorUserId: Number(req.userId),
+        order: { memberUserId: memberId },
+      });
+
       res.json({ message: 'Invitation envoyée' });
     } catch (error) {
       console.error('[ADMIN] Invite member error:', error);
@@ -564,6 +579,7 @@ const adminController = {
       const rawBody = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
       const body = rawBody && typeof rawBody === 'object' ? rawBody : {};
       const membershipId = body.membershipId ?? body.membership_id ?? body.id;
+      let acceptedMembership = null;
       const conn = await getConnection();
       try {
         const [rows] = await conn.query(
@@ -576,6 +592,7 @@ const adminController = {
         }
 
         const membership = rows[0];
+        acceptedMembership = membership;
         if (membership.status === 'rejected') {
           return res.status(409).json({ error: 'Cette invitation a été refusée et ne peut pas être réactivée.' });
         }
@@ -591,6 +608,15 @@ const adminController = {
 
       } finally {
         conn.release();
+      }
+
+      if (acceptedMembership?.status === 'pending') {
+        await Notification.notifyEvent({
+          ownerUserId: Number(acceptedMembership.owner_user_id),
+          event: 'invitation_accepted',
+          actorUserId: Number(req.userId),
+          order: { membershipId: acceptedMembership.id },
+        });
       }
 
       res.json({ message: 'Invitation confirmée, vous pouvez commencer à travailler ensemble' });

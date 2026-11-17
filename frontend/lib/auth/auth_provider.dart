@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/fcm_service.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'google_auth.dart';
 
@@ -309,6 +310,8 @@ class AuthProvider with ChangeNotifier {
 
   // ✅ CORRIGÉ : Déconnexion
   Future<void> logout() async {
+    await FcmService().unregisterDeviceBeforeLogout();
+
     // ✅ SUPPRIMEZ LE TOKEN DANS AuthService
     await AuthService().deleteToken();
 

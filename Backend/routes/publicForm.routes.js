@@ -7,6 +7,7 @@ const ShopifyService = require('../services/ShopifyService');
 const License = require('../models/License');
 const User = require('../models/User');
 const FormUpsell = require('../models/FormUpsell');
+const Notification = require('../models/Notification');
 const { getConnection } = require('../config/database');
 
 const router = express.Router();
@@ -458,6 +459,12 @@ router.post('/:token/submit', submitLimiter, async (req, res) => {
         quantity: item.quantity,
         unitPrice: Number(productsById.get(item.productId).price || 0),
       })), ...upsellItems],
+    });
+    await Notification.notifyEvent({
+      ownerUserId: Number(form.owner_user_id),
+      event: 'new_order',
+      actorUserId: null,
+      order: { custom_order_number: createdOrder.name },
     });
     return res.status(201).json({ success: true, order: createdOrder });
   } catch (error) {

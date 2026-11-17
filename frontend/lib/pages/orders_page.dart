@@ -4,7 +4,9 @@ import '../models/order.dart';
 import '../models/product.dart';
 
 class OrdersPage extends StatefulWidget {
-  const OrdersPage({Key? key}) : super(key: key);
+  final int? initialOrderId;
+
+  const OrdersPage({Key? key, this.initialOrderId}) : super(key: key);
 
   @override
   OrdersPageState createState() => OrdersPageState();
@@ -26,6 +28,7 @@ class OrdersPageState extends State<OrdersPage> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialOrderId != null) _currentFilter = 'Toutes';
     loadOrders();
   }
 
@@ -45,6 +48,10 @@ class OrdersPageState extends State<OrdersPage> {
   }
 
   List<Order> get filteredOrders {
+    if (widget.initialOrderId != null) {
+      final targetOrder = orders.where((order) => order.id == widget.initialOrderId);
+      if (targetOrder.isNotEmpty) return targetOrder.toList();
+    }
     if (_currentFilter == 'Toutes') return orders;
     if (_currentFilter == 'Livrées') {
       return orders.where((order) => order.status == 'livree').toList();

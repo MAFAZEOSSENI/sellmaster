@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'orders_page.dart';
 import '../services/notification_service.dart';
 
 class NotificationsPage extends StatelessWidget {
@@ -28,30 +29,53 @@ class NotificationsPage extends StatelessWidget {
         ],
       ),
       body: notificationService.items.isEmpty
-          ? _EmptyNotificationsState()
-          : ListView.separated(
+          ? RefreshIndicator(
+              onRefresh: notificationService.syncFromServer,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  SizedBox(
+                    height: MediaQuery.sizeOf(context).height * 0.7,
+                    child: _EmptyNotificationsState(),
+                  ),
+                ],
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: notificationService.syncFromServer,
+              child: ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(16),
               itemCount: notificationService.items.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final item = notificationService.items[index];
-                return Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: item.read ? Colors.transparent : const Color(0xFF4869F2).withOpacity(0.25),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
+                return Material(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () async {
+                      await notificationService.markAsRead(item.id);
+                      if (!context.mounted) return;
+                      if (item.relatedType == 'order') {
+                        final orderId = int.tryParse(item.relatedId ?? '');
+                        if (orderId != null) {
+                          Navigator.of(context).push(MaterialPageRoute<void>(
+                            builder: (_) => OrdersPage(initialOrderId: orderId),
+                          ));
+                        }
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: item.read ? Colors.transparent : const Color(0xFF4869F2).withOpacity(0.25),
+                        ),
                       ),
-                    ],
-                  ),
-                  child: Row(
+                      child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
@@ -114,9 +138,12 @@ class NotificationsPage extends StatelessWidget {
                       ),
                     ],
                   ),
+                    ),
+                  ),
                 );
               },
             ),
+          ),
     );
   }
 
