@@ -8,7 +8,8 @@ function sendApi(path, method, body, sendResponse) {
   const allowed = path === '/shopify/auth/start'
     || path === '/shopify/register-store-credentials'
     || path === '/creative-visual/index'
-    || path === '/creative-visual/search';
+    || path === '/creative-visual/search'
+    || path === '/ad-research-snapshots';
   if (!allowed || !['GET', 'POST'].includes(method)) {
     sendResponse({ ok: false, error: 'Requête refusée par la politique de l’extension.' });
     return;

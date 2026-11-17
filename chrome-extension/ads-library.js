@@ -820,6 +820,11 @@
       } catch (error) {
         notify(`Recherche Créa terminée; indexation visuelle indisponible : ${error.message}`, 'error');
       }
+      try {
+        await persistResearchSnapshots(results);
+      } catch (error) {
+        console.warn('[Sellmaster] Impossible d’enregistrer l’historique de recherche créative:', error);
+      }
       notify(`Recherche Créa terminée : ${results.length} annonce(s) uniques depuis ${queriesSearched} requête(s).`, results.length ? 'success' : '');
     } catch (error) {
       notify(`Recherche Créa interrompue : ${error.message || 'erreur inconnue'}`, 'error');
@@ -1012,6 +1017,29 @@
     }
   }
 
+  async function persistResearchSnapshots(items) {
+    const snapshotItems = items
+      .filter(item => item.store)
+      .map(item => ({
+        productUrl: item.productPageUrl || item.store,
+        adCount: Math.max(1, Number(item.adCount || item.libraryIds?.size || 1)),
+        pageCount: Math.max(1, Number(item.pageCount || item.pages?.size || 1)),
+        price: item.price != null && Number.isFinite(Number(item.price)) ? Number(item.price) : null,
+        available: typeof item.available === 'boolean' ? item.available : null,
+        score: Math.max(0, Number(item.score) || 0),
+      }));
+    if (!snapshotItems.length) return 0;
+
+    const response = await sendRuntimeMessage({
+      type: 'SELLMASTER_API',
+      path: '/ad-research-snapshots',
+      method: 'POST',
+      body: { items: snapshotItems },
+    });
+    if (!response?.ok) throw new Error(response?.error || 'Historique commercial indisponible.');
+    return Number(response.data?.inserted || 0);
+  }
+
   async function scanAds() {
     scanButton.disabled = true;
     resultsMode = 'standard';
@@ -1064,6 +1092,12 @@
         if (indexed) notify(`${indexed} visuel(s) ajouté(s) à votre bibliothèque de recherche visuelle.`, 'success');
       } catch (error) {
         notify(`Scan terminé; indexation visuelle indisponible : ${error.message}`, 'error');
+      }
+      try {
+        const snapshotsSaved = await persistResearchSnapshots(results);
+        if (snapshotsSaved) notify(`${snapshotsSaved} relevé(s) ajouté(s) à votre historique commercial.`, 'success');
+      } catch (error) {
+        console.warn('[Sellmaster] Impossible d’enregistrer l’historique du scan:', error);
       }
       const summary = `${results.length}/${options.limit} annonce(s) qualifiée(s), actives depuis au moins ${options.activeDays} jour(s). Les cartes sans date lisible sont exclues.`;
       notify(summary, results.length ? 'success' : '');
