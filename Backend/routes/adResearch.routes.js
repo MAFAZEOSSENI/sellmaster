@@ -36,7 +36,7 @@ async function findOwnedJob(conn, jobId, ownerId) {
 }
 
 router.post('/jobs', async (req, res) => {
-  const country = cleanText(req.body?.country || 'ALL', 2).toUpperCase();
+  const country = cleanText(req.body?.country || 'ALL', 3).toUpperCase();
   const adCategory = cleanText(req.body?.adCategory || 'all', 40);
   const keyword = cleanText(req.body?.keyword, 120);
   const adLimit = Number(req.body?.adLimit ?? 50);
