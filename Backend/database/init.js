@@ -421,7 +421,7 @@ async function createTables() {
         id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         owner_id INT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
         status VARCHAR(20) NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','starting','collecting','completed','failed','cancelled')),
-        country VARCHAR(2) NOT NULL DEFAULT 'ALL',
+        country VARCHAR(3) NOT NULL DEFAULT 'ALL',
         ad_category VARCHAR(40) NOT NULL DEFAULT 'all',
         keyword VARCHAR(120) NOT NULL,
         ad_limit INT NOT NULL DEFAULT 50 CHECK (ad_limit BETWEEN 1 AND 200),
@@ -437,6 +437,7 @@ async function createTables() {
         updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     \`);
+    await conn.query('ALTER TABLE ad_research_jobs ALTER COLUMN country TYPE VARCHAR(3)');
     await conn.query('CREATE INDEX IF NOT EXISTS ad_research_jobs_owner_created_idx ON ad_research_jobs (owner_id, created_at DESC)');
     await conn.query(\`
       CREATE TABLE IF NOT EXISTS ad_research_ads (
