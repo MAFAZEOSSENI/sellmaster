@@ -486,6 +486,8 @@ function ProductResearchView() {
       url.searchParams.set('q', keyword.trim())
       url.searchParams.set('search_type', 'keyword_unordered')
       url.searchParams.set('sm_job_id', String(job.id))
+      url.searchParams.set('sm_limit', String(job.ad_limit))
+      url.searchParams.set('sm_active_days', String(job.active_days))
       window.open(url.toString(), '_blank', 'noopener,noreferrer')
       setNotice('Recherche créée. La collecte démarre dans Meta Ads Library avec l’extension Sellmaster.')
       setKeyword('')
