@@ -183,3 +183,19 @@ Les snapshots agrégés `ad_research_snapshots` sont conservés pour compatibili
 - L’extension refuse de travailler sans session owner valide.
 - Le JWT Web n’est jamais transmis à l’extension.
 - Les snapshots existants continuent de fonctionner sans changement de contrat.
+
+
+## État d’implémentation — branche de fonctionnalité
+
+La première version fonctionnelle est intégrée sur la branche `feature/product-research-phase-1-contract`.
+
+- Le dashboard Owner crée les jobs et ouvre Meta Ads Library avec les paramètres du job dans l’URL (`sm_job_id`, `sm_limit`, `sm_active_days`). Le content script de l’extension reprend ce job depuis l’onglet Ads Library. Ce transfert par URL est le mécanisme actuellement implémenté ; aucun pont `onMessageExternal` ni identifiant d’extension public n’est requis.
+- Le service worker conserve le jeton propre à l’extension et limite les chemins API qu’il peut appeler. Le JWT Web n’est pas transmis à l’extension.
+- Les routes Product Research utilisent `authMiddleware` puis `requireRole('owner')`. Les requêtes SQL filtrent les jobs et annonces par `req.userId`.
+- Le collecteur sauvegarde les annonces par lots, actualise la progression et termine le job. Les snapshots historiques existants restent conservés.
+- Le dashboard recharge l’historique et le détail du job sélectionné toutes les cinq secondes afin d’actualiser les compteurs et résultats.
+- Le code pays `ALL` est accepté sur trois caractères ; la colonne PostgreSQL est élargie à `VARCHAR(3)` de façon idempotente pour les bases déjà initialisées.
+
+### Vérifications et mise en service
+
+Les vérifications de compilation et les tests d’intégration doivent encore être exécutés dans les environnements Backend et Web du dépôt. Le changement n’a pas été déployé : le démarrage du backend exécutera `createTables()` et appliquera les créations/ajustements de schéma déjà définis dans `Backend/database/init.js`. Vérifier les variables d’environnement et la sauvegarde Supabase avant tout déploiement.
