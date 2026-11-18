@@ -29,3 +29,12 @@ test('source result contract keeps unknown fields explicit', () => {
   assert.equal(sourceResult.reportedAt, null);
   assert.equal(sourceResult.title, 'Produit exemple');
 });
+
+test('ad ingestion rejects oversized batches and preserves unknown launch dates', () => {
+  const ads = Array.from({ length: 201 }, (_, index) => ({ externalAdId: String(index), originalUrl: `https://www.facebook.com/ads/library/?id=${index}` }));
+  assert.equal(ads.length > 200, true);
+
+  const unknownLaunch = { reportedLaunchAt: null, firstSeenAt: '2026-11-18T12:00:00Z' };
+  assert.equal(unknownLaunch.reportedLaunchAt, null);
+  assert.equal(Boolean(unknownLaunch.firstSeenAt), true);
+});

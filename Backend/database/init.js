@@ -459,6 +459,7 @@ async function createTables() {
       CREATE TABLE IF NOT EXISTS "research_ads" (
         id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         owner_user_id INT NOT NULL REFERENCES "app_users"(id) ON DELETE CASCADE,
+        research_job_id BIGINT NULL,
         research_product_id BIGINT NULL REFERENCES "research_products"(id) ON DELETE CASCADE,
         platform VARCHAR(30) NOT NULL,
         external_ad_id TEXT NULL,
@@ -472,11 +473,11 @@ async function createTables() {
         creative_url TEXT NULL,
         creative_type VARCHAR(20) NULL,
         source_type VARCHAR(30) NOT NULL,
-        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-        UNIQUE (owner_user_id, platform, external_ad_id)
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb
       )
     `);
     await conn.query(`CREATE INDEX IF NOT EXISTS research_ads_owner_product_idx ON "research_ads" (owner_user_id, research_product_id, first_seen_at DESC)`);
+    await conn.query(`CREATE UNIQUE INDEX IF NOT EXISTS research_ads_owner_platform_external_idx ON "research_ads" (owner_user_id, platform, external_ad_id) WHERE external_ad_id IS NOT NULL`);
 
     await conn.query(`
       CREATE TABLE IF NOT EXISTS "saved_research_products" (
@@ -546,6 +547,28 @@ async function createTables() {
     `);
     await conn.query(`CREATE INDEX IF NOT EXISTS research_jobs_owner_created_idx ON "research_jobs" (owner_user_id, created_at DESC)`);
     await conn.query(`CREATE INDEX IF NOT EXISTS research_jobs_queue_idx ON "research_jobs" (available_at, created_at) WHERE status = 'queued'`);
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS "research_job_ads" (
+        owner_user_id INT NOT NULL REFERENCES "app_users"(id) ON DELETE CASCADE,
+        research_job_id BIGINT NOT NULL REFERENCES "research_jobs"(id) ON DELETE CASCADE,
+        research_ad_id BIGINT NOT NULL REFERENCES "research_ads"(id) ON DELETE CASCADE,
+        observed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (research_job_id, research_ad_id)
+      )
+    `);
+    await conn.query(`CREATE INDEX IF NOT EXISTS research_job_ads_owner_job_idx ON "research_job_ads" (owner_user_id, research_job_id, observed_at DESC)`);
+    await ensureColumnExists(conn, 'research_ads', 'research_job_id', 'ADD COLUMN "research_job_id" BIGINT NULL');
+    await conn.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'research_ads_job_fk') THEN
+          ALTER TABLE "research_ads"
+          ADD CONSTRAINT research_ads_job_fk FOREIGN KEY (research_job_id)
+          REFERENCES "research_jobs"(id) ON DELETE SET NULL;
+        END IF;
+      END $$;
+    `);
+    await conn.query(`CREATE INDEX IF NOT EXISTS research_ads_owner_job_idx ON "research_ads" (owner_user_id, research_job_id, first_seen_at DESC)`);
 
     console.log('✅ Tables créées avec succès!');
   } catch (error) {

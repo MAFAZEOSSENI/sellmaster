@@ -5,6 +5,7 @@ const { requireRole } = require('../middleware/rbacMiddleware');
 const ResearchProduct = require('../models/ResearchProduct');
 const ResearchLibrary = require('../models/ResearchLibrary');
 const { fetchShopifyPublicProduct } = require('../services/productResearch/shopifyPublicSource');
+const ResearchAd = require('../models/ResearchAd');
 
 const router = express.Router();
 router.use(authMiddleware, requireRole('owner'));
@@ -16,6 +17,15 @@ const importLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { error: 'Limite de recherches atteinte. Réessayez plus tard.' },
+});
+
+const jobLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 20,
+  keyGenerator: (req) => `product-research-job:${req.userId}`,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Limite de recherches créées atteinte.' },
 });
 
 function numericId(value) {
@@ -203,6 +213,108 @@ router.patch('/collections/:id', async (req, res) => {
     if (String(error.code) === '23505') return res.status(409).json({ error: 'Cette collection existe déjà.' });
     return res.status(500).json({ error: 'Impossible de modifier la collection.' });
   }
+});
+
+router.post('/jobs', jobLimiter, async (req, res) => {
+  try {
+    const sourceType = String(req.body?.sourceType || 'meta_extension').toLowerCase();
+    if (!['meta_extension', 'manual'].includes(sourceType)) {
+      return res.status(400).json({ error: 'Source de recherche non prise en charge.' });
+    }
+    const queryText = String(req.body?.queryText || '').trim();
+    if (!queryText) return res.status(400).json({ error: 'Mot-clé requis.' });
+    if (queryText.length > 200) return res.status(400).json({ error: 'Mot-clé trop long.' });
+    const job = await ResearchAd.createJob(Number(req.userId), {
+      sourceType,
+      queryText,
+      targetUrl: req.body?.targetUrl,
+      marketCode: req.body?.marketCode,
+    });
+    return res.status(201).json({ success: true, job });
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Impossible de créer la recherche.' });
+  }
+});
+
+router.get('/jobs', async (req, res) => {
+  const result = await ResearchAd.listJobs(Number(req.userId), {
+    limit: req.query.limit,
+    cursor: req.query.cursor,
+  });
+  return res.json({ success: true, ...result });
+});
+
+router.get('/jobs/:id', async (req, res) => {
+  const jobId = numericId(req.params.id);
+  if (!jobId) return res.status(400).json({ error: 'Identifiant job invalide.' });
+  const job = await ResearchAd.getJob(Number(req.userId), jobId);
+  if (!job) return res.status(404).json({ error: 'Recherche introuvable.' });
+  return res.json({ success: true, job });
+});
+
+router.get('/jobs/:id/ads', async (req, res) => {
+  const jobId = numericId(req.params.id);
+  if (!jobId) return res.status(400).json({ error: 'Identifiant job invalide.' });
+  const job = await ResearchAd.getJob(Number(req.userId), jobId);
+  if (!job) return res.status(404).json({ error: 'Recherche introuvable.' });
+  const result = await ResearchAd.listJobAds(Number(req.userId), jobId, {
+    limit: req.query.limit,
+    cursor: req.query.cursor,
+  });
+  return res.json({ success: true, ...result });
+});
+
+router.patch('/jobs/:id/cancel', async (req, res) => {
+  const jobId = numericId(req.params.id);
+  if (!jobId) return res.status(400).json({ error: 'Identifiant job invalide.' });
+  const job = await ResearchAd.cancelJob(Number(req.userId), jobId);
+  if (!job) return res.status(404).json({ error: 'Recherche introuvable ou déjà terminée.' });
+  return res.json({ success: true, job });
+});
+
+router.patch('/jobs/:id/progress', async (req, res) => {
+  const jobId = numericId(req.params.id);
+  if (!jobId) return res.status(400).json({ error: 'Identifiant job invalide.' });
+  const allowedStatus = new Set(['running', 'completed', 'failed', 'cancelled']);
+  const status = String(req.body?.status || 'running');
+  if (!allowedStatus.has(status)) return res.status(400).json({ error: 'Statut job invalide.' });
+  const job = await ResearchAd.updateProgress(Number(req.userId), jobId, req.body || {});
+  if (!job) return res.status(404).json({ error: 'Recherche introuvable.' });
+  return res.json({ success: true, job });
+});
+
+router.post('/jobs/:id/ads/ingest', jobLimiter, async (req, res) => {
+  try {
+    const jobId = numericId(req.params.id);
+    if (!jobId) return res.status(400).json({ error: 'Identifiant job invalide.' });
+    if (!Array.isArray(req.body?.ads)) return res.status(400).json({ error: 'Liste d’annonces requise.' });
+    const result = await ResearchAd.ingestAds(Number(req.userId), jobId, req.body.ads);
+    return res.status(201).json({ success: true, ...result });
+  } catch (error) {
+    return res.status(error.statusCode || 400).json({ error: error.message || 'Ingestion impossible.' });
+  }
+});
+
+router.get('/ads', async (req, res) => {
+  const result = await ResearchAd.listAds(Number(req.userId), {
+    productId: req.query.productId,
+    platform: req.query.platform,
+    limit: req.query.limit,
+    cursor: req.query.cursor,
+  });
+  return res.json({ success: true, ...result });
+});
+
+router.get('/products/:id/ads', async (req, res) => {
+  const productId = numericId(req.params.id);
+  if (!productId) return res.status(400).json({ error: 'Identifiant produit invalide.' });
+  const result = await ResearchAd.listAds(Number(req.userId), {
+    productId,
+    platform: req.query.platform,
+    limit: req.query.limit,
+    cursor: req.query.cursor,
+  });
+  return res.json({ success: true, ...result });
 });
 
 module.exports = router;

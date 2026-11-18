@@ -103,6 +103,10 @@
   const creativeJobStorageKey = 'sellmaster_creative_search_job';
   const extensionStorage = globalThis.chrome?.storage?.local;
   const params = new URLSearchParams(location.search);
+  const productResearchJobId = (() => {
+    const value = String(params.get('sm_job_id') || '').replace(/\D/g, '');
+    return /^\d+$/.test(value) ? value : '';
+  })();
   const currentCountry = COUNTRIES.some(([code]) => code === params.get('country')) ? params.get('country') : 'FR';
   const currentAdCategory = params.get('ad_type')?.toLowerCase() === 'political_and_issue_ads'
     ? 'political_and_issue_ads'
@@ -524,6 +528,7 @@
       productPageUrl: canonicalProductPageUrl(storeUrl),
       adLibraryUrl: `https://www.facebook.com/ads/library/?id=${encodeURIComponent(libraryId)}`,
       libraryId,
+      pageLinkUrl: pageLink?.href || '',
       videoUrl: adVideoFromCard(card),
       adImageUrl: adImageFromCard(card),
       imageUrl: '',
@@ -1044,12 +1049,21 @@
     scanButton.disabled = true;
     resultsMode = 'standard';
     const products = new Map();
+    const scannedAds = new Map();
     const processed = new WeakSet();
     let previousCardCount = 0;
     let idleRounds = 0;
 
     try {
       if (!await ensureOwnerSession()) return;
+      if (productResearchJobId) {
+        await sendRuntimeMessage({
+          type: 'SELLMASTER_API',
+          path: `/product-research/jobs/${encodeURIComponent(productResearchJobId)}/progress`,
+          method: 'PATCH',
+          body: { status: 'running', progress: 5, attemptCount: 1 },
+        }).catch(() => {});
+      }
       await settingsReady;
       const options = readScanOptions();
       const poolTarget = Math.min(options.limit * 3, 300);
@@ -1062,12 +1076,20 @@
           const item = getCardValue(card, options.activeDays);
           if (!item) return;
           if (item.store) processed.add(card);
+          if (item.libraryId) scannedAds.set(item.libraryId, item);
           ingestAd(products, item);
         });
 
         results = rankProducts(products).slice(0, options.limit);
         render();
         notify(`Parcours en cours : ${cards.length} cartes visibles, ${products.size} produits candidats, ${results.length}/${options.limit} résultats retenus.`, '');
+        if (productResearchJobId && round % 5 === 0) {
+          await updateResearchJob(productResearchJobId, {
+            status: 'running',
+            progress: Math.min(75, 10 + round * 2),
+            resultSummary: { products: results.length, adsObserved: scannedAds.size },
+          }).catch(() => {});
+        }
         if (products.size >= Math.min(options.limit * 3, 300)) break;
 
         const cardCount = cards.length;
@@ -1099,9 +1121,34 @@
       } catch (error) {
         console.warn('[Sellmaster] Impossible d’enregistrer l’historique du scan:', error);
       }
+      if (productResearchJobId) {
+        try {
+          const adsSaved = await ingestResearchAds(productResearchJobId, [...scannedAds.values()]);
+          await updateResearchJob(productResearchJobId, {
+            status: 'completed',
+            progress: 100,
+            resultSummary: { products: results.length, adsObserved: scannedAds.size, adsSaved },
+          });
+        } catch (error) {
+          await updateResearchJob(productResearchJobId, {
+            status: 'failed',
+            progress: 100,
+            errorCode: 'INGEST_FAILED',
+            errorMessage: error.message || 'Ingestion des annonces impossible.',
+            resultSummary: { products: results.length, adsObserved: scannedAds.size },
+          }).catch(() => {});
+          throw error;
+        }
+      }
       const summary = `${results.length}/${options.limit} annonce(s) qualifiée(s), actives depuis au moins ${options.activeDays} jour(s). Les cartes sans date lisible sont exclues.`;
       notify(summary, results.length ? 'success' : '');
     } catch (error) {
+      if (productResearchJobId) {
+        await updateResearchJob(productResearchJobId, {
+          status: 'failed', progress: 100, errorCode: 'SCAN_FAILED',
+          errorMessage: error.message || 'La collecte Ads Library a échoué.',
+        }).catch(() => {});
+      }
       notify(`Analyse interrompue : ${error.message || 'erreur inconnue'}`, 'error');
     } finally {
       scanButton.disabled = false;
@@ -1209,4 +1256,72 @@
   csvButton.addEventListener('click', exportCsv);
   pdfButton.addEventListener('click', exportPdf);
   resumeCreativeResearch().catch(error => notify(error.message || 'Impossible de reprendre Recherche Créa.', 'error'));
+
+  async function updateResearchJob(jobId, payload) {
+    const response = await sendRuntimeMessage({
+      type: 'SELLMASTER_API',
+      path: `/product-research/jobs/${encodeURIComponent(jobId)}/progress`,
+      method: 'PATCH',
+      body: payload,
+    });
+    if (!response?.ok) throw new Error(response?.error || 'Mise à jour de la recherche impossible.');
+    return response.data;
+  }
+
+  async function ingestResearchAds(jobId, items) {
+    const ads = items.map(item => {
+      const libraryId = item.libraryId || (() => {
+        try { return new URL(item.adLibraryUrl).searchParams.get('id') || ''; } catch (_) { return ''; }
+      })();
+      return {
+        externalAdId: libraryId,
+        originalUrl: item.adLibraryUrl || '',
+        advertiserName: item.page || '',
+        advertiserPageUrl: item.pageLinkUrl || '',
+        productUrl: item.productPageUrl || item.store || '',
+        format: item.videoUrl ? 'video' : 'image',
+        reportedLaunchAt: item.startedAt instanceof Date ? item.startedAt.toISOString() : null,
+        firstSeenAt: new Date().toISOString(),
+        creativeUrl: item.imageUrl || item.adImageUrl || '',
+        creativeType: item.videoUrl ? 'video' : 'image',
+        platform: 'meta',
+        metadata: {
+          productName: item.product || '',
+          country: item.country || '',
+          adCount: Number(item.adCount || item.libraryIds?.size || 1),
+          pageCount: Number(item.pageCount || item.pages?.size || 1),
+        },
+      };
+    }).filter(ad => ad.originalUrl);
+    if (!ads.length) return 0;
+    let inserted = 0;
+    for (let offset = 0; offset < ads.length; offset += 200) {
+      const response = await sendRuntimeMessage({
+        type: 'SELLMASTER_API',
+        path: `/product-research/jobs/${encodeURIComponent(jobId)}/ads/ingest`,
+        method: 'POST',
+        body: { ads: ads.slice(offset, offset + 200) },
+      });
+      if (!response?.ok) throw new Error(response?.error || 'Ingestion des annonces impossible.');
+      inserted += Number(response.data?.inserted || 0);
+    }
+    return inserted;
+  }
+
+  if (productResearchJobId) {
+    setTimeout(async () => {
+      try {
+        await settingsReady;
+        const requestedLimit = Number(params.get('sm_limit'));
+        const requestedDays = Number(params.get('sm_active_days'));
+        if (Number.isInteger(requestedLimit) && requestedLimit >= 1 && requestedLimit <= 200) adLimitInput.value = String(requestedLimit);
+        if (Number.isInteger(requestedDays) && requestedDays >= 0 && requestedDays <= 3650) activeDaysInput.value = String(requestedDays);
+        if (currentKeyword) keywordInput.value = currentKeyword;
+        keywordInput.dispatchEvent(new Event('input'));
+        if (await ensureOwnerSession()) await scanAds();
+      } catch (error) {
+        notify(error.message || 'Impossible de démarrer la recherche demandée.', 'error');
+      }
+    }, 900);
+  }
 })();

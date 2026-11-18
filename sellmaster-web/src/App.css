@@ -2329,33 +2329,10 @@
 
 .status-select{max-width:115px;min-height:28px;padding:0 7px;border:1px solid #dce8e0;border-radius:5px;background:#f8fbf9;color:#52695d;font:inherit;font-size:.65rem;font-weight:700;cursor:pointer}.status-select:disabled{opacity:.55;cursor:wait}.product-heading-actions{display:flex;align-items:center;gap:9px}.dialog-backdrop{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:20px;background:rgba(15,31,25,.48);backdrop-filter:blur(3px)}.product-dialog{width:min(520px,100%);max-height:min(90vh,720px);overflow:auto;padding:23px;background:#fff;border:1px solid #e1eae4;border-radius:12px;box-shadow:0 24px 80px rgba(11,35,23,.25)}.dialog-heading{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px}.dialog-heading h2{margin:0;color:#20372e;font-size:1.3rem}.product-dialog form>label,.dialog-fields label{display:block;margin:13px 0;color:#40534a;font-size:.74rem;font-weight:700}.product-dialog input,.product-dialog textarea{display:block;width:100%;margin-top:7px;padding:10px 11px;border:1px solid #dce6e0;border-radius:6px;background:#fcfdfc;color:#243d31;font:inherit;font-size:.77rem;outline:none;resize:vertical}.product-dialog input:focus,.product-dialog textarea:focus{border-color:#6eaf91;box-shadow:0 0 0 3px rgba(75,151,112,.1)}.dialog-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.dialog-fields label{min-width:0}.dialog-fields input{padding:9px 7px}.dialog-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:20px}.mutation-notice{position:relative;display:flex;justify-content:space-between;align-items:center;gap:15px;margin:0 0 15px;padding:11px 13px;border:1px solid #d7eadf;border-radius:7px;background:#f0faf3;color:#377456;font-size:.74rem}.notice-dismiss{border:0;background:none;color:inherit;font-size:1.2rem;cursor:pointer}
 
-@media(max-width:760px){.product-heading-actions{width:100%;flex-wrap:wrap}.product-heading-actions .search-control{flex:1;width:auto}.product-heading-actions>.button{flex:0 0 auto}.dialog-fields{grid-template-columns:1fr 1fr}.dialog-fields label:last-child{grid-column:1/-1}}
-@media(max-width:420px){.product-heading-actions>.button{width:100%}.dialog-fields{grid-template-columns:1fr}}
-.edit-product-button{width:30px;height:30px;border-color:#e7eee9;background:#fff;color:#648274}.edit-product-button:hover{background:#e9f5ed;color:#276c50}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-/* Product Research — isolated module styles */
-.research-layout { display: grid; gap: 18px; }
-.research-search-panel { display: grid; gap: 14px; }
-.research-import-form, .research-query-form { display: grid; gap: 6px; }
-.research-url-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
-.research-content-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, .6fr); gap: 18px; }
-.research-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
-.research-product-card { position: relative; border: 1px solid #e3e7f0; border-radius: 12px; background: #fff; overflow: hidden; }
-.research-card-main { display: grid; width: 100%; min-height: 220px; padding: 12px; border: 0; background: transparent; text-align: left; cursor: pointer; }
-.research-card-main img, .research-card-placeholder { width: 100%; height: 130px; object-fit: cover; border-radius: 8px; background: #f1f5f9; }
-.research-card-placeholder { display: grid; place-items: center; color: #94a3b8; }
-.research-card-main strong { margin-top: 8px; color: #171a27; }
-.research-card-main small, .research-card-main time { color: #70798a; }
-.research-save-button { position: absolute; right: 8px; top: 8px; width: 34px; height: 34px; border: 0; border-radius: 50%; background: #fff; color: #4869f2; cursor: pointer; }
-.research-detail-image { width: 100%; max-height: 260px; object-fit: cover; border-radius: 10px; }
-.research-description { color: #70798a; line-height: 1.6; }
-.research-observation-list, .research-library-controls, .research-note-controls { display: grid; gap: 8px; margin-top: 14px; }
-.research-inline-form { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
-.research-collection-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-.research-note-form { display: grid; gap: 8px; }
-.research-note-form textarea { width: 100%; resize: vertical; }
-.research-observation-list article, .research-note { padding: 8px 10px; border-radius: 8px; background: #f6f7fb; }
-.research-observation-list time, .research-observation-list small { color: #70798a; }
-.research-note p { margin: 0 0 6px; white-space: pre-wrap; }
-.research-note button { border: 0; background: transparent; color: #b42318; cursor: pointer; }
-@media (max-width: 900px) { .research-content-grid { grid-template-columns: 1fr; } }
-@media (max-width: 560px) { .research-url-row, .research-inline-form { grid-template-columns: 1fr; } }
+/* Product Research monitoring */
+.research-monitor-panel { display: grid; gap: 12px; }
+.research-monitor-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.research-monitor-row { display: grid; gap: 5px; margin-top: 8px; padding: 10px; border-radius: 8px; background: #f6f7fb; }
+.research-monitor-row img { width: 100%; max-height: 140px; object-fit: cover; border-radius: 8px; }
+.research-monitor-row button { justify-self: start; border: 0; background: transparent; color: #b42318; cursor: pointer; }
+@media (max-width: 760px) { .research-monitor-grid { grid-template-columns: 1fr; } }

@@ -163,4 +163,21 @@ export const api = {
     body: JSON.stringify({ body }),
   }),
   deleteResearchNote: (noteId) => request(`/product-research/notes/${encodeURIComponent(noteId)}`, { method: 'DELETE' }),
+  createResearchJob: (payload) => request('/product-research/jobs', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }),
+  researchJobs: (limit = 30) => request(`/product-research/jobs?limit=${encodeURIComponent(limit)}`),
+  researchJob: (id) => request(`/product-research/jobs/${encodeURIComponent(id)}`),
+  researchJobAds: (id, limit = 100) => request(`/product-research/jobs/${encodeURIComponent(id)}/ads?limit=${encodeURIComponent(limit)}`),
+  cancelResearchJob: (id) => request(`/product-research/jobs/${encodeURIComponent(id)}/cancel`, { method: 'PATCH', body: '{}' }),
+  researchAds: (params = {}) => {
+    const query = new URLSearchParams()
+    if (params.productId) query.set('productId', params.productId)
+    if (params.platform) query.set('platform', params.platform)
+    if (params.limit) query.set('limit', String(params.limit))
+    if (params.cursor) query.set('cursor', params.cursor)
+    const text = query.toString()
+    return request(`/product-research/ads${text ? `?${text}` : ''}`)
+  },
 }

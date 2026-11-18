@@ -848,4 +848,40 @@ class ApiService {
     final body = json.decode(response.body);
     if (response.statusCode != 200) throw Exception(body['error'] ?? 'Suppression impossible');
   }
+
+  // ==================== JOBS ====================
+
+  static Future<Map<String, dynamic>> createResearchJob(String queryText, {String sourceType = 'meta_extension', String? marketCode}) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/product-research/jobs'),
+      headers: await _getHeaders(),
+      body: json.encode({'queryText': queryText, 'sourceType': sourceType, 'marketCode': marketCode}),
+    );
+    final body = json.decode(response.body);
+    if (response.statusCode != 201) throw Exception(body['error'] ?? 'Création de recherche impossible');
+    return body as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> getResearchJobs({int limit = 30}) async {
+    final uri = Uri.parse('$baseUrl/product-research/jobs').replace(queryParameters: {'limit': limit.toString()});
+    final response = await http.get(uri, headers: await _getHeaders());
+    final body = json.decode(response.body);
+    if (response.statusCode != 200) throw Exception(body['error'] ?? 'Historique indisponible');
+    return body as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> getResearchJob(int id) async {
+    final response = await http.get(Uri.parse('$baseUrl/product-research/jobs/$id'), headers: await _getHeaders());
+    final body = json.decode(response.body);
+    if (response.statusCode != 200) throw Exception(body['error'] ?? 'Recherche introuvable');
+    return body as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> getResearchAds({int limit = 30}) async {
+    final uri = Uri.parse('$baseUrl/product-research/ads').replace(queryParameters: {'limit': limit.toString()});
+    final response = await http.get(uri, headers: await _getHeaders());
+    final body = json.decode(response.body);
+    if (response.statusCode != 200) throw Exception(body['error'] ?? 'Annonces indisponibles');
+    return body as Map<String, dynamic>;
+  }
 }

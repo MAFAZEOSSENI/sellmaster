@@ -16,12 +16,15 @@ class _ProductResearchPageState extends State<ProductResearchPage> {
   bool _loading = true;
   bool _importing = false;
   List<Map<String, dynamic>> _collections = [];
+  List<Map<String, dynamic>> _jobs = [];
+  List<Map<String, dynamic>> _ads = [];
   String _error = '';
 
   @override
   void initState() {
     super.initState();
     _loadLibrary();
+    _loadJobsAndAds();
   }
 
   @override
@@ -226,6 +229,26 @@ class _ProductResearchPageState extends State<ProductResearchPage> {
     }
   }
 
+  Future<void> _loadJobsAndAds() async {
+    try {
+      final jobsResponse = await ApiService.getResearchJobs(limit: 30);
+      final adsResponse = await ApiService.getResearchAds(limit: 50);
+      if (!mounted) return;
+      setState(() {
+        _jobs = (jobsResponse['items'] as List? ?? const [])
+            .whereType<Map>()
+            .map((job) => Map<String, dynamic>.from(job))
+            .toList();
+        _ads = (adsResponse['items'] as List? ?? const [])
+            .whereType<Map>()
+            .map((ad) => Map<String, dynamic>.from(ad))
+            .toList();
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -305,6 +328,30 @@ class _ProductResearchPageState extends State<ProductResearchPage> {
                       ),
                     ),
                   )),
+            const SizedBox(height: 16),
+            const Text('Les collectes publicitaires se lancent depuis SellMaster Web avec l’extension Chrome. Ici, vous consultez les jobs et annonces déjà collectés.'),
+            if (_jobs.isNotEmpty) ...[
+              const Text('Recherches', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              ..._jobs.map((job) => Card(
+                    child: ListTile(
+                      title: Text(job['query_text']?.toString() ?? 'Recherche'),
+                      subtitle: Text('${job['status']} · ${job['progress'] ?? 0}%'),
+                    ),
+                  )),
+            ],
+            if (_ads.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Text('Annonces ingérées', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              ..._ads.map((ad) => Card(
+                    child: ListTile(
+                      leading: ad['creative_url'] is String
+                          ? ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.network(ad['creative_url'], width: 52, height: 52, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.image_not_supported)))
+                          : const Icon(Icons.campaign_outlined),
+                      title: Text(ad['advertiser_name']?.toString() ?? 'Annonceur non fourni'),
+                      subtitle: Text('${ad['platform']} · ${ad['external_ad_id'] ?? 'ID non fourni'}'),
+                    ),
+                  )),
+            ],
           ],
         ),
       ),

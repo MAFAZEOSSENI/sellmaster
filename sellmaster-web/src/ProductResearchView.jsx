@@ -18,6 +18,9 @@ export default function ProductResearchView() {
   const [collectionName, setCollectionName] = useState('')
   const [noteBody, setNoteBody] = useState('')
   const [notes, setNotes] = useState([])
+  const [jobs, setJobs] = useState([])
+  const [ads, setAds] = useState([])
+  const [selectedJobId, setSelectedJobId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState('')
@@ -149,9 +152,85 @@ export default function ProductResearchView() {
     }
   }
 
+  async function loadJobsAndAds() {
+    try {
+      const [jobResponse, adResponse] = await Promise.all([
+        api.researchJobs(30),
+        selectedJobId ? api.researchJobAds(selectedJobId, 100) : api.researchAds({ limit: 50 }),
+      ])
+      setJobs(jobResponse.items || [])
+      setAds(adResponse.items || [])
+    } catch (monitorError) {
+      setError(monitorError.message)
+    }
+  }
+
+  async function loadJobAds(jobId) {
+    setSelectedJobId(jobId)
+    try {
+      const response = await api.researchJobAds(jobId, 100)
+      setAds(response.items || [])
+    } catch (monitorError) {
+      setError(monitorError.message)
+    }
+  }
+
+  async function createJob(event) {
+    event.preventDefault()
+    if (!query.trim()) return
+    setError('')
+    const popup = window.open('about:blank', '_blank')
+    if (!popup) {
+      setError('Autorisez les fenêtres pop-up pour ouvrir Meta Ads Library.')
+      return
+    }
+    try {
+      const response = await api.createResearchJob({ queryText: query.trim(), sourceType: 'meta_extension' })
+      const job = response.job
+      if (job?.id) {
+        setSelectedJobId(job.id)
+        const url = new URL('https://www.facebook.com/ads/library/')
+        url.searchParams.set('active_status', 'all')
+        url.searchParams.set('ad_type', 'all')
+        url.searchParams.set('country', 'ALL')
+        url.searchParams.set('media_type', 'all')
+        url.searchParams.set('q', query.trim())
+        url.searchParams.set('search_type', 'keyword_unordered')
+        url.searchParams.set('sm_job_id', String(job.id))
+        url.searchParams.set('sm_limit', '50')
+        url.searchParams.set('sm_active_days', '0')
+        popup.location = url.toString()
+        await loadJobAds(job.id)
+      }
+      await loadJobsAndAds()
+    } catch (jobError) {
+      if (!popup.closed) popup.close()
+      setError(jobError.message)
+    }
+  }
+
+  async function cancelJob(jobId) {
+    setError('')
+    try {
+      await api.cancelResearchJob(jobId)
+      await loadJobsAndAds()
+    } catch (jobError) {
+      setError(jobError.message)
+    }
+  }
+
   useEffect(() => {
     void loadLibrary()
+    void loadJobsAndAds()
   }, [])
+
+  useEffect(() => {
+    if (!jobs.some((job) => job.status === 'queued' || job.status === 'running')) return undefined
+    const timer = window.setInterval(() => {
+      void loadJobsAndAds()
+    }, 5000)
+    return () => window.clearInterval(timer)
+  }, [jobs, selectedJobId])
 
   return (
     <div className="research-layout">
@@ -260,6 +339,47 @@ export default function ProductResearchView() {
           )}
         </aside>
       </div>
+
+      <section className="content-panel research-monitor-panel">
+        <div className="panel-heading">
+          <div><span className="panel-overline">MONITORING</span><h2>Recherches et publicités</h2></div>
+        </div>
+        <form className="research-query-form" onSubmit={createJob}>
+          <label htmlFor="research-job-query">Créer une recherche Meta via l’extension</label>
+          <p>La collecte démarre dans un onglet Ads Library si l’extension Sellmaster est installée et connectée avec un compte owner. Seules les annonces réellement visibles et collectées seront listées.</p>
+          <div className="research-url-row">
+            <input id="research-job-query" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Mot-clé publicitaire" />
+            <button className="button button-primary" type="submit">Créer le job</button>
+          </div>
+        </form>
+        <div className="research-monitor-grid">
+          <div>
+            <strong>Jobs</strong>
+            {jobs.length === 0 ? <p>Aucune recherche créée.</p> : jobs.map((job) => (
+              <article className="research-monitor-row" key={job.id}>
+                <button type="button" className="text-button" onClick={() => loadJobAds(job.id)}>
+                  {job.query_text || 'Recherche'}
+                </button>
+                <b>{job.status}</b>
+                <small>{job.progress || 0}%</small>
+                {(job.status === 'queued' || job.status === 'running') && (
+                  <button type="button" onClick={() => cancelJob(job.id)}>Annuler</button>
+                )}
+              </article>
+            ))}
+          </div>
+          <div>
+            <strong>Annonces réellement ingérées</strong>
+            {ads.length === 0 ? <p>Aucune annonce ingérée pour le moment.</p> : ads.map((ad) => (
+              <article className="research-monitor-row" key={ad.id}>
+                {ad.creative_url && <img src={ad.creative_url} alt="" loading="lazy" />}
+                <a href={ad.original_url} target="_blank" rel="noreferrer">Ouvrir l’annonce {ad.external_ad_id || ''}</a>
+                <small>{ad.platform} · {ad.advertiser_name || 'Annonceur non fourni'}</small>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
     </div>
   )
 }
