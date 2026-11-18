@@ -416,6 +416,137 @@ async function createTables() {
       ON CONFLICT DO NOTHING
     `);
 
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS "research_products" (
+        id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        owner_user_id INT NOT NULL REFERENCES "app_users"(id) ON DELETE CASCADE,
+        canonical_url TEXT NOT NULL,
+        source_type VARCHAR(30) NOT NULL,
+        source_key TEXT NULL,
+        title TEXT NULL,
+        description TEXT NULL,
+        image_url TEXT NULL,
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (owner_user_id, canonical_url)
+      )
+    `);
+    await conn.query(`CREATE INDEX IF NOT EXISTS research_products_owner_seen_idx ON "research_products" (owner_user_id, last_seen_at DESC)`);
+    await conn.query(`CREATE INDEX IF NOT EXISTS research_products_owner_source_idx ON "research_products" (owner_user_id, source_type, last_seen_at DESC)`);
+
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS "research_observations" (
+        id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        owner_user_id INT NOT NULL REFERENCES "app_users"(id) ON DELETE CASCADE,
+        research_product_id BIGINT NOT NULL REFERENCES "research_products"(id) ON DELETE CASCADE,
+        source_type VARCHAR(30) NOT NULL,
+        observed_at TIMESTAMPTZ NOT NULL,
+        price NUMERIC(14,4) NULL CHECK (price IS NULL OR price >= 0),
+        currency CHAR(3) NULL,
+        availability VARCHAR(20) NOT NULL DEFAULT 'unknown' CHECK (availability IN ('available', 'unavailable', 'unknown')),
+        source_reported_at TIMESTAMPTZ NULL,
+        source_url TEXT NULL,
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await conn.query(`CREATE INDEX IF NOT EXISTS research_observations_owner_product_time_idx ON "research_observations" (owner_user_id, research_product_id, observed_at DESC)`);
+
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS "research_ads" (
+        id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        owner_user_id INT NOT NULL REFERENCES "app_users"(id) ON DELETE CASCADE,
+        research_product_id BIGINT NULL REFERENCES "research_products"(id) ON DELETE CASCADE,
+        platform VARCHAR(30) NOT NULL,
+        external_ad_id TEXT NULL,
+        advertiser_name TEXT NULL,
+        advertiser_page_url TEXT NULL,
+        original_url TEXT NOT NULL,
+        format VARCHAR(30) NULL,
+        reported_launch_at TIMESTAMPTZ NULL,
+        first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        creative_url TEXT NULL,
+        creative_type VARCHAR(20) NULL,
+        source_type VARCHAR(30) NOT NULL,
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        UNIQUE (owner_user_id, platform, external_ad_id)
+      )
+    `);
+    await conn.query(`CREATE INDEX IF NOT EXISTS research_ads_owner_product_idx ON "research_ads" (owner_user_id, research_product_id, first_seen_at DESC)`);
+
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS "saved_research_products" (
+        owner_user_id INT NOT NULL REFERENCES "app_users"(id) ON DELETE CASCADE,
+        research_product_id BIGINT NOT NULL REFERENCES "research_products"(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (owner_user_id, research_product_id)
+      )
+    `);
+
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS "research_collections" (
+        id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        owner_user_id INT NOT NULL REFERENCES "app_users"(id) ON DELETE CASCADE,
+        name VARCHAR(120) NOT NULL,
+        description TEXT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (owner_user_id, name)
+      )
+    `);
+
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS "research_collection_products" (
+        owner_user_id INT NOT NULL REFERENCES "app_users"(id) ON DELETE CASCADE,
+        collection_id BIGINT NOT NULL REFERENCES "research_collections"(id) ON DELETE CASCADE,
+        research_product_id BIGINT NOT NULL REFERENCES "research_products"(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (collection_id, research_product_id)
+      )
+    `);
+    await conn.query(`CREATE INDEX IF NOT EXISTS research_collection_products_owner_idx ON "research_collection_products" (owner_user_id, collection_id)`);
+
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS "research_notes" (
+        id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        owner_user_id INT NOT NULL REFERENCES "app_users"(id) ON DELETE CASCADE,
+        research_product_id BIGINT NOT NULL REFERENCES "research_products"(id) ON DELETE CASCADE,
+        body TEXT NOT NULL CHECK (char_length(body) <= 10000),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await conn.query(`CREATE INDEX IF NOT EXISTS research_notes_owner_product_idx ON "research_notes" (owner_user_id, research_product_id, updated_at DESC)`);
+
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS "research_jobs" (
+        id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        owner_user_id INT NOT NULL REFERENCES "app_users"(id) ON DELETE CASCADE,
+        source_type VARCHAR(30) NOT NULL,
+        query_text VARCHAR(200) NULL,
+        target_url TEXT NULL,
+        market_code VARCHAR(8) NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'running', 'completed', 'failed', 'cancelled')),
+        progress SMALLINT NOT NULL DEFAULT 0 CHECK (progress BETWEEN 0 AND 100),
+        attempt_count SMALLINT NOT NULL DEFAULT 0,
+        max_attempts SMALLINT NOT NULL DEFAULT 3,
+        available_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        lease_until TIMESTAMPTZ NULL,
+        started_at TIMESTAMPTZ NULL,
+        finished_at TIMESTAMPTZ NULL,
+        error_code VARCHAR(80) NULL,
+        error_message TEXT NULL,
+        result_summary JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await conn.query(`CREATE INDEX IF NOT EXISTS research_jobs_owner_created_idx ON "research_jobs" (owner_user_id, created_at DESC)`);
+    await conn.query(`CREATE INDEX IF NOT EXISTS research_jobs_queue_idx ON "research_jobs" (available_at, created_at) WHERE status = 'queued'`);
+
     console.log('✅ Tables créées avec succès!');
   } catch (error) {
     console.error('❌ Erreur création tables:', error);

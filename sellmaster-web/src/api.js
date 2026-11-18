@@ -120,4 +120,47 @@ export const api = {
     method: 'PATCH',
     body: JSON.stringify({ user_id: Number(courierId), assignment_note: assignmentNote }),
   }),
+  importResearchProductUrl: (url) => request('/product-research/import-url', {
+    method: 'POST',
+    body: JSON.stringify({ url }),
+  }),
+  researchProducts: (params = {}) => {
+    const search = new URLSearchParams()
+    if (params.q) search.set('q', params.q)
+    if (params.sourceType) search.set('sourceType', params.sourceType)
+    if (params.limit) search.set('limit', String(params.limit))
+    if (params.cursor) search.set('cursor', params.cursor)
+    const query = search.toString()
+    return request(`/product-research/products${query ? `?${query}` : ''}`)
+  },
+  researchProduct: (id) => request(`/product-research/products/${encodeURIComponent(id)}`),
+  researchObservations: (id, limit = 50) => request(`/product-research/products/${encodeURIComponent(id)}/observations?limit=${encodeURIComponent(limit)}`),
+  researchLibrary: (limit = 30) => request(`/product-research/library?limit=${encodeURIComponent(limit)}`),
+  setResearchSaved: (id, saved) => saved
+    ? request(`/product-research/products/${encodeURIComponent(id)}/saved`, { method: 'PUT', body: JSON.stringify({ saved: true }) })
+    : request(`/product-research/products/${encodeURIComponent(id)}/saved`, { method: 'DELETE' }),
+  researchCollections: () => request('/product-research/collections'),
+  researchCollection: (id) => request(`/product-research/collections/${encodeURIComponent(id)}`),
+  createResearchCollection: (name, description) => request('/product-research/collections', {
+    method: 'POST',
+    body: JSON.stringify({ name, description }),
+  }),
+  updateResearchCollection: (id, changes) => request(`/product-research/collections/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(changes),
+  }),
+  deleteResearchCollection: (id) => request(`/product-research/collections/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  setResearchCollectionProduct: (collectionId, productId, present) => present
+    ? request(`/product-research/collections/${encodeURIComponent(collectionId)}/products/${encodeURIComponent(productId)}`, { method: 'PUT', body: '{}' })
+    : request(`/product-research/collections/${encodeURIComponent(collectionId)}/products/${encodeURIComponent(productId)}`, { method: 'DELETE' }),
+  researchNotes: (productId) => request(`/product-research/products/${encodeURIComponent(productId)}/notes`),
+  createResearchNote: (productId, body) => request(`/product-research/products/${encodeURIComponent(productId)}/notes`, {
+    method: 'POST',
+    body: JSON.stringify({ body }),
+  }),
+  updateResearchNote: (noteId, body) => request(`/product-research/notes/${encodeURIComponent(noteId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ body }),
+  }),
+  deleteResearchNote: (noteId) => request(`/product-research/notes/${encodeURIComponent(noteId)}`, { method: 'DELETE' }),
 }
