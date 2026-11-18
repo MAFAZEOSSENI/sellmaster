@@ -751,4 +751,137 @@ class ApiService {
       rethrow;
     }
   }
+
+  // ==================== RECHERCHE DE PRODUITS ====================
+
+  static Future<Map<String, dynamic>> importResearchProductUrl(String url) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/product-research/import-url'),
+      headers: await _getHeaders(),
+      body: json.encode({'url': url}),
+    );
+    final body = json.decode(response.body);
+    if (response.statusCode != 201) throw Exception(body['error'] ?? 'Import produit impossible');
+    return body as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> getResearchProducts({String q = '', int limit = 30, String? cursor}) async {
+    final uri = Uri.parse('$baseUrl/product-research/products').replace(queryParameters: {
+      if (q.isNotEmpty) 'q': q,
+      'limit': limit.toString(),
+      if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
+    });
+    final response = await http.get(uri, headers: await _getHeaders());
+    final body = json.decode(response.body);
+    if (response.statusCode != 200) throw Exception(body['error'] ?? 'Chargement impossible');
+    return body as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> getResearchProduct(int id) async {
+    final response = await http.get(Uri.parse('$baseUrl/product-research/products/$id'), headers: await _getHeaders());
+    final body = json.decode(response.body);
+    if (response.statusCode != 200) throw Exception(body['error'] ?? 'Produit introuvable');
+    return body as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> getResearchObservations(int id, {int limit = 50}) async {
+    final uri = Uri.parse('$baseUrl/product-research/products/$id/observations').replace(queryParameters: {'limit': limit.toString()});
+    final response = await http.get(uri, headers: await _getHeaders());
+    final body = json.decode(response.body);
+    if (response.statusCode != 200) throw Exception(body['error'] ?? 'Historique indisponible');
+    return body as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> setResearchSaved(int id, bool saved) async {
+    final response = saved
+        ? await http.put(Uri.parse('$baseUrl/product-research/products/$id/saved'), headers: await _getHeaders(), body: json.encode({'saved': true}))
+        : await http.delete(Uri.parse('$baseUrl/product-research/products/$id/saved'), headers: await _getHeaders());
+    final body = json.decode(response.body);
+    if (response.statusCode != 200) throw Exception(body['error'] ?? 'Mise à jour impossible');
+    return body as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> getResearchLibrary({int limit = 30}) async {
+    final uri = Uri.parse('$baseUrl/product-research/library').replace(queryParameters: {'limit': limit.toString()});
+    final response = await http.get(uri, headers: await _getHeaders());
+    final body = json.decode(response.body);
+    if (response.statusCode != 200) throw Exception(body['error'] ?? 'Bibliothèque indisponible');
+    return body as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> getResearchCollections() async {
+    final response = await http.get(Uri.parse('$baseUrl/product-research/collections'), headers: await _getHeaders());
+    final body = json.decode(response.body);
+    if (response.statusCode != 200) throw Exception(body['error'] ?? 'Collections indisponibles');
+    return body as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> createResearchCollection(String name, {String? description}) async {
+    final response = await http.post(Uri.parse('$baseUrl/product-research/collections'), headers: await _getHeaders(), body: json.encode({'name': name, 'description': description}));
+    final body = json.decode(response.body);
+    if (response.statusCode != 201) throw Exception(body['error'] ?? 'Création impossible');
+    return body as Map<String, dynamic>;
+  }
+
+  static Future<void> addResearchProductToCollection(int collectionId, int productId) async {
+    final response = await http.put(Uri.parse('$baseUrl/product-research/collections/$collectionId/products/$productId'), headers: await _getHeaders(), body: '{}');
+    final body = json.decode(response.body);
+    if (response.statusCode != 200) throw Exception(body['error'] ?? 'Ajout impossible');
+  }
+
+  static Future<Map<String, dynamic>> getResearchNotes(int productId) async {
+    final response = await http.get(Uri.parse('$baseUrl/product-research/products/$productId/notes'), headers: await _getHeaders());
+    final body = json.decode(response.body);
+    if (response.statusCode != 200) throw Exception(body['error'] ?? 'Notes indisponibles');
+    return body as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> createResearchNote(int productId, String bodyText) async {
+    final response = await http.post(Uri.parse('$baseUrl/product-research/products/$productId/notes'), headers: await _getHeaders(), body: json.encode({'body': bodyText}));
+    final body = json.decode(response.body);
+    if (response.statusCode != 201) throw Exception(body['error'] ?? 'Note impossible');
+    return body as Map<String, dynamic>;
+  }
+
+  static Future<void> deleteResearchNote(int noteId) async {
+    final response = await http.delete(Uri.parse('$baseUrl/product-research/notes/$noteId'), headers: await _getHeaders());
+    final body = json.decode(response.body);
+    if (response.statusCode != 200) throw Exception(body['error'] ?? 'Suppression impossible');
+  }
+
+  // ==================== JOBS ====================
+
+  static Future<Map<String, dynamic>> createResearchJob(String queryText, {String sourceType = 'meta_extension', String? marketCode}) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/product-research/jobs'),
+      headers: await _getHeaders(),
+      body: json.encode({'queryText': queryText, 'sourceType': sourceType, 'marketCode': marketCode}),
+    );
+    final body = json.decode(response.body);
+    if (response.statusCode != 201) throw Exception(body['error'] ?? 'Création de recherche impossible');
+    return body as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> getResearchJobs({int limit = 30}) async {
+    final uri = Uri.parse('$baseUrl/product-research/jobs').replace(queryParameters: {'limit': limit.toString()});
+    final response = await http.get(uri, headers: await _getHeaders());
+    final body = json.decode(response.body);
+    if (response.statusCode != 200) throw Exception(body['error'] ?? 'Historique indisponible');
+    return body as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> getResearchJob(int id) async {
+    final response = await http.get(Uri.parse('$baseUrl/product-research/jobs/$id'), headers: await _getHeaders());
+    final body = json.decode(response.body);
+    if (response.statusCode != 200) throw Exception(body['error'] ?? 'Recherche introuvable');
+    return body as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> getResearchAds({int limit = 30}) async {
+    final uri = Uri.parse('$baseUrl/product-research/ads').replace(queryParameters: {'limit': limit.toString()});
+    final response = await http.get(uri, headers: await _getHeaders());
+    final body = json.decode(response.body);
+    if (response.statusCode != 200) throw Exception(body['error'] ?? 'Annonces indisponibles');
+    return body as Map<String, dynamic>;
+  }
 }

@@ -7,6 +7,7 @@ import {
 import { api, authToken } from './api'
 import LandingPage from './LandingPage'
 import ProductImportView from './ProductImportView'
+import ProductResearchView from './ProductResearchView'
 import { canEditProducts as canEditProductsForRole, canEditTeamCommissions, canInviteTeamMembers, canManageProducts, filterOrdersForRole, getAllowedOrderStatuses, getAvailablePages, hasAnyRole, isTeamMemberRole, normalizeRoles, sortOrdersNewestFirst } from './roleRules'
 import './App.css'
 import './theme.css'
@@ -20,6 +21,7 @@ const baseNavItems = [
   { id: 'overview', label: 'Vue d’ensemble', icon: LayoutDashboard },
   { id: 'orders', label: 'Commandes', icon: ClipboardList },
   { id: 'products', label: 'Produits', icon: Package },
+  { id: 'research', label: 'Product Research', icon: Search },
   { id: 'shopify', label: 'Boutiques Shopify', icon: ShoppingBag },
   { id: 'team', label: 'Équipe', icon: Users },
 ]
@@ -507,7 +509,7 @@ function App() {
   const shouldLoadProducts = canAccessProducts && productScopeReady && (!needsTeamCatalog || productOwnerId !== null)
   const canAccessShopify = hasAnyRole(userRoles, 'owner', 'manager')
   const navItems = baseNavItems.filter((item) => {
-    if (item.id === 'products') return canAccessProducts
+    if (item.id === 'products' || item.id === 'research') return canAccessProducts
     if (item.id === 'shopify') return canAccessShopify
     return true
   })
@@ -923,7 +925,7 @@ function App() {
   }
   const filteredOrders = roleFilteredOrders.filter((order) => [order.custom_order_number, order.client_name, order.client_phone, order.status].join(' ').toLowerCase().includes(search.toLowerCase()))
   const filteredProducts = products.filter((product) => [product.name, product.description].join(' ').toLowerCase().includes(search.toLowerCase()))
-  const pageTitle = activePage === 'orders' ? 'Commandes' : activePage === 'products' ? 'Produits' : activePage === 'productImport' ? 'Importer un produit' : activePage === 'shopify' ? 'Boutiques Shopify' : activePage === 'team' ? 'Équipe' : activePage === 'more' ? 'Plus' : 'Vue d’ensemble'
+  const pageTitle = activePage === 'orders' ? 'Commandes' : activePage === 'products' ? 'Produits' : activePage === 'research' ? 'Product Research' : activePage === 'productImport' ? 'Importer un produit' : activePage === 'shopify' ? 'Boutiques Shopify' : activePage === 'team' ? 'Équipe' : activePage === 'more' ? 'Plus' : 'Vue d’ensemble'
 
   if (!authenticated) {
     const openAuth = (mode) => {
