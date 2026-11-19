@@ -1055,7 +1055,17 @@
     let idleRounds = 0;
 
     try {
-      if (!await ensureOwnerSession()) return;
+      if (!await ensureOwnerSession()) {
+        if (productResearchJobId) {
+          await updateResearchJob(productResearchJobId, {
+            status: 'failed',
+            progress: 100,
+            errorCode: 'OWNER_SESSION_REQUIRED',
+            errorMessage: 'Extension non connectée ou compte owner non actif.',
+          }).catch(() => {});
+        }
+        return;
+      }
       if (productResearchJobId) {
         await sendRuntimeMessage({
           type: 'SELLMASTER_API',
