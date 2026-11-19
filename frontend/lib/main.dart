@@ -25,7 +25,6 @@ import 'services/fcm_service.dart';
 import 'firebase_options.dart';
 import 'pages/shopify_connected_page.dart';
 import 'pages/notifications_page.dart';
-import 'pages/product_research_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -451,12 +450,6 @@ class MainNavigationPageState extends State<MainNavigationPage> {
             icon: Icons.person_outline,
             selectedIcon: Icons.person,
             page: ProfilePage()),
-        const _MainDestination(
-            id: 'research',
-            label: 'Recherche',
-            icon: Icons.travel_explore_outlined,
-            selectedIcon: Icons.travel_explore,
-            page: ProductResearchPage()),
       ];
     }
 

@@ -7,7 +7,6 @@ import {
 import { api, authToken } from './api'
 import LandingPage from './LandingPage'
 import ProductImportView from './ProductImportView'
-import ProductResearchView from './ProductResearchView'
 import { canEditProducts as canEditProductsForRole, canEditTeamCommissions, canInviteTeamMembers, canManageProducts, filterOrdersForRole, getAllowedOrderStatuses, getAvailablePages, hasAnyRole, isTeamMemberRole, normalizeRoles, sortOrdersNewestFirst } from './roleRules'
 import './App.css'
 import './theme.css'
@@ -21,7 +20,6 @@ const baseNavItems = [
   { id: 'overview', label: 'Vue d’ensemble', icon: LayoutDashboard },
   { id: 'orders', label: 'Commandes', icon: ClipboardList },
   { id: 'products', label: 'Produits', icon: Package },
-  { id: 'research', label: 'Product Research', icon: Search },
   { id: 'shopify', label: 'Boutiques Shopify', icon: ShoppingBag },
   { id: 'team', label: 'Équipe', icon: Users },
 ]
@@ -509,7 +507,7 @@ function App() {
   const shouldLoadProducts = canAccessProducts && productScopeReady && (!needsTeamCatalog || productOwnerId !== null)
   const canAccessShopify = hasAnyRole(userRoles, 'owner', 'manager')
   const navItems = baseNavItems.filter((item) => {
-    if (item.id === 'products' || item.id === 'research') return canAccessProducts
+    if (item.id === 'products') return canAccessProducts
     if (item.id === 'shopify') return canAccessShopify
     return true
   })
@@ -925,7 +923,7 @@ function App() {
   }
   const filteredOrders = roleFilteredOrders.filter((order) => [order.custom_order_number, order.client_name, order.client_phone, order.status].join(' ').toLowerCase().includes(search.toLowerCase()))
   const filteredProducts = products.filter((product) => [product.name, product.description].join(' ').toLowerCase().includes(search.toLowerCase()))
-  const pageTitle = activePage === 'orders' ? 'Commandes' : activePage === 'products' ? 'Produits' : activePage === 'research' ? 'Product Research' : activePage === 'productImport' ? 'Importer un produit' : activePage === 'shopify' ? 'Boutiques Shopify' : activePage === 'team' ? 'Équipe' : activePage === 'more' ? 'Plus' : 'Vue d’ensemble'
+  const pageTitle = activePage === 'orders' ? 'Commandes' : activePage === 'products' ? 'Produits' : activePage === 'productImport' ? 'Importer un produit' : activePage === 'shopify' ? 'Boutiques Shopify' : activePage === 'team' ? 'Équipe' : activePage === 'more' ? 'Plus' : 'Vue d’ensemble'
 
   if (!authenticated) {
     const openAuth = (mode) => {
@@ -965,7 +963,6 @@ function App() {
             <section className="bottom-grid">{canAccessProducts && <article className="content-panel inventory-panel"><div className="panel-heading"><div><span className="panel-overline">CATALOGUE</span><h2>Produits</h2></div><button className="icon-button" onClick={() => setActivePage('products')} aria-label="Afficher les produits"><Package size={17} /></button></div><div className="inventory-summary"><span className="inventory-icon"><Boxes size={20} /></span><div><strong>{numberFormat.format(products.length)}</strong><span>produit(s) dans votre catalogue</span></div><button className="inventory-link" onClick={() => setActivePage('products')}>Ouvrir <span>→</span></button></div></article> }<article className="content-panel account-panel"><div className="panel-heading"><div><span className="panel-overline">VOTRE ESPACE</span><h2>Compte</h2></div><Settings2 size={18} /></div><div className="account-row"><span className="avatar large-avatar">{displayName(user).slice(0, 1).toUpperCase()}</span><div><strong>{displayName(user)}</strong><span>{user?.email}</span></div></div><div className="account-license"><ShieldCheck size={16} /><span>Licence</span><strong>{user?.license_key ? 'Active' : user?.trial_used ? 'Essai utilisé' : 'Essai disponible'}</strong></div></article></section></>}
           {activePage === 'orders' && <section className="content-panel full-table-panel"><div className="panel-heading"><div><span className="panel-overline">VENTES</span><h2>{isTeamMemberView ? 'Mes commandes' : 'Toutes les commandes'} <span className="title-count">{numberFormat.format(filteredOrders.length)}</span></h2></div><label className="search-control"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher une commande" aria-label="Rechercher une commande" /></label></div><OrdersTable orders={filteredOrders} allowedStatuses={allowedOrderStatuses} onStatusChange={updateOrderStatus} updatingOrderId={updatingOrderId} isCourier={isCourier} canAssign={canAssignOrders} couriersByOwner={couriersByOwner} onAssign={assignOrder} assigningOrderId={assigningOrderId} /></section>}
           {activePage === 'products' && canAccessProducts && <section className="content-panel full-table-panel"><div className="panel-heading"><div><span className="panel-overline">CATALOGUE</span><h2>{canEditProducts ? 'Vos produits' : 'Catalogue produits'} <span className="title-count">{numberFormat.format(products.length)}</span></h2></div><div className="product-heading-actions"><label className="search-control"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher un produit" aria-label="Rechercher un produit" /></label>{canEditProducts && <><button className="button button-quiet" onClick={() => openProductImport()}><Link2 size={16} /> Importer depuis une URL</button><button className="button button-primary" onClick={() => { setEditingProduct(null); setProductDialogOpen(true) }}><Package size={16} /> Nouveau produit</button></>}</div></div><ProductsTable products={filteredProducts} canEdit={canEditProducts} onEdit={(product) => setEditingProduct(product)} /></section>}
-          {activePage === 'research' && canAccessProducts && <ProductResearchView />}
           {activePage === 'productImport' && canAccessProducts && <ProductImportView key={productImportUrl || 'manual-import'} initialUrl={productImportUrl} onBack={closeProductImport} onImported={(product) => setProducts((current) => [product, ...current.filter((item) => String(item.id) !== String(product.id))])} />}
           {activePage === 'shopify' && canAccessShopify && <ShopifyStoresView stores={stores} loading={storesLoading} error={shopifyError} notice={shopifyNotice} busyStoreId={busyStoreId} onRefresh={() => { setStoresLoading(true); setShopifyError(''); void loadStores() }} onConnect={() => setConnectDialogOpen(true)} onSyncOrders={(store) => syncShopifyStore(store, 'orders')} onSyncProducts={(store) => syncShopifyStore(store, 'products')} onDelete={deleteShopifyStore} />}
           {activePage === 'team' && <>{mutationMessage && <div className="mutation-notice" role="status">{mutationMessage}<button className="notice-dismiss" onClick={() => setMutationMessage('')} aria-label="Fermer">×</button></div>}<TeamView members={teamMembers} loading={teamLoading} error={teamError} isMemberView={isTeamMemberView} canInvite={isTeamOwner} canEditCommission={canEditCommission} acceptingId={acceptingInvitationId} onAccept={acceptTeamInvitation} onInvite={() => setInviteDialogOpen(true)} onRefresh={loadTeam} onUpdateMyTeam={updateMyTeam} onUpdateCommission={updateCloserCommission} /></>}

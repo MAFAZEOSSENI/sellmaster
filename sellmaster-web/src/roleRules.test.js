@@ -22,13 +22,13 @@ test('owner and manager keep all pages and allow product management', () => {
   assert.equal(hasAnyRole(['owner'], 'owner', 'manager'), true);
   assert.equal(hasAnyRole(['manager'], 'owner', 'manager'), true);
   assert.equal(canManageProducts(['manager']), true);
-  assert.deepEqual(getAvailablePages(['owner']), ['overview', 'orders', 'products', 'research', 'shopify', 'team']);
+  assert.deepEqual(getAvailablePages(['owner']), ['overview', 'orders', 'products', 'shopify', 'team']);
 });
 
 test('closer can access products', () => {
   assert.equal(canManageProducts(['closer']), true);
   assert.equal(canEditProducts(['closer']), true);
-  assert.deepEqual(getAvailablePages(['closer']), ['overview', 'orders', 'products', 'research', 'team']);
+  assert.deepEqual(getAvailablePages(['closer']), ['overview', 'orders', 'products', 'team']);
   assert.equal(canEditProducts(['manager']), true);
 });
 
