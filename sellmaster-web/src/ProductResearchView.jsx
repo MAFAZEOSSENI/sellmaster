@@ -179,10 +179,11 @@ export default function ProductResearchView() {
     event.preventDefault()
     if (!query.trim()) return
     setError('')
-    const popup = window.open('about:blank', '_blank')
-    if (!popup) {
-      setError('Autorisez les fenêtres pop-up pour ouvrir Meta Ads Library.')
-      return
+    let popup = null
+    try {
+      popup = window.open('', '_blank')
+    } catch (_) {
+      popup = null
     }
     try {
       const response = await api.createResearchJob({ queryText: query.trim(), sourceType: 'meta_extension' })
@@ -199,12 +200,16 @@ export default function ProductResearchView() {
         url.searchParams.set('sm_job_id', String(job.id))
         url.searchParams.set('sm_limit', '50')
         url.searchParams.set('sm_active_days', '0')
-        popup.location = url.toString()
+        if (popup) {
+          popup.location = url.toString()
+        } else {
+          window.location.assign(url.toString())
+        }
         await loadJobAds(job.id)
       }
       await loadJobsAndAds()
     } catch (jobError) {
-      if (!popup.closed) popup.close()
+      if (popup && !popup.closed) popup.close()
       setError(jobError.message)
     }
   }
