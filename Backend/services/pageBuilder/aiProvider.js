@@ -1,46 +1,115 @@
 const axios = require('axios');
+const { GoogleGenAI } = require('@google/genai');
+const { getAiConfig } = require('./aiConfig');
+const { assertSafePublicUrl } = require('../../utils/pageBuilderUrl');
 
 function stripAndParseJson(text) {
-  const cleaned = String(text || '').trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
-  return JSON.parse(cleaned);
+  const cleaned = String(text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+  if (!cleaned) throw new Error('Gemini n’a retourné aucun texte exploitable.');
+  try {
+    return JSON.parse(cleaned);
+  } catch (_) {
+    throw new Error('Gemini a retourné une réponse qui n’est pas un JSON valide.');
+  }
+}
+
+function createClient() {
+  const config = getAiConfig();
+  if (config.provider !== 'gemini') throw new Error(`Provider IA non pris en charge: ${config.provider}`);
+  if (!config.apiKey) throw new Error('Génération IA Gemini non configurée. Renseignez GOOGLE_AI_API_KEY.');
+  return { ai: new GoogleGenAI({ apiKey: config.apiKey }), config };
+}
+
+function classifyGeminiError(error) {
+  const status = error?.status || error?.statusCode || error?.response?.status;
+  const message = error?.message || '';
+  if (status === 429 || /quota|rate.?limit/i.test(message)) return new Error('Quota ou limite Gemini atteint. Réessayez plus tard.');
+  if (status === 401 || status === 403 || /API_KEY|auth|permission/i.test(message)) return new Error('Clé Gemini invalide ou accès refusé.');
+  if (/timeout|deadline|ETIMEDOUT|ECONNRESET/i.test(message)) return new Error('Gemini a expiré avant de terminer la génération.');
+  if (status >= 500) return new Error('Le service Gemini est temporairement indisponible.');
+  return new Error(message || 'Erreur inattendue auprès de Gemini.');
 }
 
 async function generateText(prompt, options = {}) {
-  const apiUrl = process.env.AI_TEXT_API_URL;
-  const apiKey = process.env.AI_TEXT_API_KEY;
-  if (!apiUrl || !apiKey) {
-    throw new Error('Génération IA texte non configurée. Renseignez AI_TEXT_API_URL et AI_TEXT_API_KEY.');
+  const { ai, config } = createClient();
+  try {
+    const response = await ai.models.generateContent({
+      model: config.textModel,
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      config: {
+        systemInstruction: 'Tu es un expert e-commerce francophone. Réponds uniquement en JSON valide. Ne confirme jamais une donnée non fournie. Ne fabrique ni témoignage, ni garantie, ni certification, ni performance médicale ou technique non confirmée.',
+        responseMimeType: 'application/json',
+        temperature: options.temperature,
+        maxOutputTokens: options.maxOutputTokens || 4096,
+        httpOptions: { timeout: 60000 },
+      },
+    });
+    return stripAndParseJson(response?.text);
+  } catch (error) {
+    throw classifyGeminiError(error);
   }
-  const response = await axios.post(apiUrl, {
-    model: process.env.AI_TEXT_MODEL || 'gpt-4o-mini',
-    temperature: options.temperature ?? 0.7,
-    response_format: { type: 'json_object' },
-    messages: [
-      { role: 'system', content: 'Tu es un expert e-commerce francophone. Réponds uniquement en JSON valide. Ne confirme jamais une donnée non fournie.' },
-      { role: 'user', content: prompt },
-    ],
-  }, { headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, timeout: 60000 });
-  const text = response.data?.choices?.[0]?.message?.content;
-  if (!text) throw new Error('Le fournisseur IA n’a retourné aucun texte.');
-  return stripAndParseJson(text);
 }
 
-async function generateImage(prompt, { size = '1024x1024' } = {}) {
-  const apiUrl = process.env.AI_IMAGE_API_URL;
-  const apiKey = process.env.AI_IMAGE_API_KEY;
-  if (!apiUrl || !apiKey) {
-    throw new Error('Génération IA image non configurée. Renseignez AI_IMAGE_API_URL et AI_IMAGE_API_KEY.');
+async function downloadImageReference(sourceUrl) {
+  if (typeof sourceUrl !== 'string' || !/^https:\/\//i.test(sourceUrl)) return null;
+  try {
+    await assertSafePublicUrl(sourceUrl);
+    const response = await axios.get(sourceUrl, {
+      timeout: 15000,
+      responseType: 'arraybuffer',
+      maxRedirects: 2,
+      maxContentLength: 8 * 1024 * 1024,
+      validateStatus: (status) => status >= 200 && status < 300,
+    });
+    const mimeType = String(response.headers['content-type'] || '').split(';')[0].toLowerCase();
+    if (!/^image\/(jpeg|png|webp)$/i.test(mimeType)) return null;
+    return { inlineData: { data: Buffer.from(response.data).toString('base64'), mimeType } };
+  } catch (_) {
+    return null;
   }
-  const response = await axios.post(apiUrl, {
-    model: process.env.AI_IMAGE_MODEL || 'gpt-image-1',
-    prompt,
-    size,
-  }, { headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, timeout: 120000 });
-  const image = response.data?.data?.[0];
-  const sourceUrl = image?.url || null;
-  const b64 = image?.b64_json || null;
-  if (!sourceUrl && !b64) throw new Error('Le fournisseur IA n’a retourné aucune image.');
-  return { sourceUrl, b64 };
 }
 
-module.exports = { generateText, generateImage };
+async function generateImage(prompt, options = {}) {
+  const { ai, config } = createClient();
+  if (!config.imageGenerationEnabled) throw new Error('La génération d’images Gemini est désactivée.');
+
+  const ratioMap = { '1:1': '1:1', '4:5': '4:5', '3:4': '3:4', '16:9': '16:9', '9:16': '9:16' };
+  const aspectRatio = ratioMap[options.aspectRatio || options.ratio] || '1:1';
+  const parts = [{ text: `${prompt}\n\nRespecter exactement la forme, la couleur, les proportions, le nombre d’éléments, le packaging et les détails visibles du produit de référence. Ne pas inventer de texte, marque, garantie, certification, badge, prix ou produit différent.` }];
+
+  if (Array.isArray(options.referenceImages)) {
+    for (const sourceUrl of options.referenceImages.slice(0, 3)) {
+      const reference = await downloadImageReference(sourceUrl);
+      if (reference) parts.push(reference);
+    }
+  }
+
+  try {
+    const response = await ai.models.generateContent({
+      model: config.imageModel,
+      contents: [{ role: 'user', parts }],
+      config: {
+        responseModalities: ['TEXT', 'IMAGE'],
+        imageConfig: { aspectRatio },
+        httpOptions: { timeout: 120000 },
+      },
+    });
+
+    const candidates = response?.candidates || [];
+    const images = [];
+    for (const candidate of candidates) {
+      const responseParts = candidate?.content?.parts || [];
+      for (const part of responseParts) {
+        if (part?.inlineData?.data) {
+          images.push({ sourceUrl: null, b64: part.inlineData.data, mimeType: part.inlineData.mimeType || 'image/png' });
+        }
+      }
+    }
+    if (!images.length) throw new Error('Gemini n’a retourné aucune image.');
+    return { sourceUrl: null, images };
+  } catch (error) {
+    throw classifyGeminiError(error);
+  }
+}
+
+module.exports = { generateText, generateImage, stripAndParseJson };

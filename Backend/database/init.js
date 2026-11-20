@@ -466,6 +466,21 @@ async function createTables() {
     `);
     await conn.query('CREATE INDEX IF NOT EXISTS landing_page_assets_page_created_idx ON "landing_page_assets" (landing_page_id, created_at DESC)');
 
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS "ai_usage" (
+        id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        owner_user_id INT NOT NULL REFERENCES "app_users"(id) ON DELETE CASCADE,
+        project_id BIGINT NULL REFERENCES "page_builder_projects"(id) ON DELETE SET NULL,
+        operation VARCHAR(50) NOT NULL,
+        model VARCHAR(150) NOT NULL,
+        units INT NOT NULL DEFAULT 1,
+        metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await conn.query('CREATE INDEX IF NOT EXISTS ai_usage_owner_created_idx ON "ai_usage" (owner_user_id, created_at DESC)');
+    await conn.query('CREATE INDEX IF NOT EXISTS ai_usage_operation_idx ON "ai_usage" (operation, created_at DESC)');
+
     await ensureColumnExists(conn, 'landing_pages', 'product_id', 'ADD COLUMN "product_id" INT NULL REFERENCES "products"(id) ON DELETE SET NULL');
     await ensureColumnExists(conn, 'landing_pages', 'order_form_id', 'ADD COLUMN "order_form_id" INT NULL REFERENCES "order_forms"(id) ON DELETE SET NULL');
 

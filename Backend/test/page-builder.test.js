@@ -2,6 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { parseHttpsUrl, isPublicIpv4 } = require('../utils/pageBuilderUrl');
 const { extractGeneric } = require('../services/pageBuilder/productExtractor');
+const { getAiConfig } = require('../services/pageBuilder/aiConfig');
+const { stripAndParseJson } = require('../services/pageBuilder/aiProvider');
 
 test('page builder accepts only valid HTTPS public product URLs', () => {
   assert.equal(parseHttpsUrl('http://example.com/product')?.protocol, undefined);
@@ -27,4 +29,17 @@ test('generic extractor parses title, description, Open Graph image and JSON-LD 
   assert.equal(product.description, 'Description test');
   assert.deepEqual(product.images, ['https://example.com/p.jpg']);
   assert.equal(product.price, 12500);
+});
+
+test('Gemini configuration uses centralized environment defaults', () => {
+  const previous = { ...process.env };
+  delete process.env.GOOGLE_AI_API_KEY;
+  delete process.env.GEMINI_TEXT_MODEL;
+  delete process.env.GEMINI_IMAGE_MODEL;
+  const config = getAiConfig();
+  assert.equal(config.provider, 'gemini');
+  assert.equal(config.textModel, 'gemini-3.5-flash-lite');
+  assert.equal(config.imageModel, 'gemini-nano-banana-2.1');
+  assert.equal(stripAndParseJson('{"commercialName":"Produit"}').commercialName, 'Produit');
+  process.env = previous;
 });

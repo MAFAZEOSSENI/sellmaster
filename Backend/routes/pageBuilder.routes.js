@@ -8,6 +8,8 @@ const { requireRole } = require('../middleware/rbacMiddleware');
 const PageBuilder = require('../models/PageBuilder');
 const { extractProduct } = require('../services/pageBuilder/productExtractor');
 const { generateText, generateImage } = require('../services/pageBuilder/aiProvider');
+const { getAiConfig } = require('../services/pageBuilder/aiConfig');
+const { recordAiUsage, countPageImageUsage } = require('../services/pageBuilder/aiUsage');
 const Order = require('../models/Order');
 
 const router = express.Router();
@@ -80,6 +82,7 @@ router.post('/projects/:id/analyze', aiLimiter, async (req, res) => {
 "commercialName":"", "shortDescription":"", "longDescription":"", "summary":"", "problem":"", "targetAudience":"", "buyerProfile":"", "painPoints":[], "realBenefits":[], "technicalFeatures":[], "salesArguments":[], "objections":[], "objectionAnswers":[], "mainAngle":"", "secondaryAngles":[], "hook":"", "alternativeTitles":[], "cta":[], "faq":[{"question":"","answer":""}], "offerProposal":"", "packSuggestions":[], "uncertainFields":[], "uncertain":true
 }\nProduit: ${JSON.stringify(product)}\nMarché: ${req.body?.market || 'Bénin'}\nLangue: ${req.body?.language || 'Français'}\nStyle: ${req.body?.style || 'direct-conversion'}`);
     const updated = await PageBuilder.updateProject(Number(req.userId), project.id, { ai_analysis: analysis, status: 'analyzed' });
+    await recordAiUsage({ userId: Number(req.userId), projectId: project.id, operation: 'text.analyze', model: getAiConfig().textModel, units: 1, metadata: { market: req.body?.market || 'Bénin', language: req.body?.language || 'Français' } });
     return res.json({ project: updated, analysis });
   } catch (error) {
     return res.status(502).json({ error: error.message });
@@ -96,6 +99,7 @@ router.post('/projects/:id/copy', aiLimiter, async (req, res) => {
 "warnings":[]
 }. Produit: ${JSON.stringify(project.product_data)}. Analyse: ${JSON.stringify(project.ai_analysis)}. Marché: ${req.body?.market || 'Bénin'}. Langue: ${req.body?.language || 'Français'}. Angle: ${angle}. Prix validé: ${req.body?.price ?? 'non fourni'}. Livraison/COD: ${JSON.stringify(req.body?.cod || {})}.`);
     await PageBuilder.updateProject(Number(req.userId), project.id, { status: 'copy-ready' });
+    await recordAiUsage({ userId: Number(req.userId), projectId: project.id, operation: 'text.copy', model: getAiConfig().textModel, units: 1, metadata: { market: req.body?.market || 'Bénin', language: req.body?.language || 'Français', angle } });
     return res.json({ content });
   } catch (error) {
     return res.status(502).json({ error: error.message });
@@ -119,20 +123,46 @@ router.post('/projects/:id/assets/generate', aiLimiter, async (req, res) => {
         results.push({ status: 'failed', error: 'Prompt requis.' });
         continue;
       }
-      const ratioMap = { '1:1': '1024x1024', '4:5': '1024x1280', '3:4': '1024x1365', '16:9': '1536x1024', '9:16': '1024x1792' };
-      const pending = await PageBuilder.addAsset(Number(req.userId), page.id, { asset_type: asset.type || 'hero', source_type: 'generated', prompt, generation_status: 'pending', metadata_json: { ratio: asset.ratio || '1:1', style: asset.style || '', context: asset.context || '' } });
+      const aiConfig = getAiConfig();
+      const allowedRatios = new Set(['1:1', '4:5', '3:4', '16:9', '9:16']);
+      const aspectRatio = allowedRatios.has(String(asset.ratio)) ? String(asset.ratio) : '1:1';
+      const currentUsage = await countPageImageUsage(Number(req.userId), page.id);
+      const variants = Math.min(Math.max(Number.parseInt(asset.variants, 10) || 1, 1), aiConfig.maxVariants);
+      if (!aiConfig.imageGenerationEnabled) {
+        results.push({ status: 'failed', error: 'La génération d’images Gemini est désactivée.' });
+        continue;
+      }
+      if (currentUsage + variants > aiConfig.maxImagesPerPage) {
+        results.push({ status: 'failed', error: `Limite atteinte : ${aiConfig.maxImagesPerPage} images maximum par page.` });
+        continue;
+      }
+      const pending = await PageBuilder.addAsset(Number(req.userId), page.id, { asset_type: asset.type || 'hero', source_type: 'generated', prompt, generation_status: 'pending', metadata_json: { ratio: aspectRatio, style: asset.style || '', context: asset.context || '', variants } });
       if (!pending) continue;
       try {
-        const image = await generateImage(`${prompt}\nRespecter exactement la forme, les couleurs, les proportions et la configuration visibles du produit source. Ne pas ajouter de produit différent, de texte, de badge, de prix ni de marque.`, { size: ratioMap[asset.ratio] || '1024x1024' });
+        const referenceImages = Array.isArray(project.product_data?.images)
+          ? project.product_data.images.slice(0, 3)
+          : [];
+        const image = await generateImage(`${prompt}\nRespecter exactement la forme, les couleurs, les proportions et la configuration visibles du produit source. Ne pas ajouter de produit différent, de texte, de badge, de prix ni de marque.`, {
+          ratio: aspectRatio,
+          aspectRatio,
+          referenceImages,
+          variants,
+        });
         let sourceUrl = image.sourceUrl;
-        if (!sourceUrl && image.b64) {
+        const generatedImages = Array.isArray(image.images) ? image.images : (image.b64 ? [image] : []);
+        if (!sourceUrl && generatedImages.length) {
           const uploadDir = path.join(__dirname, '../../uploads/page-builder');
           fs.mkdirSync(uploadDir, { recursive: true });
-          const filename = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}.png`;
-          fs.writeFileSync(path.join(uploadDir, filename), Buffer.from(image.b64, 'base64'));
-          sourceUrl = `/uploads/page-builder/${filename}`;
+          const storedUrls = generatedImages.slice(0, variants).map((generated) => {
+            const extension = String(generated.mimeType || '').includes('jpeg') ? 'jpg' : 'png';
+            const filename = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}.${extension}`;
+            fs.writeFileSync(path.join(uploadDir, filename), Buffer.from(generated.b64, 'base64'));
+            return `/uploads/page-builder/${filename}`;
+          });
+          sourceUrl = storedUrls[0] || null;
         }
-        const updated = await PageBuilder.updateAsset(Number(req.userId), pending.id, { source_url: sourceUrl, generation_status: 'succeeded', metadata_json: { ratio: asset.ratio || '1:1', style: asset.style || '', context: asset.context || '' } });
+        const updated = await PageBuilder.updateAsset(Number(req.userId), pending.id, { source_url: sourceUrl, generation_status: 'succeeded', metadata_json: { ratio: aspectRatio, style: asset.style || '', context: asset.context || '', variants } });
+        await recordAiUsage({ userId: Number(req.userId), projectId: project.id, operation: 'image.generate', model: aiConfig.imageModel, units: variants, metadata: { page_id: page.id, asset_id: pending.id, asset_type: asset.type || 'hero', ratio: aspectRatio } });
         results.push(updated || { id: pending.id, status: 'succeeded', source_url: sourceUrl });
       } catch (error) {
         const failed = await PageBuilder.updateAsset(Number(req.userId), pending.id, { generation_status: 'failed', metadata_json: { ratio: asset.ratio || '1:1', error: error.message } });

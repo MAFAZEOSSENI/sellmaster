@@ -10,13 +10,14 @@ function AssetPicker({ assets, setAssets }) {
     setAssets((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, selected: !item.selected } : item))
   }
   return <div className="pb-assets-grid">
-    {assets.map((asset, index) => <label className={`pb-asset-card ${asset.selected ? 'selected' : ''}`} key={`${asset.type}-${index}`}>
+    {assets.map((asset, index) => <div className={`pb-asset-card ${asset.selected ? 'selected' : ''}`} key={`${asset.type}-${index}`}>
       <input type="checkbox" checked={asset.selected} onChange={() => toggle(index)} />
       <span className="pb-asset-icon"><ImageIcon size={18} /></span>
       <span><strong>{asset.label}</strong><small>{asset.ratio} · {asset.style}</small></span>
       <span className="pb-asset-status">{asset.status === 'succeeded' ? 'Réussie' : asset.status === 'failed' ? 'Échec' : asset.status === 'pending' ? 'En cours' : 'À générer'}</span>
       {asset.source_url && <img src={asset.source_url} alt="" />}
-    </label>)}
+      <div className="pb-asset-controls"><span>Format<select value={asset.ratio} onChange={(event) => setAssets((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, ratio: event.target.value } : item))}><option value="1:1">1:1</option><option value="4:5">4:5</option><option value="3:4">3:4</option><option value="16:9">16:9</option><option value="9:16">9:16</option></select></span><span>Variantes<input type="number" min="1" max="4" value={asset.variants || 1} onChange={(event) => setAssets((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, variants: Math.min(4, Math.max(1, Number(event.target.value) || 1)) } : item))} /></span></div>
+    </div>)}
   </div>
 }
 
@@ -34,10 +35,10 @@ export default function AiPageBuilderView({ onBack }) {
   const [analysis, setAnalysis] = useState(null)
   const [copy, setCopy] = useState(null)
   const [assets, setAssets] = useState([
-    { type: 'hero', label: 'Image hero principale', ratio: '4:5', style: 'Premium', selected: true, prompt: '', status: 'idle' },
-    { type: 'lifestyle', label: 'Produit en contexte', ratio: '3:4', style: 'Lifestyle', selected: true, prompt: '', status: 'idle' },
-    { type: 'benefit', label: 'Visuel bénéfice', ratio: '1:1', style: 'Clean', selected: false, prompt: '', status: 'idle' },
-    { type: 'offer', label: 'Visuel promotionnel', ratio: '4:5', style: 'Conversion', selected: false, prompt: '', status: 'idle' },
+    { type: 'hero', label: 'Image hero principale', ratio: '4:5', style: 'Premium', variants: 1, selected: true, prompt: '', status: 'idle' },
+    { type: 'lifestyle', label: 'Produit en contexte', ratio: '3:4', style: 'Lifestyle', variants: 1, selected: true, prompt: '', status: 'idle' },
+    { type: 'benefit', label: 'Visuel bénéfice', ratio: '1:1', style: 'Clean', variants: 1, selected: false, prompt: '', status: 'idle' },
+    { type: 'offer', label: 'Visuel promotionnel', ratio: '4:5', style: 'Conversion', variants: 1, selected: false, prompt: '', status: 'idle' },
   ])
   const [page, setPage] = useState(null)
   const [previewMode, setPreviewMode] = useState('desktop')
