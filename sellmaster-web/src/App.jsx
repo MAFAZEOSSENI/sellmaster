@@ -2,11 +2,12 @@ import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import {
   Activity, ArrowDownRight, ArrowUpRight, Bell, Boxes, ChevronDown, CircleHelp,
   ClipboardList, Command, ExternalLink, LayoutDashboard, Link2, LogOut, MoreHorizontal, Package, Pencil,
-  RefreshCw, Search, Settings2, ShieldCheck, ShoppingBag, Store, Trash2, Truck, Users,
+  RefreshCw, Search, Settings2, ShieldCheck, ShoppingBag, Sparkles, Store, Trash2, Truck, Users,
 } from 'lucide-react'
 import { api, authToken } from './api'
 import LandingPage from './LandingPage'
 import ProductImportView from './ProductImportView'
+import AiPageBuilderView from './AiPageBuilderView'
 import { canEditProducts as canEditProductsForRole, canEditTeamCommissions, canInviteTeamMembers, canManageProducts, filterOrdersForRole, getAllowedOrderStatuses, getAvailablePages, hasAnyRole, isTeamMemberRole, normalizeRoles, sortOrdersNewestFirst } from './roleRules'
 import './App.css'
 import './theme.css'
@@ -21,6 +22,7 @@ const baseNavItems = [
   { id: 'orders', label: 'Commandes', icon: ClipboardList },
   { id: 'products', label: 'Produits', icon: Package },
   { id: 'shopify', label: 'Boutiques Shopify', icon: ShoppingBag },
+  { id: 'page-builder', label: '✨ AI Page Builder', icon: Sparkles },
   { id: 'team', label: 'Équipe', icon: Users },
 ]
 const numberFormat = new Intl.NumberFormat('fr-FR')
@@ -506,9 +508,11 @@ function App() {
   const productOwnerId = needsTeamCatalog && productScopeReady ? catalogTeam.ownerId : null
   const shouldLoadProducts = canAccessProducts && productScopeReady && (!needsTeamCatalog || productOwnerId !== null)
   const canAccessShopify = hasAnyRole(userRoles, 'owner', 'manager')
+  const canAccessPageBuilder = hasAnyRole(userRoles, 'owner', 'manager')
   const navItems = baseNavItems.filter((item) => {
     if (item.id === 'products') return canAccessProducts
     if (item.id === 'shopify') return canAccessShopify
+    if (item.id === 'page-builder') return canAccessPageBuilder
     return true
   })
   const mobileLabels = { overview: 'Accueil', orders: 'Commandes', products: 'Produits', team: 'Équipe' }
@@ -923,7 +927,7 @@ function App() {
   }
   const filteredOrders = roleFilteredOrders.filter((order) => [order.custom_order_number, order.client_name, order.client_phone, order.status].join(' ').toLowerCase().includes(search.toLowerCase()))
   const filteredProducts = products.filter((product) => [product.name, product.description].join(' ').toLowerCase().includes(search.toLowerCase()))
-  const pageTitle = activePage === 'orders' ? 'Commandes' : activePage === 'products' ? 'Produits' : activePage === 'productImport' ? 'Importer un produit' : activePage === 'shopify' ? 'Boutiques Shopify' : activePage === 'team' ? 'Équipe' : activePage === 'more' ? 'Plus' : 'Vue d’ensemble'
+  const pageTitle = activePage === 'orders' ? 'Commandes' : activePage === 'products' ? 'Produits' : activePage === 'productImport' ? 'Importer un produit' : activePage === 'shopify' ? 'Boutiques Shopify' : activePage === 'page-builder' ? 'AI Page Builder' : activePage === 'team' ? 'Équipe' : activePage === 'more' ? 'Plus' : 'Vue d’ensemble'
 
   if (!authenticated) {
     const openAuth = (mode) => {
@@ -966,6 +970,7 @@ function App() {
           {activePage === 'productImport' && canAccessProducts && <ProductImportView key={productImportUrl || 'manual-import'} initialUrl={productImportUrl} onBack={closeProductImport} onImported={(product) => setProducts((current) => [product, ...current.filter((item) => String(item.id) !== String(product.id))])} />}
           {activePage === 'shopify' && canAccessShopify && <ShopifyStoresView stores={stores} loading={storesLoading} error={shopifyError} notice={shopifyNotice} busyStoreId={busyStoreId} onRefresh={() => { setStoresLoading(true); setShopifyError(''); void loadStores() }} onConnect={() => setConnectDialogOpen(true)} onSyncOrders={(store) => syncShopifyStore(store, 'orders')} onSyncProducts={(store) => syncShopifyStore(store, 'products')} onDelete={deleteShopifyStore} />}
           {activePage === 'team' && <>{mutationMessage && <div className="mutation-notice" role="status">{mutationMessage}<button className="notice-dismiss" onClick={() => setMutationMessage('')} aria-label="Fermer">×</button></div>}<TeamView members={teamMembers} loading={teamLoading} error={teamError} isMemberView={isTeamMemberView} canInvite={isTeamOwner} canEditCommission={canEditCommission} acceptingId={acceptingInvitationId} onAccept={acceptTeamInvitation} onInvite={() => setInviteDialogOpen(true)} onRefresh={loadTeam} onUpdateMyTeam={updateMyTeam} onUpdateCommission={updateCloserCommission} /></>}
+          {activePage === 'page-builder' && canAccessPageBuilder && <AiPageBuilderView onBack={() => setActivePage('products')} />}
           {activePage === 'more' && <MoreView user={user} canAccessShopify={canAccessShopify} onNavigate={navigateToPage} onLogout={logout} />}
         </>}
         <footer className="workspace-footer"><span>SELLMASTER WEB</span><span>Gestion e-commerce, sans détour.</span></footer>

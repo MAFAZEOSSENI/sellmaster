@@ -416,6 +416,76 @@ async function createTables() {
       ON CONFLICT DO NOTHING
     `);
 
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS "page_builder_projects" (
+        id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        owner_user_id INT NOT NULL REFERENCES "app_users"(id) ON DELETE CASCADE,
+        source_url TEXT NULL,
+        source_type VARCHAR(30) NOT NULL DEFAULT 'manual',
+        product_data JSONB NOT NULL DEFAULT '{}'::jsonb,
+        ai_analysis JSONB NOT NULL DEFAULT '{}'::jsonb,
+        status VARCHAR(30) NOT NULL DEFAULT 'draft',
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await conn.query('CREATE INDEX IF NOT EXISTS page_builder_projects_owner_updated_idx ON "page_builder_projects" (owner_user_id, updated_at DESC)');
+
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS "landing_pages" (
+        id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        project_id BIGINT NOT NULL REFERENCES "page_builder_projects"(id) ON DELETE CASCADE,
+        owner_user_id INT NOT NULL REFERENCES "app_users"(id) ON DELETE CASCADE,
+        title VARCHAR(300) NOT NULL,
+        slug VARCHAR(100) NOT NULL UNIQUE,
+        template VARCHAR(50) NOT NULL DEFAULT 'minimal-premium',
+        content_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+        theme_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+        seo_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+        status VARCHAR(30) NOT NULL DEFAULT 'draft',
+        published_at TIMESTAMP NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await conn.query('CREATE INDEX IF NOT EXISTS landing_pages_owner_updated_idx ON "landing_pages" (owner_user_id, updated_at DESC)');
+
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS "landing_page_assets" (
+        id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        landing_page_id BIGINT NOT NULL REFERENCES "landing_pages"(id) ON DELETE CASCADE,
+        asset_type VARCHAR(30) NOT NULL DEFAULT 'image',
+        source_type VARCHAR(30) NOT NULL DEFAULT 'source',
+        source_url TEXT NULL,
+        storage_path TEXT NULL,
+        prompt TEXT NULL,
+        generation_status VARCHAR(30) NOT NULL DEFAULT 'pending',
+        metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await conn.query('CREATE INDEX IF NOT EXISTS landing_page_assets_page_created_idx ON "landing_page_assets" (landing_page_id, created_at DESC)');
+
+    await ensureColumnExists(conn, 'landing_pages', 'product_id', 'ADD COLUMN "product_id" INT NULL REFERENCES "products"(id) ON DELETE SET NULL');
+    await ensureColumnExists(conn, 'landing_pages', 'order_form_id', 'ADD COLUMN "order_form_id" INT NULL REFERENCES "order_forms"(id) ON DELETE SET NULL');
+
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS "landing_page_orders" (
+        id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        landing_page_id BIGINT NOT NULL REFERENCES "landing_pages"(id) ON DELETE CASCADE,
+        owner_user_id INT NOT NULL REFERENCES "app_users"(id) ON DELETE CASCADE,
+        order_id INT NULL REFERENCES "orders"(id) ON DELETE SET NULL,
+        customer_name VARCHAR(255) NOT NULL,
+        customer_phone VARCHAR(50) NOT NULL,
+        customer_address TEXT NULL,
+        quantity INT NOT NULL DEFAULT 1,
+        unit_price DECIMAL(12,2) NOT NULL DEFAULT 0,
+        variant_label VARCHAR(255) NULL,
+        payload_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     console.log('✅ Tables créées avec succès!');
   } catch (error) {
     console.error('❌ Erreur création tables:', error);

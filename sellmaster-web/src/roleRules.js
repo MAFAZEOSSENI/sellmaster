@@ -61,7 +61,7 @@ export function getAvailablePages(roles) {
   const normalized = normalizeRoles(roles);
 
   if (hasAnyRole(normalized, 'owner', 'manager')) {
-    return ['overview', 'orders', 'products', 'shopify', 'team'];
+    return ['overview', 'orders', 'products', 'shopify', 'page-builder', 'team'];
   }
 
   if (hasAnyRole(normalized, 'closer')) {

@@ -20,6 +20,7 @@ const orderFormsRoutes = require('./routes/orderForms.routes');
 const creativeVisualRoutes = require('./routes/creativeVisual.routes');
 const adResearchSnapshotsRoutes = require('./routes/adResearchSnapshots.routes');
 const deviceRoutes = require('./routes/devices.routes');
+const pageBuilderRoutes = require('./routes/pageBuilder.routes');
 
 // Middleware de base
 app.use(cors({
@@ -136,6 +137,7 @@ app.use('/api/order-forms', orderFormsRoutes);
 app.use('/api/creative-visual', creativeVisualRoutes);
 app.use('/api/ad-research-snapshots', adResearchSnapshotsRoutes);
 app.use('/api/devices', deviceRoutes);
+app.use('/api/page-builder', pageBuilderRoutes);
 
 // ==================== ROUTES API ====================
 

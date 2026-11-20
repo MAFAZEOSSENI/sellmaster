@@ -1,0 +1,165 @@
+import { useEffect, useState } from 'react'
+import { ArrowLeft, ArrowRight, Check, Image as ImageIcon, LoaderCircle, Link2, Monitor, Pencil, Smartphone, Sparkles, WandSparkles } from 'lucide-react'
+import { api } from './api'
+import './ai-page-builder.css'
+
+const steps = ['Source', 'Analyse', 'Stratégie', 'Visuels', 'Page', 'Publication']
+
+function AssetPicker({ assets, setAssets }) {
+  function toggle(index) {
+    setAssets((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, selected: !item.selected } : item))
+  }
+  return <div className="pb-assets-grid">
+    {assets.map((asset, index) => <label className={`pb-asset-card ${asset.selected ? 'selected' : ''}`} key={`${asset.type}-${index}`}>
+      <input type="checkbox" checked={asset.selected} onChange={() => toggle(index)} />
+      <span className="pb-asset-icon"><ImageIcon size={18} /></span>
+      <span><strong>{asset.label}</strong><small>{asset.ratio} · {asset.style}</small></span>
+      <span className="pb-asset-status">{asset.status === 'succeeded' ? 'Réussie' : asset.status === 'failed' ? 'Échec' : asset.status === 'pending' ? 'En cours' : 'À générer'}</span>
+      {asset.source_url && <img src={asset.source_url} alt="" />}
+    </label>)}
+  </div>
+}
+
+export default function AiPageBuilderView({ onBack }) {
+  const [step, setStep] = useState(0)
+  const [url, setUrl] = useState('')
+  const [manual, setManual] = useState(false)
+  const [manualProduct, setManualProduct] = useState({ title: '', description: '', price: '', features: '', images: '' })
+  const [market, setMarket] = useState('Bénin')
+  const [language, setLanguage] = useState('Français')
+  const [style, setStyle] = useState('direct-conversion')
+  const [angle, setAngle] = useState('Problème → Solution')
+  const [price, setPrice] = useState('')
+  const [project, setProject] = useState(null)
+  const [analysis, setAnalysis] = useState(null)
+  const [copy, setCopy] = useState(null)
+  const [assets, setAssets] = useState([
+    { type: 'hero', label: 'Image hero principale', ratio: '4:5', style: 'Premium', selected: true, prompt: '', status: 'idle' },
+    { type: 'lifestyle', label: 'Produit en contexte', ratio: '3:4', style: 'Lifestyle', selected: true, prompt: '', status: 'idle' },
+    { type: 'benefit', label: 'Visuel bénéfice', ratio: '1:1', style: 'Clean', selected: false, prompt: '', status: 'idle' },
+    { type: 'offer', label: 'Visuel promotionnel', ratio: '4:5', style: 'Conversion', selected: false, prompt: '', status: 'idle' },
+  ])
+  const [page, setPage] = useState(null)
+  const [previewMode, setPreviewMode] = useState('desktop')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [publishedUrl, setPublishedUrl] = useState('')
+
+  useEffect(() => {
+    if (!project) return
+    const product = project.product_data || {}
+    setPrice(product.price == null ? '' : String(product.price))
+  }, [project])
+
+  async function importProduct(event) {
+    event?.preventEvent?.()
+    setError('')
+    setBusy(true)
+    try {
+      const payload = manual
+        ? { manual: true, product: { title: manualProduct.title, description: manualProduct.description, price: manualProduct.price ? Number(manualProduct.price) : null, features: manualProduct.features.split('\n').map((item) => item.trim()).filter(Boolean), images: manualProduct.images.split('\n').map((item) => item.trim()).filter(Boolean) } }
+        : { url }
+      const result = await api.pageBuilderImport(payload)
+      setProject(result.project)
+      setStep(1)
+    } catch (importError) { setError(importError.message) } finally { setBusy(false) }
+  }
+
+  async function analyzeProduct() {
+    setError('')
+    setBusy(true)
+    try {
+      const result = await api.pageBuilderAnalyze(project.id, { market, language, style })
+      setProject(result.project)
+      setAnalysis(result.analysis)
+      setStep(2)
+    } catch (analysisError) { setError(analysisError.message) } finally { setBusy(false) }
+  }
+
+  async function generateCopy() {
+    setError('')
+    setBusy(true)
+    try {
+      const result = await api.pageBuilderCopy(project.id, { market, language, angle, price: price ? Number(price) : null, cod: { enabled: true } })
+      setCopy(result.content)
+      const product = project.product_data || {}
+      setAssets((current) => current.map((item) => ({ ...item, prompt: item.prompt || `${item.label}: ${product.title || 'produit'}. ${item.type === 'lifestyle' ? `Mettre le produit dans un environnement réel adapté au marché ${market}.` : 'Présentation premium cohérente avec la fiche source.'}` })))
+      setStep(3)
+    } catch (copyError) { setError(copyError.message) } finally { setBusy(false) }
+  }
+
+  async function generateImages() {
+    setError('')
+    setBusy(true)
+    try {
+      const selected = assets.filter((item) => item.selected).map((item) => ({ ...item, status: 'pending' }))
+      setAssets((current) => current.map((item) => item.selected ? { ...item, status: 'pending' } : item))
+      const result = await api.pageBuilderGenerateAssets(project.id, {
+        page: { title: analysis?.commercialName || project.product_data?.title || 'Landing page', template: style === 'minimal-premium' ? 'minimal-premium' : style === 'product-showcase' ? 'product-showcase' : 'direct-response', content_json: { analysis, copy, offer: { price: price ? Number(price) : null } }, theme_json: { market, language }, seo_json: { title: analysis?.commercialName || project.product_data?.title, description: analysis?.shortDescription || project.product_data?.description } },
+        content: { analysis, copy, offer: { price: price ? Number(price) : null } },
+        assets: selected,
+      })
+      setPage({ id: result.pageId })
+      const byType = new Map((result.assets || []).map((item) => [item.asset_type, item]))
+      setAssets((current) => current.map((item) => {
+        const generated = byType.get(item.type)
+        return generated ? { ...item, status: generated.generation_status || 'failed', source_url: generated.source_url || null } : item
+      }))
+      setStep(4)
+    } catch (generateError) { setError(generateError.message) } finally { setBusy(false) }
+  }
+
+  async function savePage() {
+    setError('')
+    setBusy(true)
+    try {
+      if (!page?.id) throw new Error('Aucune page à sauvegarder.')
+      const full = await api.pageBuilderSavePage(page.id, { project_id: project.id, id: page.id, title: analysis?.commercialName || project.product_data?.title || 'Landing page', template: style === 'minimal-premium' ? 'minimal-premium' : style === 'product-showcase' ? 'product-showcase' : 'direct-response', content_json: { analysis, copy, offer: { price: price ? Number(price) : null } }, theme_json: { market, language, accent: '#00a6b2' }, seo_json: { title: analysis?.commercialName || project.product_data?.title, description: analysis?.shortDescription || project.product_data?.description }, status: 'draft' })
+      setPage(full.page)
+    } catch (saveError) { setError(saveError.message) } finally { setBusy(false) }
+  }
+
+  async function publishPage() {
+    setError('')
+    setBusy(true)
+    try {
+      if (!page?.id) throw new Error('Sauvegardez la page avant la publication.')
+      const result = await api.pageBuilderPublish(page.id)
+      setPublishedUrl(result.url)
+      setStep(5)
+    } catch (publishError) { setError(publishError.message) } finally { setBusy(false) }
+  }
+
+  const heroImage = project?.product_data?.images?.[0] || assets.find((item) => item.source_url)?.source_url
+
+  return <div className="ai-page-builder">
+    <section className="pb-intro">
+      <button className="pb-back" type="button" onClick={onBack}><ArrowLeft size={16} /> Retour aux produits</button>
+      <div className="pb-intro-icon"><WandSparkles size={24} /></div>
+      <div><span className="panel-overline">GÉNÉRATION E-COMMERCE</span><h2>AI Page Builder</h2><p>Créez une landing page produit vérifiable, éditable et prête à recevoir des commandes.</p></div>
+      <span className="pb-status"><i /> Flux automatique</span>
+    </section>
+
+    <nav className="pb-steps" aria-label="Étapes de création">{steps.map((item, index) => <button type="button" key={item} className={`${index === step ? 'active' : ''} ${index < step ? 'done' : ''}`} onClick={() => index <= step && setStep(index)}><span>{index < step ? <Check size={14} /> : index + 1}</span><b>{item}</b></button>)}</nav>
+
+    {error && <div className="api-alert pb-error" role="alert">{error}</div>}
+
+    {step === 0 && <section className="pb-panel pb-source">
+      <div className="pb-section-heading"><div><span className="panel-overline">ÉTAPE 1 · SOURCE</span><h3>Quel produit souhaitez-vous présenter ?</h3></div><span>01</span></div>
+      <div className="pb-source-modes"><button type="button" className={!manual ? 'active' : ''} onClick={() => setManual(false)}><Link2 size={18} /><strong>Importer une URL</strong><small>Alibaba, Shopify ou concurrent</small></button><button type="button" className={manual ? 'active' : ''} onClick={() => setManual(true)}><Pencil size={18} /><strong>Saisie manuelle</strong><small>Continuer sans extraction</small></button></div>
+      {!manual ? <form className="pb-form" onSubmit={(event) => { event.preventDefault(); importProduct() }}><label>Lien du produit<input required type="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://..." /></label></form> : <div className="pb-form"><label>Titre du produit<input value={manualProduct.title} onChange={(event) => setManualProduct({ ...manualProduct, title: event.target.value })} placeholder="Nom commercial confirmé" /></label><label>Description<textarea rows="4" value={manualProduct.description} onChange={(event) => setManualProduct({ ...manualProduct, description: event.target.value })} /></label><div className="pb-fields"><label>Prix (FCFA)<input type="number" min="0" value={manualProduct.price} onChange={(event) => setManualProduct({ ...manualProduct, price: event.target.value })} /></label><label>URLs images<textarea rows="3" value={manualProduct.images} onChange={(event) => setManualProduct({ ...manualProduct, images: event.target.value })} placeholder="Une URL HTTPS par ligne" /></label></div><label>Caractéristiques — une par ligne<textarea rows="3" value={manualProduct.features} onChange={(event) => setManualProduct({ ...manualProduct, features: event.target.value })} /></label></div>}
+      <div className="pb-options"><label>Marché cible<select value={market} onChange={(event) => setMarket(event.target.value)}><option>Bénin</option><option>Côte d’Ivoire</option><option>Togo</option><option>Sénégal</option><option>Autre marché</option></select></label><label>Langue<select value={language} onChange={(event) => setLanguage(event.target.value)}><option>Français</option><option>Anglais</option></select></label><label>Style<select value={style} onChange={(event) => setStyle(event.target.value)}><option value="minimal-premium">Minimal Premium</option><option value="direct-response">Direct Response</option><option value="product-showcase">Product Showcase</option></select></label></div>
+      <div className="pb-actions"><button className="button button-primary" type="button" disabled={busy || (!manual && !url)} onClick={importProduct}>{busy ? <><LoaderCircle className="spin" size={16} /> Analyse…</> : <>Analyser le produit <ArrowRight size={16} /></>}</button></div>
+    </section>}
+
+    {step === 1 && <section className="pb-panel"><div className="pb-section-heading"><div><span className="panel-overline">ÉTAPE 2 · ANALYSE</span><h3>Comprendre le produit</h3></div><span>02</span></div><div className="pb-product-card">{heroImage ? <img src={heroImage} alt="" /> : <div className="pb-empty-image"><ImageIcon size={25} /></div>}<div><b>{project?.product_data?.title || 'Produit sans titre'}</b><p>{project?.product_data?.description || 'Aucune description confirmée.'}</p><strong>{price ? `${price} FCFA` : 'Prix à confirmer'}</strong></div></div><div className="pb-analysis-grid"><article><b>Informations confirmées</b><p>{analysis ? 'Analyse IA disponible.' : 'L’IA ne recevra que les données du produit et signalera les incertitudes.'}</p></article><article><b>Protection commerciale</b><p>Les garanties, preuves, certifications et témoignages non confirmés ne seront pas inventés.</p></article></div><div className="pb-actions"><button className="button button-quiet" type="button" onClick={() => setStep(0)}>Modifier la source</button><button className="button button-primary" type="button" disabled={busy} onClick={analyzeProduct}>{busy ? <><LoaderCircle className="spin" size={16} /> Analyse IA…</> : <><Sparkles size={16} /> Analyser avec l’IA</>}</button></div></section>}
+
+    {step === 2 && <section className="pb-panel"><div className="pb-section-heading"><div><span className="panel-overline">ÉTAPE 3 · STRATÉGIE</span><h3>Choisir l’approche marketing</h3></div><span>03</span></div><div className="pb-options"><label>Angle marketing<select value={angle} onChange={(event) => setAngle(event.target.value)}><option>Problème → Solution</option><option>Avant → Après</option><option>Démonstration produit</option><option>Storytelling</option><option>Découverte</option><option>Gain de temps</option><option>Confort</option><option>Comparaison</option><option>UGC / expérience utilisateur</option></select></label><label>Prix validé (FCFA)<input type="number" min="0" value={price} onChange={(event) => setPrice(event.target.value)} /></label></div>{analysis && <div className="pb-analysis-summary"><article><span>Angle principal</span><strong>{analysis.mainAngle || angle}</strong></article><article><span>Bénéfices réels</span><strong>{Array.isArray(analysis.realBenefits) ? analysis.realBenefits.slice(0, 3).join(' · ') : 'À confirmer'}</strong></article><article><span>CTA</span><strong>{Array.isArray(analysis.cta) ? analysis.cta[0] || 'Commander maintenant' : 'Commander maintenant'}</strong></article></div>}<div className="pb-actions"><button className="button button-primary" type="button" disabled={busy} onClick={generateCopy}>{busy ? <><LoaderCircle className="spin" size={16} /> Rédaction…</> : <><Sparkles size={16} /> Générer le copywriting</>}</button></div></section>}
+
+    {step === 3 && <section className="pb-panel"><div className="pb-section-heading"><div><span className="panel-overline">ÉTAPE 4 · VISUELS</span><h3>Sélectionner les visuels IA</h3></div><span>04</span></div><AssetPicker assets={assets} setAssets={setAssets} /><div className="pb-prompt-list">{assets.filter((item) => item.selected).map((item, index) => <label key={`${item.type}-${index}`}><b>{item.label}</b><textarea rows="3" value={item.prompt} onChange={(event) => setAssets((current) => current.map((asset) => asset.type === item.type ? { ...asset, prompt: event.target.value } : asset))} /></label>)}</div><div className="pb-actions"><button className="button button-quiet" type="button" onClick={() => setStep(2)}>Retour</button><button className="button button-primary" type="button" disabled={busy || !assets.some((item) => item.selected)} onClick={generateImages}>{busy ? <><LoaderCircle className="spin" size={16} /> Génération réelle…</> : <><WandSparkles size={16} /> Générer les visuels</>}</button></div></section>}
+
+    {step === 4 && <section className="pb-panel"><div className="pb-section-heading"><div><span className="panel-overline">ÉTAPE 5 · PAGE</span><h3>Prévisualiser et personnaliser</h3></div><div className="pb-preview-toggle"><button type="button" className={previewMode === 'desktop' ? 'active' : ''} onClick={() => setPreviewMode('desktop')}><Monitor size={15} /> Desktop</button><button type="button" className={previewMode === 'mobile' ? 'active' : ''} onClick={() => setPreviewMode('mobile')}><Smartphone size={15} /> Mobile</button></div></div><div className="pb-editor-grid"><div className="pb-editor"><label>Titre principal<input value={analysis?.commercialName || ''} readOnly /></label><label>Texte d’accroche<textarea rows="4" value={copy?.sections?.[0]?.subtitle || analysis?.shortDescription || ''} readOnly /></label><label>Prix de vente (FCFA)<input type="number" value={price} onChange={(event) => setPrice(event.target.value)} /></label><button className="button button-quiet" type="button" onClick={savePage} disabled={busy}>{busy ? 'Sauvegarde…' : 'Sauvegarder les modifications'}</button></div><div className={`pb-preview ${previewMode}`}><article><span className="pb-preview-kicker">OFFRE LIMITÉE</span><h3>{analysis?.commercialName || project?.product_data?.title}</h3><p>{copy?.sections?.[0]?.subtitle || analysis?.shortDescription}</p>{heroImage && <img src={heroImage} alt="" />}<strong>{price ? `${price} FCFA` : 'Prix à confirmer'}</strong><button type="button">{copy?.sections?.[0]?.cta || 'Commander maintenant'}</button><div className="pb-preview-benefits">{(analysis?.realBenefits || []).slice(0, 3).map((item) => <span key={item}>✓ {item}</span>)}</div></article></div></div><div className="pb-actions"><button className="button button-primary" type="button" onClick={() => setStep(5)}><ArrowRight size={16} /> Préparer la publication</button></div></section>}
+
+    {step === 5 && <section className="pb-panel pb-publish"><div className="pb-publish-icon">{publishedUrl ? <Check size={28} /> : <Sparkles size={28} />}</div><span className="panel-overline">ÉTAPE 6 · PUBLICATION</span><h3>{publishedUrl ? 'Votre page est publiée' : 'Publier cette landing page'}</h3><p>{publishedUrl ? 'Elle est accessible publiquement et les commandes reçues seront enregistrées dans Sellmaster.' : 'Après publication, la page reçoit une URL publique avec métadonnées SEO.'}</p>{publishedUrl && <a className="pb-public-url" href={publishedUrl} target="_blank" rel="noreferrer">{publishedUrl}</a>}<div className="pb-actions"><button className="button button-primary" type="button" disabled={busy || Boolean(publishedUrl)} onClick={publishPage}>{busy ? 'Publication…' : publishedUrl ? 'Publié' : 'Publier maintenant'}</button></div></section>}
+  </div>
+}
