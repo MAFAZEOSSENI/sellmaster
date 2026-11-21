@@ -103,13 +103,24 @@ async function extractProduct(value) {
     const response = await fetchPinned(new URL(`${url.origin}/products/${encodeURIComponent(match[1])}.json`));
     const product = response.data?.product;
     if (!product) throw new Error('Produit Shopify introuvable');
+
+    const images = [...new Set((Array.isArray(product.images) ? product.images : [])
+      .map((item) => typeof item === 'string' ? item : item?.src)
+      .filter((item) => typeof item === 'string' && /^https:\/\//i.test(item)))]
+      .slice(0, 20);
+    const variants = (Array.isArray(product.variants) ? product.variants : []).map((item) => ({
+      title: String(item.title || item.option1 || 'Default Title').trim() || 'Default Title',
+      price: item.price == null ? null : Number(item.price),
+      sku: item.sku == null ? '' : String(item.sku),
+    })).slice(0, 100);
+
     return {
       title: String(product.title || '').trim(),
-      description: String(product.body_html || '').replace(/<[^>]*>/g, ' ').trim(),
-      images: (product.images || []).map((item) => typeof item === 'string' ? item : item?.src).filter((item) => /^https:\/\//i.test(item || '')).slice(0, 20),
+      description: typeof product.body_html === 'string' ? product.body_html : '',
+      images,
       features: [],
-      variants: (product.variants || []).map((item) => ({ title: item.title || item.option1 || 'Default', price: item.price, sku: item.sku || '' })).slice(0, 100),
-      price: product.variants?.[0]?.price == null ? null : Number(product.variants[0].price),
+      variants,
+      price: variants[0]?.price == null ? null : variants[0].price,
       supplier: product.vendor || url.hostname,
       source_url: url.toString(),
       source_type: sourceType,

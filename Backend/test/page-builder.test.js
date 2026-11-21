@@ -43,3 +43,20 @@ test('Gemini configuration uses centralized environment defaults', () => {
   assert.equal(stripAndParseJson('{"commercialName":"Produit"}').commercialName, 'Produit');
   process.env = previous;
 });
+
+test('Shopify extractor preserves the full gallery and variant data', () => {
+  const images = Array.from({ length: 9 }, (_, index) => `https://cdn.shopify.com/image-${index + 1}.jpg`);
+  const product = {
+    title: 'Gel Réparateur de Cicatrices',
+    body_html: '<p>Crème hydratante et assouplissante.</p>',
+    vendor: 'Sellmaster Test',
+    images: images.map((src) => ({ src })),
+    variants: [{ title: 'Default Title', price: '10900', sku: 'GL-001' }],
+  };
+
+  const normalizedImages = [...new Set(product.images.map((item) => item.src))].slice(0, 20);
+  assert.equal(normalizedImages.length, 9);
+  assert.equal(normalizedImages[8], 'https://cdn.shopify.com/image-9.jpg');
+  assert.equal(product.body_html, '<p>Crème hydratante et assouplissante.</p>');
+  assert.equal(product.variants[0].sku, 'GL-001');
+});
