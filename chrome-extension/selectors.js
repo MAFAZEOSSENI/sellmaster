@@ -263,6 +263,9 @@ globalThis.SellmasterShopifySelectors = Object.freeze({
       'input[placeholder*="Client ID" i]'
     ],
     rotateSecretButtons: [
+      'button[aria-label*="Afficher le secret client" i]',
+      'button[aria-label*="show client secret" i]',
+      'button[title*="Afficher le secret client" i]',
       'button[data-testid*="rotate"]',
       'button[aria-label*="rotate" i]',
       'button[aria-label*="generate secret" i]',
@@ -290,7 +293,9 @@ globalThis.SellmasterShopifySelectors = Object.freeze({
       'textarea[aria-label*="client secret" i]',
       'textarea[aria-label*="Client Secret" i]',
       'input[type="text"][name*="secret" i]',
-      'input[placeholder*="Client Secret" i]'
+      'input[placeholder*="Client Secret" i]',
+      'input[aria-label="Secret client"]',
+      'textarea[aria-label="Secret client"]'
     ]
   }
 });

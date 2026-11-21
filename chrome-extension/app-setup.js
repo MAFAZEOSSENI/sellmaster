@@ -79,8 +79,8 @@
     (selectorList || []).forEach(selector => root.querySelectorAll(selector).forEach(element => candidates.add(element)));
     root.querySelectorAll('button, a, [role="button"], [role="menuitem"]').forEach(element => candidates.add(element));
     const actionPattern = kind === 'confirm'
-      ? /confirm|continue|save|rotate|generate|regenerat|renew|reve|reveal|show|continuer|enregistrer|valider|r[eé]nouv|r[eé]v[eé]l|g[eé]n[eé]r|r[eé]g[eé]n[eé]r|cr[eé]er|pivoter/i
-      : /rotate|regenerat|generate|create|renew|reve|reveal|show|faire pivoter|pivoter|r[eé]nouv|r[eé]v[eé]l|g[eé]n[eé]r|r[eé]g[eé]n[eé]r|cr[eé]er|nouveau secret|nouvelle cl[eé]/i;
+      ? /confirm|continue|save|rotate|generate|regenerat|renew|reve|reveal|show|afficher|continuer|enregistrer|valider|r[eé]nouv|r[eé]v[eé]l|g[eé]n[eé]r|r[eé]g[eé]n[eé]r|cr[eé]er|pivoter/i
+      : /rotate|regenerat|generate|create|renew|reve|reveal|show|afficher|faire pivoter|pivoter|r[eé]nouv|r[eé]v[eé]l|g[eé]n[eé]r|r[eé]g[eé]n[eé]r|cr[eé]er|nouveau secret|nouvelle cl[eé]/i;
     return [...candidates].find(element => visible(element) && actionPattern.test([
       element.innerText || '',
       element.getAttribute('aria-label') || '',
