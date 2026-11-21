@@ -77,10 +77,10 @@
   function findSecretActionButton(selectorList, kind, root = document) {
     const candidates = new Set();
     (selectorList || []).forEach(selector => root.querySelectorAll(selector).forEach(element => candidates.add(element)));
-    root.querySelectorAll('button, [role="button"]').forEach(element => candidates.add(element));
+    root.querySelectorAll('button').forEach(element => candidates.add(element));
     const actionPattern = kind === 'confirm'
-      ? /confirm|continue|save|rotate|generate|regenerat|continuer|enregistrer|valider|g[eé]n[eé]r|r[eé]g[eé]n[eé]r|cr[eé]er|pivoter|r[eé]v[eé]ler/i
-      : /rotate|regenerat|generate|create|faire pivoter|pivoter|g[eé]n[eé]r|r[eé]g[eé]n[eé]r|cr[eé]er|nouveau secret|nouvelle cl[eé]|renouvel|r[eé]v[eé]l/i;
+      ? /confirm|continue|save|rotate|generate|regenerat|confirm|continuer|enregistrer|valider|g[eé]n[eé]r|r[eé]g[eé]n[eé]r|cr[eé]er|pivoter/i
+      : /rotate|regenerat|generate|create|faire pivoter|pivoter|g[eé]n[eé]r|r[eé]g[eé]n[eé]r|cr[eé]er|nouveau secret|nouvelle cl[eé]/i;
     return [...candidates].find(element => visible(element) && actionPattern.test([
       element.innerText || '',
       element.getAttribute('aria-label') || '',
@@ -260,33 +260,6 @@
     await waitFor(selectorList);
   }
 
-  function readVisibleClientSecret(root = document) {
-    const secretInputs = SELECTORS.settings.clientSecretInputs
-      .flatMap(selector => Array.from(root.querySelectorAll(selector)));
-    for (const element of secretInputs) {
-      const value = String(element.value || element.textContent || '').trim();
-      if (/^[A-Za-z0-9_-]{20,}$/.test(value)) return value;
-    }
-
-    const text = root.body?.innerText || document.body.innerText || '';
-    const secretPatterns = [/(?:secret|client secret)[^A-Za-z0-9_-]*([A-Za-z0-9_-]{20,})/gi, /shpss_[A-Za-z0-9_-]{20,}/gi];
-    for (const pattern of secretPatterns) {
-      const match = pattern.exec(text);
-      if (match) return String(match[1] || match[0]).trim();
-    }
-    return '';
-  }
-
-  async function waitForVisibleClientSecret(timeoutMs = 30000) {
-    const started = Date.now();
-    while (Date.now() - started < timeoutMs) {
-      const secret = readVisibleClientSecret();
-      if (secret) return secret;
-      await new Promise(resolve => setTimeout(resolve, 250));
-    }
-    return '';
-  }
-
   async function runAutomation() {
     if (running) return;
     running = true;
@@ -354,25 +327,25 @@
         const clientId = String(clientIdInput.value || clientIdInput.textContent || '').trim();
         if (!clientId) throw new Error('Client ID vide. Corrige le sélecteur correspondant dans selectors.js.');
         let secretInput = findFirst(SELECTORS.settings.clientSecretInputs);
-        let clientSecret = readVisibleClientSecret() || String(secretInput?.value || secretInput?.textContent || '').trim();
+        let clientSecret = String(secretInput?.value || secretInput?.textContent || '').trim();
         if (!clientSecret) {
           const rotate = findSecretActionButton(SELECTORS.settings.rotateSecretButtons, 'generate');
-          if (!rotate) throw new Error('Secret client absent et action Générer/Renouveler/Révéler introuvable. Utilise le champ manuel API Key/Secret dans le popup.');
+          if (!rotate) throw new Error('Secret client absent et action Générer/Renouveler introuvable.');
           rotate.click();
           const confirmRotate = await new Promise(resolve => {
             const started = Date.now();
             const timer = setInterval(() => {
               const dialog = findFirst(['dialog[open]', '[role="dialog"]']);
               const confirm = dialog && findSecretActionButton(SELECTORS.settings.rotateConfirmButtons, 'confirm', dialog);
-              if (confirm || Date.now() - started > 10000) {
+              if (confirm || Date.now() - started > 5000) {
                 clearInterval(timer);
                 resolve(confirm || null);
               }
             }, 150);
           });
           if (confirmRotate) confirmRotate.click();
-          clientSecret = await waitForVisibleClientSecret(30000);
-          secretInput = findFirst(SELECTORS.settings.clientSecretInputs);
+          secretInput = await waitFor(SELECTORS.settings.clientSecretInputs);
+          clientSecret = String(secretInput.value || secretInput.textContent || '').trim();
         }
         if (!clientSecret) throw new Error('Secret non lisible. Shopify peut ne l’afficher qu’une seule fois; vérifie la page avant de recommencer.');
         state = await updatePending({ step: 'registering' });
