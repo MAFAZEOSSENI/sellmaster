@@ -133,4 +133,5 @@ export const api = {
   pageBuilderPublic: (slug) => request(`/page-builder/public/${encodeURIComponent(slug)}`),
   pageBuilderPublicOrder: (slug, payload) => request(`/page-builder/public/${encodeURIComponent(slug)}/orders`, { method: 'POST', body: JSON.stringify(payload) }),
   pageBuilderPublishShopify: (id, payload) => request(`/page-builder/pages/${encodeURIComponent(id)}/publish-shopify`, { method: 'POST', body: JSON.stringify(payload) }),
+  pageBuilderProjectUpdate: (id, payload) => request(`/page-builder/projects/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(payload) }),
 }

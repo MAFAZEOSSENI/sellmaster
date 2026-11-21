@@ -49,6 +49,8 @@ export default function AiPageBuilderView({ onBack }) {
   const [stores, setStores] = useState([])
   const [storeId, setStoreId] = useState('')
   const [storesLoading, setStoresLoading] = useState(true)
+  const [productDraft, setProductDraft] = useState(null)
+  const [sourceImages, setSourceImages] = useState([])
 
   useEffect(() => {
     if (!project) return
@@ -67,14 +69,38 @@ export default function AiPageBuilderView({ onBack }) {
       const result = await api.pageBuilderImport(payload)
       if (!result.project?.id) throw new Error('Le projet n’a pas pu être créé. Réessayez ou utilisez la saisie manuelle.')
       setProject(result.project)
+      const product = result.project.product_data || {}
+      setProductDraft({
+        title: product.title || '',
+        description: product.description || '',
+        price: product.price == null ? '' : String(product.price),
+        variants: (Array.isArray(product.variants) ? product.variants : []).map((variant) => ({ title: variant.title || 'Default Title', price: variant.price == null ? '' : String(variant.price), sku: variant.sku || '' })),
+      })
+      setSourceImages((Array.isArray(product.images) ? product.images : []).map((url, index) => ({ id: `${index}-${url}`, url, selected: true })))
       setStep(1)
     } catch (importError) { setError(importError.message) } finally { setBusy(false) }
   }
 
   async function analyzeProduct() {
     setError('')
+    if (!productDraft?.title?.trim()) {
+      setError('Le titre du produit est requis.')
+      return
+    }
     setBusy(true)
     try {
+      const selectedImages = sourceImages.filter((image) => image.selected).map((image) => image.url)
+      const productData = {
+        ...(project.product_data || {}),
+        title: productDraft.title.trim(),
+        description: productDraft.description,
+        price: productDraft.price ? Number(productDraft.price) : null,
+        images: selectedImages,
+        variants: productDraft.variants.map((variant) => ({ ...variant, title: variant.title.trim(), sku: variant.sku.trim(), price: variant.price === '' ? null : Number(variant.price) })),
+      }
+      const projectUpdate = await api.pageBuilderProjectUpdate(project.id, { product_data: productData })
+      setProject(projectUpdate.project || { ...project, product_data: productData })
+      setPrice(productData.price == null ? '' : String(productData.price))
       const result = await api.pageBuilderAnalyze(project.id, { market, language, style })
       setProject(result.project)
       setAnalysis(result.analysis)
@@ -183,7 +209,7 @@ export default function AiPageBuilderView({ onBack }) {
       <div className="pb-actions"><button className="button button-primary" type="button" disabled={busy || (!manual && !url)} onClick={importProduct}>{busy ? <><LoaderCircle className="spin" size={16} /> Analyse…</> : <>Analyser le produit <ArrowRight size={16} /></>}</button></div>
     </section>}
 
-    {step === 1 && <section className="pb-panel"><div className="pb-section-heading"><div><span className="panel-overline">ÉTAPE 2 · ANALYSE</span><h3>Comprendre le produit</h3></div><span>02</span></div><div className="pb-product-card">{heroImage ? <img src={heroImage} alt="" /> : <div className="pb-empty-image"><ImageIcon size={25} /></div>}<div><b>{project?.product_data?.title || 'Produit sans titre'}</b><p>{project?.product_data?.description || 'Aucune description confirmée.'}</p><strong>{price ? `${price} FCFA` : 'Prix à confirmer'}</strong></div></div><div className="pb-analysis-grid"><article><b>Informations confirmées</b><p>{analysis ? 'Analyse IA disponible.' : 'L’IA ne recevra que les données du produit et signalera les incertitudes.'}</p></article><article><b>Protection commerciale</b><p>Les garanties, preuves, certifications et témoignages non confirmés ne seront pas inventés.</p></article></div><div className="pb-actions"><button className="button button-quiet" type="button" onClick={() => setStep(0)}>Modifier la source</button><button className="button button-primary" type="button" disabled={busy} onClick={analyzeProduct}>{busy ? <><LoaderCircle className="spin" size={16} /> Analyse IA…</> : <><Sparkles size={16} /> Analyser avec l’IA</>}</button></div></section>}
+    {step === 1 && <section className="pb-panel"><div className="pb-section-heading"><div><span className="panel-overline">ÉTAPE 2 · ANALYSE</span><h3>Vérifier les informations du produit</h3></div><span>02</span></div>{productDraft && <div className="pb-edit-grid"><section className="pb-edit-details"><label>Titre<input required maxLength="300" value={productDraft.title} onChange={(event) => setProductDraft((current) => ({ ...current, title: event.target.value }))} /></label><label>Description<textarea rows="7" value={productDraft.description} onChange={(event) => setProductDraft((current) => ({ ...current, description: event.target.value }))} /></label><label>Prix de référence (FCFA)<input type="number" min="0" step="any" value={productDraft.price} onChange={(event) => setProductDraft((current) => ({ ...current, price: event.target.value }))} /></label>{productDraft.variants.length > 0 && <fieldset className="pb-variants"><legend>Variantes Shopify</legend>{productDraft.variants.map((variant, index) => <div className="pb-variant" key={`${index}-${variant.sku}`}><label>Titre<input value={variant.title} onChange={(event) => setProductDraft((current) => ({ ...current, variants: current.variants.map((item, itemIndex) => itemIndex === index ? { ...item, title: event.target.value } : item) }))} /></label><label>Prix (FCFA)<input type="number" min="0" step="any" value={variant.price} onChange={(event) => setProductDraft((current) => ({ ...current, variants: current.variants.map((item, itemIndex) => itemIndex === index ? { ...item, price: event.target.value } : item) }))} /></label><label>SKU<input value={variant.sku} onChange={(event) => setProductDraft((current) => ({ ...current, variants: current.variants.map((item, itemIndex) => itemIndex === index ? { ...item, sku: event.target.value } : item) }))} /></label></div>)}</fieldset>}</section><section className="pb-source-gallery"><div className="pb-gallery-heading"><b>Images du produit</b><span>{sourceImages.filter((image) => image.selected).length}/{sourceImages.length}</span></div>{sourceImages.length === 0 ? <div className="pb-empty-image"><ImageIcon size={25} /></div> : <div className="pb-source-images">{sourceImages.map((image, index) => <label key={image.id} className={image.selected ? 'selected' : ''}><img src={image.url} alt={`Image ${index + 1}`} loading="lazy" /><span><input type="checkbox" checked={image.selected} onChange={(event) => setSourceImages((current) => current.map((item) => item.id === image.id ? { ...item, selected: event.target.checked } : item))} /> Garder</span></label>)}</div>}</section></div>}<div className="pb-actions"><button className="button button-quiet" type="button" onClick={() => setStep(0)}>Modifier la source</button><button className="button button-primary" type="button" disabled={busy || !productDraft?.title?.trim()} onClick={analyzeProduct}>{busy ? <><LoaderCircle className="spin" size={16} /> Analyse IA…</> : <><Sparkles size={16} /> Analyser avec l’IA</>}</button></div></section>}
 
     {step === 2 && <section className="pb-panel"><div className="pb-section-heading"><div><span className="panel-overline">ÉTAPE 3 · STRATÉGIE</span><h3>Choisir l’approche marketing</h3></div><span>03</span></div><div className="pb-options"><label>Angle marketing<select value={angle} onChange={(event) => setAngle(event.target.value)}><option>Problème → Solution</option><option>Avant → Après</option><option>Démonstration produit</option><option>Storytelling</option><option>Découverte</option><option>Gain de temps</option><option>Confort</option><option>Comparaison</option><option>UGC / expérience utilisateur</option></select></label><label>Prix validé (FCFA)<input type="number" min="0" value={price} onChange={(event) => setPrice(event.target.value)} /></label></div>{analysis && <div className="pb-analysis-summary"><article><span>Angle principal</span><strong>{analysis.mainAngle || angle}</strong></article><article><span>Bénéfices réels</span><strong>{Array.isArray(analysis.realBenefits) ? analysis.realBenefits.slice(0, 3).join(' · ') : 'À confirmer'}</strong></article><article><span>CTA</span><strong>{Array.isArray(analysis.cta) ? analysis.cta[0] || 'Commander maintenant' : 'Commander maintenant'}</strong></article></div>}<div className="pb-actions"><button className="button button-primary" type="button" disabled={busy} onClick={generateCopy}>{busy ? <><LoaderCircle className="spin" size={16} /> Rédaction…</> : <><Sparkles size={16} /> Générer le copywriting</>}</button></div></section>}
 
