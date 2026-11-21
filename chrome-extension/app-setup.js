@@ -77,10 +77,10 @@
   function findSecretActionButton(selectorList, kind, root = document) {
     const candidates = new Set();
     (selectorList || []).forEach(selector => root.querySelectorAll(selector).forEach(element => candidates.add(element)));
-    root.querySelectorAll('button').forEach(element => candidates.add(element));
+    root.querySelectorAll('button, a, [role="button"], [role="menuitem"]').forEach(element => candidates.add(element));
     const actionPattern = kind === 'confirm'
-      ? /confirm|continue|save|rotate|generate|regenerat|confirm|continuer|enregistrer|valider|g[eé]n[eé]r|r[eé]g[eé]n[eé]r|cr[eé]er|pivoter/i
-      : /rotate|regenerat|generate|create|faire pivoter|pivoter|g[eé]n[eé]r|r[eé]g[eé]n[eé]r|cr[eé]er|nouveau secret|nouvelle cl[eé]/i;
+      ? /confirm|continue|save|rotate|generate|regenerat|renew|reve|reveal|show|continuer|enregistrer|valider|r[eé]nouv|r[eé]v[eé]l|g[eé]n[eé]r|r[eé]g[eé]n[eé]r|cr[eé]er|pivoter/i
+      : /rotate|regenerat|generate|create|renew|reve|reveal|show|faire pivoter|pivoter|r[eé]nouv|r[eé]v[eé]l|g[eé]n[eé]r|r[eé]g[eé]n[eé]r|cr[eé]er|nouveau secret|nouvelle cl[eé]/i;
     return [...candidates].find(element => visible(element) && actionPattern.test([
       element.innerText || '',
       element.getAttribute('aria-label') || '',
@@ -327,10 +327,10 @@
         const clientId = String(clientIdInput.value || clientIdInput.textContent || '').trim();
         if (!clientId) throw new Error('Client ID vide. Corrige le sélecteur correspondant dans selectors.js.');
         let secretInput = findFirst(SELECTORS.settings.clientSecretInputs);
-        let clientSecret = String(secretInput?.value || secretInput?.textContent || '').trim();
+        let clientSecret = readVisibleClientSecret() || String(secretInput?.value || secretInput?.textContent || '').trim();
         if (!clientSecret) {
           const rotate = findSecretActionButton(SELECTORS.settings.rotateSecretButtons, 'generate');
-          if (!rotate) throw new Error('Secret client absent et action Générer/Renouveler introuvable.');
+          if (!rotate) throw new Error('Secret client absent et aucune action de révélation trouvée. Clique sur Révéler/Renouveler le secret sur Shopify, ou utilise le mode manuel API Key + Secret dans l’extension.');
           rotate.click();
           const confirmRotate = await new Promise(resolve => {
             const started = Date.now();
@@ -347,7 +347,10 @@
           secretInput = await waitFor(SELECTORS.settings.clientSecretInputs);
           clientSecret = String(secretInput.value || secretInput.textContent || '').trim();
         }
-        if (!clientSecret) throw new Error('Secret non lisible. Shopify peut ne l’afficher qu’une seule fois; vérifie la page avant de recommencer.');
+        if (!clientSecret) {
+          clientSecret = readVisibleClientSecret();
+          if (!clientSecret) throw new Error('Secret non lisible. Shopify peut ne l’afficher qu’une seule fois; vérifie la page avant de recommencer.');
+        }
         state = await updatePending({ step: 'registering' });
         await send({
           type: 'SELLMASTER_API',
@@ -384,4 +387,17 @@
     if (pending.autoRun && pending.step && pending.step !== 'waiting_for_dashboard') runAutomation();
     else status('Création en attente pour ' + pending.shopDomain + '.', '');
   });
+
+  function readVisibleClientSecret(root = document) {
+    const elements = SELECTORS.settings.clientSecretInputs
+      .flatMap(selector => Array.from(root.querySelectorAll(selector)));
+    for (const element of elements) {
+      const value = String(element.value || element.textContent || '').trim();
+      if (/^[A-Za-z0-9_-]{20,}$/.test(value)) return value;
+    }
+    const text = root.body?.innerText || document.body.innerText || '';
+    const matches = text.match(/(?:shpss_[A-Za-z0-9_-]{20,}|(?:secret|client secret)[^A-Za-z0-9_-]*([A-Za-z0-9_-]{20,}))/gi);
+    if (matches?.length) return String(matches[0].replace(/^(?:secret|client secret)\s*/i, '')).trim();
+    return '';
+  }
 })();
