@@ -61,6 +61,7 @@ export default function AiPageBuilderView({ onBack }) {
         ? { manual: true, product: { title: manualProduct.title, description: manualProduct.description, price: manualProduct.price ? Number(manualProduct.price) : null, features: manualProduct.features.split('\n').map((item) => item.trim()).filter(Boolean), images: manualProduct.images.split('\n').map((item) => item.trim()).filter(Boolean) } }
         : { url }
       const result = await api.pageBuilderImport(payload)
+      if (!result.project?.id) throw new Error('Le projet n’a pas pu être créé. Réessayez ou utilisez la saisie manuelle.')
       setProject(result.project)
       setStep(1)
     } catch (importError) { setError(importError.message) } finally { setBusy(false) }
