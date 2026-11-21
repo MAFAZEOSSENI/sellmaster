@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, ArrowRight, Check, Image as ImageIcon, LoaderCircle, Link2, Monitor, Pencil, Smartphone, Sparkles, WandSparkles } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, ExternalLink, Image as ImageIcon, LoaderCircle, Link2, Monitor, Pencil, Smartphone, Sparkles, Store, WandSparkles } from 'lucide-react'
 import { api } from './api'
 import './ai-page-builder.css'
 
@@ -45,6 +45,10 @@ export default function AiPageBuilderView({ onBack }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [publishedUrl, setPublishedUrl] = useState('')
+  const [publishTarget, setPublishTarget] = useState('sellmaster')
+  const [stores, setStores] = useState([])
+  const [storeId, setStoreId] = useState('')
+  const [storesLoading, setStoresLoading] = useState(true)
 
   useEffect(() => {
     if (!project) return
@@ -126,13 +130,38 @@ export default function AiPageBuilderView({ onBack }) {
     setBusy(true)
     try {
       if (!page?.id) throw new Error('Sauvegardez la page avant la publication.')
-      const result = await api.pageBuilderPublish(page.id)
+      const result = publishTarget === 'shopify'
+        ? await api.pageBuilderPublishShopify(page.id, { storeId: Number(storeId) })
+        : await api.pageBuilderPublish(page.id)
       setPublishedUrl(result.url)
       setStep(5)
     } catch (publishError) { setError(publishError.message) } finally { setBusy(false) }
   }
 
   const heroImage = project?.product_data?.images?.[0] || assets.find((item) => item.source_url)?.source_url
+
+  useEffect(() => {
+    let active = true
+    api.shopifyStores()
+      .then((result) => {
+        if (!active) return
+        const activeStores = (Array.isArray(result.stores) ? result.stores : []).filter((store) => store.is_active === true || store.is_active === 1 || store.is_active === '1')
+        setStores(activeStores)
+        setStoreId(String(activeStores[0]?.id || ''))
+      })
+      .catch(() => {
+        if (active) setStores([])
+      })
+      .finally(() => {
+        if (active) setStoresLoading(false)
+      })
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    if (storesLoading || !stores.length) return
+    setPublishTarget('sellmaster')
+  }, [storesLoading, stores])
 
   return <div className="ai-page-builder">
     <section className="pb-intro">
@@ -162,6 +191,6 @@ export default function AiPageBuilderView({ onBack }) {
 
     {step === 4 && <section className="pb-panel"><div className="pb-section-heading"><div><span className="panel-overline">ÉTAPE 5 · PAGE</span><h3>Prévisualiser et personnaliser</h3></div><div className="pb-preview-toggle"><button type="button" className={previewMode === 'desktop' ? 'active' : ''} onClick={() => setPreviewMode('desktop')}><Monitor size={15} /> Desktop</button><button type="button" className={previewMode === 'mobile' ? 'active' : ''} onClick={() => setPreviewMode('mobile')}><Smartphone size={15} /> Mobile</button></div></div><div className="pb-editor-grid"><div className="pb-editor"><label>Titre principal<input value={analysis?.commercialName || ''} readOnly /></label><label>Texte d’accroche<textarea rows="4" value={copy?.sections?.[0]?.subtitle || analysis?.shortDescription || ''} readOnly /></label><label>Prix de vente (FCFA)<input type="number" value={price} onChange={(event) => setPrice(event.target.value)} /></label><button className="button button-quiet" type="button" onClick={savePage} disabled={busy}>{busy ? 'Sauvegarde…' : 'Sauvegarder les modifications'}</button></div><div className={`pb-preview ${previewMode}`}><article><span className="pb-preview-kicker">OFFRE LIMITÉE</span><h3>{analysis?.commercialName || project?.product_data?.title}</h3><p>{copy?.sections?.[0]?.subtitle || analysis?.shortDescription}</p>{heroImage && <img src={heroImage} alt="" />}<strong>{price ? `${price} FCFA` : 'Prix à confirmer'}</strong><button type="button">{copy?.sections?.[0]?.cta || 'Commander maintenant'}</button><div className="pb-preview-benefits">{(analysis?.realBenefits || []).slice(0, 3).map((item) => <span key={item}>✓ {item}</span>)}</div></article></div></div><div className="pb-actions"><button className="button button-primary" type="button" onClick={() => setStep(5)}><ArrowRight size={16} /> Préparer la publication</button></div></section>}
 
-    {step === 5 && <section className="pb-panel pb-publish"><div className="pb-publish-icon">{publishedUrl ? <Check size={28} /> : <Sparkles size={28} />}</div><span className="panel-overline">ÉTAPE 6 · PUBLICATION</span><h3>{publishedUrl ? 'Votre page est publiée' : 'Publier cette landing page'}</h3><p>{publishedUrl ? 'Elle est accessible publiquement et les commandes reçues seront enregistrées dans Sellmaster.' : 'Après publication, la page reçoit une URL publique avec métadonnées SEO.'}</p>{publishedUrl && <a className="pb-public-url" href={publishedUrl} target="_blank" rel="noreferrer">{publishedUrl}</a>}<div className="pb-actions"><button className="button button-primary" type="button" disabled={busy || Boolean(publishedUrl)} onClick={publishPage}>{busy ? 'Publication…' : publishedUrl ? 'Publié' : 'Publier maintenant'}</button></div></section>}
+    {step === 5 && <section className="pb-panel pb-publish"><div className="pb-publish-icon">{publishedUrl ? <Check size={28} /> : <Sparkles size={28} />}</div><span className="panel-overline">ÉTAPE 6 · PUBLICATION</span><h3>{publishedUrl ? 'Votre page est publiée' : 'Choisir la destination'}</h3>{!publishedUrl && <div className="pb-publish-targets"><button type="button" className={publishTarget === 'sellmaster' ? 'active' : ''} onClick={() => setPublishTarget('sellmaster')}><Store size={18} /><strong>Page Sellmaster</strong><small>URL publique /p/…</small></button><button type="button" className={publishTarget === 'shopify' ? 'active' : ''} onClick={() => setPublishTarget('shopify')}><Link2 size={18} /><strong>Boutique Shopify</strong><small>Page native /pages/…</small></button></div>}<p>{publishedUrl ? 'Elle est accessible publiquement.' : publishTarget === 'shopify' ? 'La page sera créée ou mise à jour dans Shopify avec toutes les images disponibles.' : 'La page recevra une URL publique Sellmaster.'}</p>{publishTarget === 'shopify' && !publishedUrl && <label className="pb-publish-store">Boutique Shopify{storesLoading ? <span>Chargement…</span> : stores.length === 0 ? <span>Aucune boutique active</span> : <select value={storeId} onChange={(event) => setStoreId(event.target.value)}>{stores.map((store) => <option key={store.id} value={store.id}>{store.shop_name}</option>)}</select>}</label>}{publishedUrl && <a className="pb-public-url" href={publishedUrl} target="_blank" rel="noreferrer">{publishedUrl} <ExternalLink size={14} /></a>}<div className="pb-actions"><button className="button button-primary" type="button" disabled={busy || Boolean(publishedUrl) || (publishTarget === 'shopify' && (!storeId || storesLoading))} onClick={publishPage}>{busy ? 'Publication…' : publishedUrl ? 'Publié' : publishTarget === 'shopify' ? 'Publier dans Shopify' : 'Publier sur Sellmaster'}</button></div></section>}
   </div>
 }

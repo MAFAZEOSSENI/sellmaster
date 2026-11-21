@@ -11,6 +11,9 @@ const { generateText, generateImage } = require('../services/pageBuilder/aiProvi
 const { getAiConfig } = require('../services/pageBuilder/aiConfig');
 const { recordAiUsage, countPageImageUsage } = require('../services/pageBuilder/aiUsage');
 const Order = require('../models/Order');
+const axios = require('axios');
+const ShopifyConfig = require('../models/ShopifyConfig');
+const shopifyMiddleware = require('../middleware/shopify.middleware');
 
 const router = express.Router();
 const aiLimiter = rateLimit({ windowMs: 60 * 1000, limit: 12, standardHeaders: 'draft-7', legacyHeaders: false, message: { error: 'Limite de génération IA atteinte. Réessayez dans une minute.' } });
@@ -186,6 +189,74 @@ router.post('/projects/:id/assets/generate', aiLimiter, async (req, res) => {
     return res.json({ pageId: page.id, assets: results });
   } catch (error) {
     return res.status(502).json({ error: error.message });
+  }
+});
+
+function escapeShopifyHtml(value) {
+  return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function buildShopifyPageHtml(page) {
+  const content = page?.content_json || {};
+  const analysis = content.analysis || {};
+  const copy = content.copy || {};
+  const sections = Array.isArray(copy.sections) ? copy.sections : [];
+  const sourceImages = Array.isArray(page?.content_json?.images) ? page.content_json.images : [];
+  const productImages = Array.isArray(page?.project?.product_data?.images) ? page.project.product_data.images : [];
+  const images = [...new Set([...sourceImages, ...productImages])].filter((url) => /^https:\/\//i.test(String(url))).slice(0, 20);
+  const title = escapeShopifyHtml(page.title || analysis.commercialName || 'Landing page');
+  const subtitle = escapeShopifyHtml(copy.sections?.[0]?.subtitle || analysis.shortDescription || '');
+  const benefits = Array.isArray(analysis.realBenefits) ? analysis.realBenefits : [];
+  const price = Number(content.offer?.price);
+  const cta = escapeShopifyHtml(copy.sections?.[0]?.cta || 'Commander maintenant');
+
+  const gallery = images.map((url) => `<img src="${escapeShopifyHtml(url)}" alt="${title}" style="width:100%;max-width:760px;height:auto;margin:12px auto;border-radius:12px;object-fit:cover;" />`).join('');
+  const benefitHtml = benefits.slice(0, 8).map((item) => `<li>${escapeShopifyHtml(item)}</li>`).join('');
+  const sectionHtml = sections.map((section) => {
+    if (!section?.title && !section?.subtitle && !section?.body) return '';
+    return `<section style="max-width:760px;margin:32px auto;text-align:left;"><h2>${escapeShopifyHtml(section.title)}</h2>${section.subtitle ? `<h3>${escapeShopifyHtml(section.subtitle)}</h3>` : ''}${section.body ? `<p>${escapeShopifyHtml(section.body)}</p>` : ''}</section>`;
+  }).join('');
+
+  return `<main style="max-width:980px;margin:auto;padding:32px 16px;text-align:center;font-family:Arial,sans-serif;"><h1>${title}</h1>${subtitle ? `<p style="font-size:18px;color:#526170;">${subtitle}</p>` : ''}${gallery}${sectionHtml}${benefitHtml ? `<ul style="display:inline-block;text-align:left;line-height:1.8;margin:24px auto;">${benefitHtml}</ul>` : ''}${Number.isFinite(price) && price > 0 ? `<p style="font-size:28px;font-weight:700;">${new Intl.NumberFormat('fr-FR').format(price)} FCFA</p>` : ''}<p><a href="#" style="display:inline-block;padding:14px 24px;border-radius:10px;background:#087a60;color:#fff;text-decoration:none;font-weight:700;">${cta}</a></p></main>`;
+}
+
+router.post('/pages/:id/publish-shopify', shopifyMiddleware.validateStoreOwnership, async (req, res) => {
+  try {
+    const storeId = Number(req.body?.storeId);
+    if (!storeId || Number(req.shopifyStore?.id) !== storeId) return res.status(400).json({ error: 'Identifiant de boutique Shopify invalide.' });
+    if (!req.shopifyStore?.is_active || !req.shopifyStore?.access_token) return res.status(409).json({ error: 'Cette boutique Shopify est inactive ou ne possède pas de jeton d’accès.' });
+
+    const page = await PageBuilder.getPage(Number(req.userId), req.params.id);
+    if (!page) return res.status(404).json({ error: 'Page introuvable.' });
+    const project = await PageBuilder.findProject(Number(req.userId), page.project_id);
+    const shopPage = { ...page, project };
+
+    const shopDomain = String(req.shopifyStore.shop_name || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
+    if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shopDomain)) return res.status(409).json({ error: 'Le domaine Shopify configuré est invalide.' });
+
+    const apiVersion = process.env.SHOPIFY_API_VERSION || '2026-07';
+    const headers = { 'X-Shopify-Access-Token': req.shopifyStore.access_token, 'Content-Type': 'application/json', Accept: 'application/json' };
+    const slug = page.slug;
+
+    let existing = null;
+    const listResponse = await axios.get(`https://${shopDomain}/admin/api/${apiVersion}/pages.json`, { params: { handle: slug, limit: 250 }, headers, timeout: 20000 });
+    existing = (listResponse.data?.pages || []).find((item) => item.handle === slug) || null;
+
+    const payload = { page: { title: page.title, handle: slug, body_html: buildShopifyPageHtml(shopPage), published: true } };
+    const response = existing
+      ? await axios.put(`https://${shopDomain}/admin/api/${apiVersion}/pages/${existing.id}.json`, payload, { headers, timeout: 20000 })
+      : await axios.post(`https://${shopDomain}/admin/api/${apiVersion}/pages.json`, payload, { headers, timeout: 20000 });
+
+    const publishedPage = response.data?.page;
+    if (!publishedPage?.id) throw new Error('Shopify n’a pas retourné la page publiée.');
+    const shopUrl = `https://${shopDomain}/pages/${encodeURIComponent(publishedPage.handle || slug)}`;
+    const adminUrl = `https://${shopDomain}/admin/pages/${publishedPage.id}`;
+    return res.json({ success: true, page: publishedPage, url: shopUrl, adminUrl });
+  } catch (error) {
+    const status = error.response?.status;
+    if (status === 401 || status === 403) return res.status(403).json({ error: 'Autorisation Shopify insuffisante. Reconnectez la boutique avec write_content.' });
+    console.error('[Page Builder] Shopify publish failed:', error.response?.data || error.message);
+    return res.status(status && status >= 400 && status < 500 ? status : 502).json({ error: 'Impossible de publier cette page dans Shopify.', details: error.response?.data || error.message });
   }
 });
 

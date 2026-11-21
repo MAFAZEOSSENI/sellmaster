@@ -68,10 +68,18 @@ function extractGeneric(html, url) {
   const price = offers?.price ?? ld.price ?? null;
 
   const images = [];
-  if (typeof imageUrl === 'string' && /^https:\/\//i.test(imageUrl)) images.push(imageUrl);
-  for (const match of html.matchAll(/(?:property=["']og:image(?::secure_url)?["']|name=["']twitter:image["'])[^>]*content=["']([^"']+)/gi)) {
-    if (/^https:\/\//i.test(match[1]) && !images.includes(match[1])) images.push(match[1]);
-  }
+  const addImage = (value) => {
+    if (typeof value !== 'string') return;
+    const candidate = htmlEntities(value).trim();
+    if (/^https:\/\//i.test(candidate) && !images.includes(candidate)) images.push(candidate);
+  };
+
+  if (Array.isArray(ld.image)) ld.image.forEach((item) => addImage(typeof item === 'string' ? item : item?.url));
+  else addImage(typeof ld.image === 'string' ? ld.image : ld.image?.url);
+  addImage(imageUrl);
+
+  for (const match of html.matchAll(/(?:property=["']og:image(?::secure_url)?["']|name=["']twitter:image["'])[^>]*content=["']([^"']+)/gi)) addImage(match[1]);
+  for (const match of html.matchAll(/(?:data-src|data-original|data-image|src)=["']([^"']+\.(?:jpg|jpeg|png|webp)(?:[?&#][^"']*)?)["']/gi)) addImage(match[1]);
 
   return {
     title: htmlEntities(title).trim().slice(0, 300),
