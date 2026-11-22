@@ -59,17 +59,25 @@ export default function PublicPage({ slug }) {
   const seo = page?.seo_json || {}
   const analysis = content.analysis || {}
   const copy = content.copy || {}
-  const hero = copy.sections?.[0]
+  const sections = Array.isArray(copy.sections) ? copy.sections : []
+  const hero = sections.find((section) => section.id === 'hero' || section.stage === 'attention') || sections[0]
+  const generatedAssets = content.generatedAssets || {}
   const benefits = analysis.realBenefits || []
   const price = content.offer?.price
+  const imageForSection = (section) => {
+    if (generatedAssets[section?.imageType]) return generatedAssets[section.imageType]
+    if (section?.stage === 'attention' || section?.id === 'hero') return content.images?.[0] || ''
+    return ''
+  }
+  const stageLabels = { attention: 'Attention', interest: 'Intérêt', desire: 'Désir', action: 'Action' }
 
   return <main className="public-page" style={{ '--public-accent': page?.theme_json?.accent || '#087b60' }}>
     <section className="public-hero">
-      <div className="public-hero-copy"><span className="public-kicker">OFFRE EXCLUSIVE</span><h1>{page.title}</h1><p>{hero?.subtitle || analysis.shortDescription || page.title}</p>{benefits.length > 0 && <ul>{benefits.slice(0, 4).map((item) => <li key={item}>✓ {item}</li>)}</ul>}<button type="button" onClick={() => document.querySelector('#public-order')?.scrollIntoView({ behavior: 'smooth' })}>{hero?.cta || 'Commander maintenant'} →</button></div>
-      <div className="public-hero-media"><img src={(page.content_json?.images?.[0]) || '/sellmaster-mark.svg'} alt={page.title} /></div>
+      <div className="public-hero-copy"><span className="public-kicker">{stageLabels[hero?.stage] || 'Attention'}</span><h1>{hero?.title || page.title}</h1><p>{hero?.subtitle || analysis.shortDescription || page.title}</p>{hero?.body && <p>{hero.body}</p>}{benefits.length > 0 && <ul>{benefits.slice(0, 4).map((item) => <li key={item}>✓ {item}</li>)}</ul>}<button type="button" onClick={() => document.querySelector('#public-order')?.scrollIntoView({ behavior: 'smooth' })}>{hero?.cta || 'Commander maintenant'} →</button></div>
+      <div className="public-hero-media"><img src={imageForSection(hero) || '/sellmaster-mark.svg'} alt={page.title} /></div>
     </section>
 
-    {(copy.sections || []).filter((section) => section.id !== 'hero').slice(0, 4).map((section) => <section className="public-section" key={section.id}><span>SELLMASTER</span><h2>{section.title}</h2>{section.subtitle && <h3>{section.subtitle}</h3>}<p>{section.body}</p>{section.items?.length > 0 && <div className="public-benefit-grid">{section.items.map((item) => <article key={item.title || item.question}><strong>{item.title || item.question}</strong><p>{item.text || item.answer}</p></article>)}</div>}</section>)}
+    {sections.filter((section) => section.id !== 'hero' && section.stage !== 'attention').map((section, index) => <section className={`public-section ${index % 2 ? 'reverse' : ''}`} key={section.id}><div className="public-section-copy"><span>{stageLabels[section.stage] || 'Détails du produit'}</span><h2>{section.title}</h2>{section.subtitle && <h3>{section.subtitle}</h3>}{section.body && <p>{section.body}</p>}{section.items?.length > 0 && <div className="public-benefit-grid">{section.items.map((item) => <article key={item.title || item.question}><strong>{item.title || item.question}</strong><p>{item.text || item.answer}</p></article>)}</div>}{section.stage === 'action' && <><strong className="public-section-price">{price ? `${Number(price).toLocaleString('fr-FR')} FCFA` : 'Prix à confirmer'}</strong><button type="button" onClick={() => document.querySelector('#public-order')?.scrollIntoView({ behavior: 'smooth' })}>{section.cta || 'Commander maintenant'} →</button></>}</div>{imageForSection(section) && <div className="public-section-media"><img src={imageForSection(section)} alt={section.title || page.title} loading="lazy" /></div>}</section>)}
 
     <section className="public-order-section" id="public-order">
       <div><span>COMMANDE RAPIDE</span><h2>Recevez votre produit</h2><strong>{price ? `${Number(price).toLocaleString('fr-FR')} FCFA` : 'Prix à confirmer'}</strong><p>Paiement et livraison selon les informations validées par le vendeur.</p></div>

@@ -4,6 +4,8 @@ const { parseHttpsUrl, isPublicIpv4 } = require('../utils/pageBuilderUrl');
 const { extractGeneric } = require('../services/pageBuilder/productExtractor');
 const { getAiConfig } = require('../services/pageBuilder/aiConfig');
 const { stripAndParseJson, withGeminiRetry } = require('../services/pageBuilder/aiProvider');
+const { buildShopifyPageHtml } = require('../utils/pageBuilderHtml');
+const { normalizeAidaCopy } = require('../utils/pageBuilderAida');
 
 test('page builder accepts only valid HTTPS public product URLs', () => {
   assert.equal(parseHttpsUrl('http://example.com/product')?.protocol, undefined);
@@ -64,6 +66,50 @@ test('Gemini does not retry client errors', async () => {
   }, { delayMs: 0 }), /Invalid request/);
 
   assert.equal(attempts, 1);
+});
+
+test('Shopify page HTML renders AIDA sections in order with their matching images', () => {
+  const html = buildShopifyPageHtml({
+    title: 'Produit test',
+    content_json: {
+      copy: { sections: [
+        { id: 'hero', stage: 'attention', title: 'Attirer', imageType: 'hero' },
+        { id: 'interest', stage: 'interest', title: 'Intéresser', imageType: 'lifestyle' },
+        { id: 'desire', stage: 'desire', title: 'Donner envie', imageType: 'benefit' },
+        { id: 'action', stage: 'action', title: 'Agir', imageType: 'offer', cta: 'Commander' },
+      ] },
+      generatedAssets: {
+        hero: 'https://cdn.example/hero.jpg',
+        lifestyle: 'https://cdn.example/lifestyle.jpg',
+        benefit: 'https://cdn.example/benefit.jpg',
+        offer: 'https://cdn.example/offer.jpg',
+      },
+      offer: { price: 8500 },
+    },
+  });
+
+  assert.ok(html.indexOf('ATTENTION') < html.indexOf('INTÉRÊT'));
+  assert.ok(html.indexOf('INTÉRÊT') < html.indexOf('DÉSIR'));
+  assert.ok(html.indexOf('DÉSIR') < html.indexOf('ACTION'));
+  assert.match(html, /src="https:\/\/cdn\.example\/lifestyle\.jpg"/);
+  assert.match(html, /src="https:\/\/cdn\.example\/benefit\.jpg"/);
+  assert.match(html, /src="https:\/\/cdn\.example\/offer\.jpg"/);
+});
+
+test('AIDA normalization restores canonical stage order and image types', () => {
+  const result = normalizeAidaCopy({ sections: [
+    { id: 'action', stage: 'wrong', imageType: 'hero', title: 'Commander' },
+    { id: 'hero', title: 'Découvrir' },
+  ] });
+
+  assert.equal(result.framework, 'AIDA');
+  assert.deepEqual(result.sections.map(({ id, stage, imageType }) => [id, stage, imageType]), [
+    ['hero', 'attention', 'hero'],
+    ['interest', 'interest', 'lifestyle'],
+    ['desire', 'desire', 'benefit'],
+    ['action', 'action', 'offer'],
+  ]);
+  assert.equal(result.sections[3].title, 'Commander');
 });
 
 test('Shopify extractor preserves the full gallery and variant data', () => {

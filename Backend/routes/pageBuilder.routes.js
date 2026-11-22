@@ -10,6 +10,8 @@ const { extractProduct } = require('../services/pageBuilder/productExtractor');
 const { generateText, generateImage } = require('../services/pageBuilder/aiProvider');
 const { getAiConfig } = require('../services/pageBuilder/aiConfig');
 const { recordAiUsage, countPageImageUsage } = require('../services/pageBuilder/aiUsage');
+const { buildShopifyPageHtml } = require('../utils/pageBuilderHtml');
+const { normalizeAidaCopy } = require('../utils/pageBuilderAida');
 const Order = require('../models/Order');
 const axios = require('axios');
 const ShopifyConfig = require('../models/ShopifyConfig');
@@ -97,10 +99,20 @@ router.post('/projects/:id/copy', aiLimiter, async (req, res) => {
     const project = await PageBuilder.findProject(Number(req.userId), req.params.id);
     if (!project) return res.status(404).json({ error: 'Projet introuvable.' });
     const angle = String(req.body?.angle || 'Problème → Solution').slice(0, 100);
-    const content = await generateText(`Crée un copywriting e-commerce vérifiable. Ne fabrique ni témoignage, ni résultat, ni garantie, ni certification. Retourne JSON: {
-"sections":[{"id":"hero","title":"","subtitle":"","body":"","cta":""},{"id":"problem","title":"","subtitle":"","body":"","cta":""},{"id":"solution","title":"","subtitle":"","body":"","cta":""},{"id":"benefits","title":"","items":[{"title":"","text":""}],"cta":""},{"id":"offer","title":"","text":"","packs":[],"cta":""},{"id":"faq","title":"","items":[{"question":"","answer":""}]},{"id":"final_cta","title":"","body":"","cta":""}],
-"warnings":[]
-}. Produit: ${JSON.stringify(project.product_data)}. Analyse: ${JSON.stringify(project.ai_analysis)}. Marché: ${req.body?.market || 'Bénin'}. Langue: ${req.body?.language || 'Français'}. Angle: ${angle}. Prix validé: ${req.body?.price ?? 'non fourni'}. Livraison/COD: ${JSON.stringify(req.body?.cod || {})}.`);
+    const draft = await generateText(`Rédige une landing page e-commerce avec une progression AIDA explicite et vérifiable. Réponds uniquement au format JSON demandé. Les seules affirmations permises sont celles confirmées dans les données produit et l’analyse. N’invente jamais résultats, délais, pourcentages, avis clients, témoignages, stocks limités, réductions, garanties, certifications, ingrédients ou bénéfices médicaux/cosmétiques non prouvés. Pour un produit de santé, hygiène ou cosmétique, évite toute promesse thérapeutique ou résultat mesuré absent des sources. Si une information manque, reste descriptif et ajoute un avertissement dans warnings.
+  Chaque section doit être courte, lisible sur mobile et contenir un imageType correspondant au visuel à placer: hero, lifestyle, benefit ou offer. Retourne ce JSON:
+  {
+  "framework":"AIDA",
+  "sections":[
+  {"id":"hero","stage":"attention","imageType":"hero","title":"","subtitle":"","body":"","cta":""},
+  {"id":"interest","stage":"interest","imageType":"lifestyle","title":"","subtitle":"","body":"","cta":""},
+  {"id":"desire","stage":"desire","imageType":"benefit","title":"","subtitle":"","body":"","items":[{"title":"","text":""}],"cta":""},
+  {"id":"action","stage":"action","imageType":"offer","title":"","subtitle":"","body":"","items":[],"cta":""}
+  ],
+  "warnings":[]
+  }
+  Produit: ${JSON.stringify(project.product_data)}. Analyse: ${JSON.stringify(project.ai_analysis)}. Marché: ${req.body?.market || 'Bénin'}. Langue: ${req.body?.language || 'Français'}. Angle: ${angle}. Prix validé par le vendeur: ${req.body?.price ?? 'non fourni'}. Livraison/COD: ${JSON.stringify(req.body?.cod || {})}.`);
+    const content = normalizeAidaCopy(draft);
     await PageBuilder.updateProject(Number(req.userId), project.id, { status: 'copy-ready' });
     await recordAiUsage({ userId: Number(req.userId), projectId: project.id, operation: 'text.copy', model: getAiConfig().textModel, units: 1, metadata: { market: req.body?.market || 'Bénin', language: req.body?.language || 'Français', angle } });
     return res.json({ content });
@@ -172,15 +184,15 @@ router.post('/projects/:id/assets/generate', aiLimiter, async (req, res) => {
         results.push(failed || { id: pending.id, generation_status: 'failed', error: error.message });
       }
     }
-    const successfulUrls = results
-      .map((item) => item?.source_url)
-      .filter((value) => typeof value === 'string' && value.trim())
+    const successfulAssets = results.filter((item) => typeof item?.source_url === 'string' && item.source_url.trim());
+    const successfulUrls = successfulAssets.map((item) => item.source_url);
+    const generatedAssets = Object.fromEntries(successfulAssets.map((item) => [item.asset_type, item.source_url]));
     if (successfulUrls.length) {
       await PageBuilder.createOrUpdatePage(Number(req.userId), project.id, {
         id: page.id,
         title: page.title,
         template: page.template,
-        content_json: { ...(req.body?.content || {}), images: successfulUrls },
+        content_json: { ...(req.body?.content || {}), images: successfulUrls, generatedAssets },
         theme_json: page.theme_json || {},
         seo_json: page.seo_json || {},
         status: page.status,
@@ -191,34 +203,6 @@ router.post('/projects/:id/assets/generate', aiLimiter, async (req, res) => {
     return res.status(502).json({ error: error.message });
   }
 });
-
-function escapeShopifyHtml(value) {
-  return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
-function buildShopifyPageHtml(page) {
-  const content = page?.content_json || {};
-  const analysis = content.analysis || {};
-  const copy = content.copy || {};
-  const sections = Array.isArray(copy.sections) ? copy.sections : [];
-  const sourceImages = Array.isArray(page?.content_json?.images) ? page.content_json.images : [];
-  const productImages = Array.isArray(page?.project?.product_data?.images) ? page.project.product_data.images : [];
-  const images = [...new Set([...sourceImages, ...productImages])].filter((url) => /^https:\/\//i.test(String(url))).slice(0, 20);
-  const title = escapeShopifyHtml(page.title || analysis.commercialName || 'Landing page');
-  const subtitle = escapeShopifyHtml(copy.sections?.[0]?.subtitle || analysis.shortDescription || '');
-  const benefits = Array.isArray(analysis.realBenefits) ? analysis.realBenefits : [];
-  const price = Number(content.offer?.price);
-  const cta = escapeShopifyHtml(copy.sections?.[0]?.cta || 'Commander maintenant');
-
-  const gallery = images.map((url) => `<img src="${escapeShopifyHtml(url)}" alt="${title}" style="width:100%;max-width:760px;height:auto;margin:12px auto;border-radius:12px;object-fit:cover;" />`).join('');
-  const benefitHtml = benefits.slice(0, 8).map((item) => `<li>${escapeShopifyHtml(item)}</li>`).join('');
-  const sectionHtml = sections.map((section) => {
-    if (!section?.title && !section?.subtitle && !section?.body) return '';
-    return `<section style="max-width:760px;margin:32px auto;text-align:left;"><h2>${escapeShopifyHtml(section.title)}</h2>${section.subtitle ? `<h3>${escapeShopifyHtml(section.subtitle)}</h3>` : ''}${section.body ? `<p>${escapeShopifyHtml(section.body)}</p>` : ''}</section>`;
-  }).join('');
-
-  return `<main style="max-width:980px;margin:auto;padding:32px 16px;text-align:center;font-family:Arial,sans-serif;"><h1>${title}</h1>${subtitle ? `<p style="font-size:18px;color:#526170;">${subtitle}</p>` : ''}${gallery}${sectionHtml}${benefitHtml ? `<ul style="display:inline-block;text-align:left;line-height:1.8;margin:24px auto;">${benefitHtml}</ul>` : ''}${Number.isFinite(price) && price > 0 ? `<p style="font-size:28px;font-weight:700;">${new Intl.NumberFormat('fr-FR').format(price)} FCFA</p>` : ''}<p><a href="#" style="display:inline-block;padding:14px 24px;border-radius:10px;background:#087a60;color:#fff;text-decoration:none;font-weight:700;">${cta}</a></p></main>`;
-}
 
 router.post('/pages/:id/publish-shopify', shopifyMiddleware.validateStoreOwnership, async (req, res) => {
   try {
