@@ -62,6 +62,10 @@ function buildGeminiImageInput(prompt, references = []) {
   ];
 }
 
+function buildGeminiImageRequestOptions() {
+  return { apiVersion: 'v1beta', httpOptions: { timeout: 120000 } };
+}
+
 function extractGeneratedImages(interaction) {
   const images = [];
   const seen = new Set();
@@ -146,7 +150,7 @@ async function generateImage(prompt, options = {}) {
       model: config.imageModel,
       input: buildGeminiImageInput(imagePrompt, references),
       response_format: { type: 'image', aspect_ratio: aspectRatio },
-    }, { httpOptions: { timeout: 120000 } }), { model: config.imageModel });
+    }, buildGeminiImageRequestOptions()), { model: config.imageModel });
 
     const images = extractGeneratedImages(response);
     if (!images.length) throw new Error('Gemini n’a retourné aucune image.');
@@ -162,5 +166,6 @@ module.exports = {
   stripAndParseJson,
   withGeminiRetry,
   buildGeminiImageInput,
+  buildGeminiImageRequestOptions,
   extractGeneratedImages,
 };
