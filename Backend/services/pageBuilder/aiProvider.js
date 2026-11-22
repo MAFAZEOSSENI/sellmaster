@@ -3,6 +3,27 @@ const { GoogleGenAI } = require('@google/genai');
 const { getAiConfig } = require('./aiConfig');
 const { assertSafePublicUrl } = require('../../utils/pageBuilderUrl');
 
+async function withGeminiRetry(operation, options = {}) {
+  const maxAttempts = options.maxAttempts || 3;
+  const delayMs = options.delayMs ?? 1000;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      const status = Number(error?.status || error?.statusCode || error?.response?.status);
+      if (status < 500 || status > 599 || attempt === maxAttempts) throw error;
+
+      console.warn('[Gemini] Temporary server error; retrying request', {
+        status,
+        attempt,
+        model: options.model,
+      });
+      await new Promise((resolve) => setTimeout(resolve, delayMs * (2 ** (attempt - 1))));
+    }
+  }
+}
+
 function stripAndParseJson(text) {
   const cleaned = String(text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
   if (!cleaned) throw new Error('Gemini n’a retourné aucun texte exploitable.');
@@ -33,17 +54,17 @@ function classifyGeminiError(error) {
 async function generateText(prompt, options = {}) {
   const { ai, config } = createClient();
   try {
-    const response = await ai.models.generateContent({
-      model: config.textModel,
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: {
-        systemInstruction: 'Tu es un expert e-commerce francophone. Réponds uniquement en JSON valide. Ne confirme jamais une donnée non fournie. Ne fabrique ni témoignage, ni garantie, ni certification, ni performance médicale ou technique non confirmée.',
-        responseMimeType: 'application/json',
-        temperature: options.temperature,
-        maxOutputTokens: options.maxOutputTokens || 4096,
-        httpOptions: { timeout: 60000 },
-      },
-    });
+    const response = await withGeminiRetry(() => ai.models.generateContent({
+        model: config.textModel,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        config: {
+          systemInstruction: 'Tu es un expert e-commerce francophone. Réponds uniquement en JSON valide. Ne confirme jamais une donnée non fournie. Ne fabrique ni témoignage, ni garantie, ni certification, ni performance médicale ou technique non confirmée.',
+          responseMimeType: 'application/json',
+          temperature: options.temperature,
+          maxOutputTokens: options.maxOutputTokens || 4096,
+          httpOptions: { timeout: 60000 },
+        },
+      }), { model: config.textModel });
     return stripAndParseJson(response?.text);
   } catch (error) {
     throw classifyGeminiError(error);
@@ -85,15 +106,15 @@ async function generateImage(prompt, options = {}) {
   }
 
   try {
-    const response = await ai.models.generateContent({
-      model: config.imageModel,
-      contents: [{ role: 'user', parts }],
-      config: {
-        responseModalities: ['TEXT', 'IMAGE'],
-        imageConfig: { aspectRatio },
-        httpOptions: { timeout: 120000 },
-      },
-    });
+    const response = await withGeminiRetry(() => ai.models.generateContent({
+        model: config.imageModel,
+        contents: [{ role: 'user', parts }],
+        config: {
+          responseModalities: ['TEXT', 'IMAGE'],
+          imageConfig: { aspectRatio },
+          httpOptions: { timeout: 120000 },
+        },
+      }), { model: config.imageModel });
 
     const candidates = response?.candidates || [];
     const images = [];
@@ -112,4 +133,4 @@ async function generateImage(prompt, options = {}) {
   }
 }
 
-module.exports = { generateText, generateImage, stripAndParseJson };
+module.exports = { generateText, generateImage, stripAndParseJson, withGeminiRetry };

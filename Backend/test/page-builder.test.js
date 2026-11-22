@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { parseHttpsUrl, isPublicIpv4 } = require('../utils/pageBuilderUrl');
 const { extractGeneric } = require('../services/pageBuilder/productExtractor');
 const { getAiConfig } = require('../services/pageBuilder/aiConfig');
-const { stripAndParseJson } = require('../services/pageBuilder/aiProvider');
+const { stripAndParseJson, withGeminiRetry } = require('../services/pageBuilder/aiProvider');
 
 test('page builder accepts only valid HTTPS public product URLs', () => {
   assert.equal(parseHttpsUrl('http://example.com/product')?.protocol, undefined);
@@ -42,6 +42,28 @@ test('Gemini configuration uses centralized environment defaults', () => {
   assert.equal(config.imageModel, 'gemini-nano-banana-2.1');
   assert.equal(stripAndParseJson('{"commercialName":"Produit"}').commercialName, 'Produit');
   process.env = previous;
+});
+
+test('Gemini retries a temporary server error and returns the successful response', async () => {
+  let attempts = 0;
+  const result = await withGeminiRetry(async () => {
+    attempts += 1;
+    if (attempts === 1) throw Object.assign(new Error('Temporary upstream error'), { status: 502 });
+    return 'success';
+  }, { model: 'test-model', delayMs: 0 });
+
+  assert.equal(result, 'success');
+  assert.equal(attempts, 2);
+});
+
+test('Gemini does not retry client errors', async () => {
+  let attempts = 0;
+  await assert.rejects(() => withGeminiRetry(async () => {
+    attempts += 1;
+    throw Object.assign(new Error('Invalid request'), { status: 400 });
+  }, { delayMs: 0 }), /Invalid request/);
+
+  assert.equal(attempts, 1);
 });
 
 test('Shopify extractor preserves the full gallery and variant data', () => {
