@@ -6,6 +6,7 @@ const { getAiConfig } = require('../services/pageBuilder/aiConfig');
 const { stripAndParseJson, withGeminiRetry } = require('../services/pageBuilder/aiProvider');
 const { buildShopifyPageHtml } = require('../utils/pageBuilderHtml');
 const { normalizeAidaCopy } = require('../utils/pageBuilderAida');
+const { resolvePageVisual } = require('../utils/pageBuilderVisuals');
 
 test('page builder accepts only valid HTTPS public product URLs', () => {
   assert.equal(parseHttpsUrl('http://example.com/product')?.protocol, undefined);
@@ -94,6 +95,20 @@ test('Shopify page HTML renders AIDA sections in order with their matching image
   assert.match(html, /src="https:\/\/cdn\.example\/lifestyle\.jpg"/);
   assert.match(html, /src="https:\/\/cdn\.example\/benefit\.jpg"/);
   assert.match(html, /src="https:\/\/cdn\.example\/offer\.jpg"/);
+});
+
+test('page visual selection supports original images and Gemini images per section', () => {
+  const page = { content_json: {
+    sourceImages: ['https://source.example/one.jpg', 'https://source.example/two.jpg'],
+    generatedAssets: { hero: '/uploads/page-builder/hero.png' },
+    visualSources: {
+      hero: { source: 'generated' },
+      lifestyle: { source: 'original', imageIndex: 1 },
+    },
+  } };
+
+  assert.equal(resolvePageVisual(page, { imageType: 'hero' }), 'https://sellmaster-1.onrender.com/uploads/page-builder/hero.png');
+  assert.equal(resolvePageVisual(page, { imageType: 'lifestyle' }), 'https://source.example/two.jpg');
 });
 
 test('AIDA normalization restores canonical stage order and image types', () => {

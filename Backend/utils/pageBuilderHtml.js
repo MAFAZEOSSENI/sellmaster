@@ -1,3 +1,5 @@
+const { resolvePageVisual } = require('./pageBuilderVisuals');
+
 function escapeShopifyHtml(value) {
   return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
@@ -11,13 +13,13 @@ function buildShopifyPageHtml(page) {
   const analysis = content.analysis || {};
   const copy = content.copy || {};
   const sections = Array.isArray(copy.sections) ? copy.sections : [];
-  const generatedAssets = content.generatedAssets || {};
   const productImages = Array.isArray(page?.project?.product_data?.images)
     ? page.project.product_data.images.map(safeImageUrl).filter(Boolean)
     : [];
   const title = escapeShopifyHtml(page.title || analysis.commercialName || 'Landing page');
   const hero = sections.find((section) => section.id === 'hero' || section.stage === 'attention') || sections[0] || {};
-  const heroImage = safeImageUrl(generatedAssets.hero) || safeImageUrl(content.images?.[0]) || productImages[0] || '';
+  const heroImage = resolvePageVisual(page, { id: 'hero', imageType: 'hero' }, 0)
+    || safeImageUrl(content.images?.[0]) || productImages[0] || '';
   const price = Number(content.offer?.price);
   const stageLabels = { attention: 'ATTENTION', interest: 'INTÉRÊT', desire: 'DÉSIR', action: 'ACTION' };
 
@@ -25,7 +27,7 @@ function buildShopifyPageHtml(page) {
     ? `<ul style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;padding:0;list-style:none;">${items.slice(0, 8).map((item) => `<li style="padding:16px;border:1px solid #e1e7e4;border-radius:8px;background:#fff;"><strong>${escapeShopifyHtml(item.title || item.question)}</strong><p>${escapeShopifyHtml(item.text || item.answer)}</p></li>`).join('')}</ul>`
     : '';
   const sectionHtml = sections.filter((section) => section.id !== 'hero' && section.id !== 'action' && section.stage !== 'attention' && section.stage !== 'action').map((section, index) => {
-    const image = safeImageUrl(generatedAssets[section.imageType]) || '';
+    const image = resolvePageVisual(page, section, index + 1);
     const imageHtml = image
       ? `<img src="${escapeShopifyHtml(image)}" alt="${escapeShopifyHtml(section.title || title)}" style="width:100%;max-width:440px;max-height:440px;object-fit:cover;border-radius:12px;" />`
       : '';
@@ -39,7 +41,7 @@ function buildShopifyPageHtml(page) {
   const heroHtml = `<section style="max-width:1180px;margin:auto;padding:48px 24px;display:flex;flex-wrap:wrap;align-items:center;gap:36px;"><div style="flex:1;min-width:280px;"><p style="color:#087a60;font-size:12px;font-weight:700;">ATTENTION</p><h1>${escapeShopifyHtml(hero.title || title)}</h1>${subtitle ? `<p style="font-size:18px;line-height:1.7;color:#526170;">${subtitle}</p>` : ''}${hero.body ? `<p>${escapeShopifyHtml(hero.body)}</p>` : ''}<p style="display:inline-block;padding:13px 20px;border-radius:6px;background:#087a60;color:#fff;font-weight:700;">${heroCta}</p></div>${heroMedia ? `<div style="flex:1;min-width:280px;text-align:center;">${heroMedia}</div>` : ''}</section>`;
   const action = sections.find((section) => section.stage === 'action' || section.id === 'action');
   const actionCta = escapeShopifyHtml(action?.cta || hero.cta || 'Commander maintenant');
-  const actionImage = safeImageUrl(generatedAssets[action?.imageType || 'offer']);
+  const actionImage = action ? resolvePageVisual(page, action, 3) : '';
   const actionImageHtml = actionImage
     ? `<img src="${escapeShopifyHtml(actionImage)}" alt="${escapeShopifyHtml(action?.title || title)}" style="width:100%;max-width:440px;max-height:360px;object-fit:cover;border-radius:12px;" />`
     : '';

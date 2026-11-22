@@ -1,5 +1,26 @@
 .public-page { --public-accent:#087b60; min-height:100vh; background:#f7f8f5; color:#172238; }
 .public-page-loading,.public-page-error { min-height:100vh; display:grid; place-content:center; text-align:center; padding:24px; }
+.public-product-layout { max-width:1240px; margin:auto; padding:38px 24px 54px; display:grid; grid-template-columns:minmax(0,1.05fr) minmax(360px,.95fr); gap:48px; align-items:start; }
+.public-product-gallery { min-width:0; }
+.public-gallery-main { display:grid; place-items:center; min-height:480px; background:#fff; }
+.public-gallery-main img { width:100%; max-height:650px; aspect-ratio:1/1; object-fit:contain; }
+.public-gallery-empty { display:grid; place-items:center; width:100%; min-height:360px; color:#667085; }
+.public-gallery-thumbs { display:flex; gap:10px; overflow-x:auto; padding:12px 0; }
+.public-gallery-thumbs button { flex:0 0 76px; width:76px; aspect-ratio:1; padding:3px; border:1px solid #dce3df; border-radius:6px; background:#fff; cursor:pointer; }
+.public-gallery-thumbs button.active { border:2px solid var(--public-accent); }
+.public-gallery-thumbs img { width:100%; height:100%; object-fit:cover; }
+.public-product-buy { display:grid; gap:12px; align-content:start; }
+.public-product-buy>span,.public-section-copy>span,.public-order-form>strong { color:var(--public-accent); font-size:11px; font-weight:800; text-transform:uppercase; }
+.public-product-buy h1 { margin:0; font-size:36px; line-height:1.15; }
+.public-product-buy>p { margin:0; color:#596675; line-height:1.65; }
+.public-product-subtitle { font-size:17px; }
+.public-product-benefits { display:grid; gap:8px; margin:4px 0; padding:0; list-style:none; }
+.public-product-benefits li { font-weight:700; }
+.public-product-price { display:block; font-size:27px; color:var(--public-accent); }
+.public-order-form { display:grid; gap:11px; padding:18px; border:1px solid #e0e6e2; border-radius:8px; background:#fff; }
+.public-order-form label { display:grid; gap:6px; font-size:12px; font-weight:800; }
+.public-order-form input,.public-order-form textarea,.public-order-form select { width:100%; border:1px solid #d7dfdb; border-radius:6px; padding:11px; font:inherit; }
+.public-order-form button { border:0; border-radius:6px; padding:14px; background:var(--public-accent); color:#fff; font-weight:800; cursor:pointer; }
 .public-hero { max-width:1180px; margin:auto; display:grid; grid-template-columns:1fr 1fr; gap:48px; align-items:center; min-height:620px; padding:56px 24px; }
 .public-kicker { color:var(--public-accent); font-size:12px; font-weight:800; }
 .public-hero h1 { font-size:58px; line-height:1.02; letter-spacing:-3px; margin:16px 0; }
@@ -10,7 +31,7 @@
 .public-hero-media img { width:100%; max-height:540px; object-fit:cover; border-radius:24px; }
 .public-section { max-width:1180px; margin:24px auto; padding:40px 24px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,.9fr); gap:42px; align-items:center; text-align:left; }
 .public-section.reverse .public-section-media { order:-1; }
-.public-section-copy>span,.public-order-section span { color:var(--public-accent); font-size:11px; font-weight:800; text-transform:uppercase; }
+.public-order-section span { color:var(--public-accent); font-size:11px; font-weight:800; text-transform:uppercase; }
 .public-section h2 { font-size:38px; margin:12px 0; }
 .public-section h3 { color:#667085; }
 .public-section-copy>p { max-width:700px; color:#667085; line-height:1.75; }
@@ -31,7 +52,9 @@
 .public-success { display:grid; align-content:center; text-align:center; border-radius:18px; background:#e7f5ed; color:#087b60; }
 .public-page footer { display:flex; justify-content:space-between; padding:24px; border-top:1px solid #e4e8e2; }
 @media(max-width:760px){
-  .public-hero,.public-section,.public-order-section { grid-template-columns:1fr; }
+  .public-product-layout,.public-hero,.public-section,.public-order-section { grid-template-columns:1fr; }
+  .public-product-layout { gap:22px; padding:22px 16px 36px; }
+  .public-gallery-main { min-height:0; }
   .public-hero { min-height:auto; padding-top:30px; }
   .public-hero h1 { font-size:42px; }
   .public-section { gap:22px; padding:30px 20px; }

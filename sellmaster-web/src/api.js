@@ -1,5 +1,13 @@
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'https://sellmaster-1.onrender.com/api').replace(/\/$/, '')
+const API_ORIGIN = API_BASE.replace(/\/api$/, '')
 const TOKEN_KEY = 'sellmaster_web_token'
+
+export function resolveAssetUrl(value) {
+  if (typeof value !== 'string' || !value) return ''
+  if (/^https:\/\//i.test(value)) return value
+  if (value.startsWith('/')) return `${API_ORIGIN}${value}`
+  return ''
+}
 
 export const authToken = {
   get: () => localStorage.getItem(TOKEN_KEY),

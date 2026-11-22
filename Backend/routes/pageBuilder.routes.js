@@ -129,7 +129,6 @@ router.post('/projects/:id/assets/generate', aiLimiter, async (req, res) => {
     if (!page) return res.status(404).json({ error: 'Impossible de créer la page.' });
 
     const requests = Array.isArray(req.body?.assets) ? req.body.assets.slice(0, 8) : [];
-    if (!requests.length) return res.status(400).json({ error: 'Sélectionnez au moins un visuel à générer.' });
 
     const results = [];
     for (const asset of requests) {
