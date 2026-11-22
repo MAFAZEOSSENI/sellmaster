@@ -3,7 +3,12 @@ const assert = require('node:assert/strict');
 const { parseHttpsUrl, isPublicIpv4 } = require('../utils/pageBuilderUrl');
 const { extractGeneric } = require('../services/pageBuilder/productExtractor');
 const { getAiConfig } = require('../services/pageBuilder/aiConfig');
-const { stripAndParseJson, withGeminiRetry } = require('../services/pageBuilder/aiProvider');
+const {
+  stripAndParseJson,
+  withGeminiRetry,
+  buildGeminiImageInput,
+  extractGeneratedImages,
+} = require('../services/pageBuilder/aiProvider');
 const { buildShopifyPageHtml } = require('../utils/pageBuilderHtml');
 const { normalizeAidaCopy } = require('../utils/pageBuilderAida');
 const { resolvePageVisual } = require('../utils/pageBuilderVisuals');
@@ -96,6 +101,24 @@ test('Gemini does not retry client errors', async () => {
   }, { delayMs: 0 }), /Invalid request/);
 
   assert.equal(attempts, 1);
+});
+
+test('Gemini image requests use typed Interactions API inputs', () => {
+  assert.deepEqual(buildGeminiImageInput('Generate a product scene', [{
+    data: 'base64-reference',
+    mimeType: 'image/jpeg',
+  }]), [
+    { type: 'text', text: 'Generate a product scene' },
+    { type: 'image', mime_type: 'image/jpeg', data: 'base64-reference' },
+  ]);
+});
+
+test('Gemini image response extracts output_image and image steps without duplicates', () => {
+  const image = { data: 'base64-generated', mime_type: 'image/webp' };
+  assert.deepEqual(extractGeneratedImages({
+    output_image: image,
+    steps: [{ type: 'model_output', content: [{ type: 'image', ...image }] }],
+  }), [{ sourceUrl: null, b64: 'base64-generated', mimeType: 'image/webp' }]);
 });
 
 test('Shopify page HTML renders AIDA sections in order with their matching images', () => {

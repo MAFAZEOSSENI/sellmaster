@@ -33,6 +33,7 @@ function AssetPicker({ assets, setAssets, sourceImages }) {
       <span className="pb-asset-icon"><ImageIcon size={18} /></span>
       <span><strong>{asset.label}</strong><small>{asset.ratio} · {asset.style}</small></span>
       <span className="pb-asset-status">{asset.visualSource !== 'generated' ? 'Image source' : asset.status === 'succeeded' ? 'Gemini prête' : asset.status === 'failed' ? 'Échec Gemini' : asset.status === 'pending' ? 'Génération en cours' : 'À générer avec Gemini'}</span>
+      {asset.generation_error && <small className="pb-asset-error">{asset.generation_error}</small>}
       {(asset.visualSource === 'generated' ? asset.source_url : originalImage) && <img src={resolveAssetUrl(asset.visualSource === 'generated' ? asset.source_url : originalImage)} alt="" />}
       <label className="pb-asset-visual-choice">Visuel affiché<select value={asset.visualSource || 'original'} onChange={(event) => setAssets((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, visualSource: event.target.value, selected: event.target.value === 'generated' && !item.source_url ? true : event.target.value === 'original' ? false : item.selected } : item))}><option value="original" disabled={!sourceImages.length}>Image d’origine</option><option value="generated">Image Gemini</option></select></label>
       {asset.visualSource !== 'generated' && sourceImages.length > 1 && <label className="pb-asset-visual-choice">Image source<select value={asset.originalImageIndex || 0} onChange={(event) => setAssets((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, originalImageIndex: Number(event.target.value) } : item))}>{sourceImages.map((image, imageIndex) => <option value={imageIndex} key={image.id || imageIndex}>Image {imageIndex + 1}</option>)}</select></label>}
@@ -176,7 +177,7 @@ export default function AiPageBuilderView({ onBack }) {
     setBusy(true)
     try {
       const selected = assets.filter((item) => item.selected).map((item) => ({ ...item, status: 'pending' }))
-      setAssets((current) => current.map((item) => item.selected ? { ...item, status: 'pending' } : item))
+      setAssets((current) => current.map((item) => item.selected ? { ...item, status: 'pending', generation_error: '' } : item))
       const result = await api.pageBuilderGenerateAssets(project.id, {
         page: { title: analysis?.commercialName || project.product_data?.title || 'Landing page', template: style === 'minimal-premium' ? 'minimal-premium' : style === 'product-showcase' ? 'product-showcase' : 'direct-response', content_json: { analysis, copy, offer: { price: price ? Number(price) : null }, product: project.product_data, sourceImages: project.product_data?.images || [], visualSources: Object.fromEntries(assets.map((item) => [item.type, { source: item.visualSource || 'original', imageIndex: item.originalImageIndex || 0 }])) }, theme_json: { market, language }, seo_json: { title: analysis?.commercialName || project.product_data?.title, description: analysis?.shortDescription || project.product_data?.description } },
         content: { analysis, copy, offer: { price: price ? Number(price) : null }, product: project.product_data, sourceImages: project.product_data?.images || [], visualSources: Object.fromEntries(assets.map((item) => [item.type, { source: item.visualSource || 'original', imageIndex: item.originalImageIndex || 0 }])) },
@@ -186,8 +187,12 @@ export default function AiPageBuilderView({ onBack }) {
       const byType = new Map((result.assets || []).map((item) => [item.asset_type, item]))
       setAssets((current) => current.map((item) => {
         const generated = byType.get(item.type)
-        return generated ? { ...item, status: generated.generation_status || 'failed', source_url: generated.source_url || null } : item
+        return generated ? { ...item, status: generated.generation_status || 'failed', source_url: generated.source_url || null, generation_error: generated.error || '' } : item
       }))
+      const failures = (result.assets || []).filter((item) => item.generation_status === 'failed')
+      if (failures.length) {
+        setError(failures.map((item) => `${item.asset_type || 'Visuel'} : ${item.error || 'échec sans détail fourni par Gemini'}`).join(' · '))
+      }
       setStep(4)
     } catch (generateError) { setError(generateError.message) } finally { setBusy(false) }
   }

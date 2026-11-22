@@ -180,7 +180,19 @@ router.post('/projects/:id/assets/generate', aiLimiter, async (req, res) => {
         results.push(updated || { id: pending.id, status: 'succeeded', source_url: sourceUrl });
       } catch (error) {
         const failed = await PageBuilder.updateAsset(Number(req.userId), pending.id, { generation_status: 'failed', metadata_json: { ratio: asset.ratio || '1:1', error: error.message } });
-        results.push(failed || { id: pending.id, generation_status: 'failed', error: error.message });
+        console.error('[Page Builder] Gemini image generation failed:', {
+          assetType: asset.type || 'hero',
+          model: aiConfig.imageModel,
+          message: error.message,
+        });
+        results.push({
+          ...(failed || {}),
+          id: pending.id,
+          asset_type: asset.type || 'hero',
+          generation_status: 'failed',
+          source_url: null,
+          error: error.message,
+        });
       }
     }
     const successfulAssets = results.filter((item) => typeof item?.source_url === 'string' && item.source_url.trim());

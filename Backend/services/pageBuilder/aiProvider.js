@@ -51,6 +51,41 @@ function classifyGeminiError(error) {
   return new Error(message || 'Erreur inattendue auprès de Gemini.');
 }
 
+function buildGeminiImageInput(prompt, references = []) {
+  return [
+    { type: 'text', text: prompt },
+    ...references.map((reference) => ({
+      type: 'image',
+      mime_type: reference.mimeType,
+      data: reference.data,
+    })),
+  ];
+}
+
+function extractGeneratedImages(interaction) {
+  const images = [];
+  const seen = new Set();
+  const addImage = (image) => {
+    if (!image?.data || typeof image.data !== 'string') return;
+    if (seen.has(image.data)) return;
+    seen.add(image.data);
+    images.push({
+      sourceUrl: null,
+      b64: image.data,
+      mimeType: image.mime_type || image.mimeType || 'image/png',
+    });
+  };
+
+  addImage(interaction?.output_image);
+  for (const step of interaction?.steps || []) {
+    if (step?.type !== 'model_output') continue;
+    for (const item of step.content || []) {
+      if (item?.type === 'image') addImage(item);
+    }
+  }
+  return images;
+}
+
 async function generateText(prompt, options = {}) {
   const { ai, config } = createClient();
   try {
@@ -84,7 +119,7 @@ async function downloadImageReference(sourceUrl) {
     });
     const mimeType = String(response.headers['content-type'] || '').split(';')[0].toLowerCase();
     if (!/^image\/(jpeg|png|webp)$/i.test(mimeType)) return null;
-    return { inlineData: { data: Buffer.from(response.data).toString('base64'), mimeType } };
+    return { data: Buffer.from(response.data).toString('base64'), mimeType };
   } catch (_) {
     return null;
   }
@@ -96,36 +131,24 @@ async function generateImage(prompt, options = {}) {
 
   const ratioMap = { '1:1': '1:1', '4:5': '4:5', '3:4': '3:4', '16:9': '16:9', '9:16': '9:16' };
   const aspectRatio = ratioMap[options.aspectRatio || options.ratio] || '1:1';
-  const parts = [{ text: `${prompt}\n\nRespecter exactement la forme, la couleur, les proportions, le nombre d’éléments, le packaging et les détails visibles du produit de référence. Ne pas inventer de texte, marque, garantie, certification, badge, prix ou produit différent.` }];
+  const imagePrompt = `${prompt}\n\nRespecter exactement la forme, la couleur, les proportions, le nombre d’éléments, le packaging et les détails visibles du produit de référence. Ne pas inventer de texte, marque, garantie, certification, badge, prix ou produit différent.`;
+  const references = [];
 
   if (Array.isArray(options.referenceImages)) {
     for (const sourceUrl of options.referenceImages.slice(0, 3)) {
       const reference = await downloadImageReference(sourceUrl);
-      if (reference) parts.push(reference);
+      if (reference) references.push(reference);
     }
   }
 
   try {
-    const response = await withGeminiRetry(() => ai.models.generateContent({
-        model: config.imageModel,
-        contents: [{ role: 'user', parts }],
-        config: {
-          responseModalities: ['TEXT', 'IMAGE'],
-          imageConfig: { aspectRatio },
-          httpOptions: { timeout: 120000 },
-        },
-      }), { model: config.imageModel });
+    const response = await withGeminiRetry(() => ai.interactions.create({
+      model: config.imageModel,
+      input: buildGeminiImageInput(imagePrompt, references),
+      response_format: { type: 'image', aspect_ratio: aspectRatio },
+    }, { httpOptions: { timeout: 120000 } }), { model: config.imageModel });
 
-    const candidates = response?.candidates || [];
-    const images = [];
-    for (const candidate of candidates) {
-      const responseParts = candidate?.content?.parts || [];
-      for (const part of responseParts) {
-        if (part?.inlineData?.data) {
-          images.push({ sourceUrl: null, b64: part.inlineData.data, mimeType: part.inlineData.mimeType || 'image/png' });
-        }
-      }
-    }
+    const images = extractGeneratedImages(response);
     if (!images.length) throw new Error('Gemini n’a retourné aucune image.');
     return { sourceUrl: null, images };
   } catch (error) {
@@ -133,4 +156,11 @@ async function generateImage(prompt, options = {}) {
   }
 }
 
-module.exports = { generateText, generateImage, stripAndParseJson, withGeminiRetry };
+module.exports = {
+  generateText,
+  generateImage,
+  stripAndParseJson,
+  withGeminiRetry,
+  buildGeminiImageInput,
+  extractGeneratedImages,
+};
