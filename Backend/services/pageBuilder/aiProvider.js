@@ -34,11 +34,18 @@ function stripAndParseJson(text) {
   }
 }
 
-function createClient() {
+function buildGeminiClientOptions(config, apiVersion) {
+  return {
+    apiKey: config.apiKey,
+    ...(apiVersion ? { apiVersion } : {}),
+  };
+}
+
+function createClient(apiVersion) {
   const config = getAiConfig();
   if (config.provider !== 'gemini') throw new Error(`Provider IA non pris en charge: ${config.provider}`);
   if (!config.apiKey) throw new Error('Génération IA Gemini non configurée. Renseignez GOOGLE_AI_API_KEY.');
-  return { ai: new GoogleGenAI({ apiKey: config.apiKey }), config };
+  return { ai: new GoogleGenAI(buildGeminiClientOptions(config, apiVersion)), config };
 }
 
 function classifyGeminiError(error) {
@@ -60,10 +67,6 @@ function buildGeminiImageInput(prompt, references = []) {
       data: reference.data,
     })),
   ];
-}
-
-function buildGeminiImageRequestOptions() {
-  return { apiVersion: 'v1beta', httpOptions: { timeout: 120000 } };
 }
 
 function extractGeneratedImages(interaction) {
@@ -130,7 +133,7 @@ async function downloadImageReference(sourceUrl) {
 }
 
 async function generateImage(prompt, options = {}) {
-  const { ai, config } = createClient();
+  const { ai, config } = createClient('v1beta');
   if (!config.imageGenerationEnabled) throw new Error('La génération d’images Gemini est désactivée.');
 
   const ratioMap = { '1:1': '1:1', '4:5': '4:5', '3:4': '3:4', '16:9': '16:9', '9:16': '9:16' };
@@ -150,7 +153,7 @@ async function generateImage(prompt, options = {}) {
       model: config.imageModel,
       input: buildGeminiImageInput(imagePrompt, references),
       response_format: { type: 'image', aspect_ratio: aspectRatio },
-    }, buildGeminiImageRequestOptions()), { model: config.imageModel });
+    }, { timeout_ms: 120000 }), { model: config.imageModel });
 
     const images = extractGeneratedImages(response);
     if (!images.length) throw new Error('Gemini n’a retourné aucune image.');
@@ -166,6 +169,6 @@ module.exports = {
   stripAndParseJson,
   withGeminiRetry,
   buildGeminiImageInput,
-  buildGeminiImageRequestOptions,
+  buildGeminiClientOptions,
   extractGeneratedImages,
 };

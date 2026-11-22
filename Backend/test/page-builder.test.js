@@ -7,7 +7,7 @@ const {
   stripAndParseJson,
   withGeminiRetry,
   buildGeminiImageInput,
-  buildGeminiImageRequestOptions,
+  buildGeminiClientOptions,
   extractGeneratedImages,
 } = require('../services/pageBuilder/aiProvider');
 const { buildShopifyPageHtml } = require('../utils/pageBuilderHtml');
@@ -112,9 +112,9 @@ test('Gemini image requests use typed Interactions API inputs', () => {
     { type: 'text', text: 'Generate a product scene' },
     { type: 'image', mime_type: 'image/jpeg', data: 'base64-reference' },
   ]);
-  assert.deepEqual(buildGeminiImageRequestOptions(), {
+  assert.deepEqual(buildGeminiClientOptions({ apiKey: 'test-key' }, 'v1beta'), {
+    apiKey: 'test-key',
     apiVersion: 'v1beta',
-    httpOptions: { timeout: 120000 },
   });
 });
 
