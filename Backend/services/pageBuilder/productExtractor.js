@@ -57,7 +57,39 @@ function extractJsonLd(html) {
   return objects.find((item) => /Product|Offer/i.test(String(item?.['@type'] || item?.type || ''))) || {};
 }
 
+function parseHtmlAttributes(tag) {
+  return Object.fromEntries([...tag.matchAll(/([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g)]
+    .map((match) => [match[1].toLowerCase(), match[2] ?? match[3] ?? match[4] ?? '']));
+}
+
+function isAlibabaProductImage(value, attributes = {}) {
+  if (typeof value !== 'string') return false;
+  let url;
+  try {
+    url = new URL(value.startsWith('//') ? `https:${value}` : value);
+  } catch (_) {
+    return false;
+  }
+  if (!/^https?:$/.test(url.protocol) || !/(^|\.)alicdn\.com$/i.test(url.hostname)) return false;
+  if (!/\/(?:kf|imgextra)\//i.test(url.pathname)) return false;
+
+  const imageContext = `${url.pathname} ${attributes.alt || ''} ${attributes.title || ''} ${attributes.class || ''} ${attributes.id || ''}`;
+  return !/(paypal|master\s*card|visa|amex|american\s*express|payment|checkout|credit.card|secure|trust.badge|logo)/i.test(imageContext);
+}
+
+function extractAlibabaGalleryImages(html, addImage) {
+  for (const match of html.matchAll(/<img\b[^>]*>/gi)) {
+    const attributes = parseHtmlAttributes(match[0]);
+    const candidates = [attributes['data-src'], attributes['data-original'], attributes['data-lazy-src'], attributes['data-ks-lazyload'], attributes['data-image'], attributes['data-img'], attributes.src];
+    if (attributes.srcset) candidates.push(attributes.srcset.split(',')[0].trim().split(/\s+/)[0]);
+    for (const candidate of candidates) {
+      if (isAlibabaProductImage(candidate, attributes)) addImage(candidate.startsWith('//') ? `https:${candidate}` : candidate);
+    }
+  }
+}
+
 function extractGeneric(html, url) {
+  const sourceType = detectSource(url);
   const ld = extractJsonLd(html);
   const title = ld.name || metaContent(html, [/property=["']og:title["'][^>]*content=["']([^"']+)/i, /<title[^>]*>([^<]+)/i]) || '';
   const description = ld.description || metaContent(html, [/property=["']og:description["'][^>]*content=["']([^"']+)/i, /name=["']description["'][^>]*content=["']([^"']+)/i]) || '';
@@ -76,10 +108,14 @@ function extractGeneric(html, url) {
 
   if (Array.isArray(ld.image)) ld.image.forEach((item) => addImage(typeof item === 'string' ? item : item?.url));
   else addImage(typeof ld.image === 'string' ? ld.image : ld.image?.url);
-  addImage(imageUrl);
+  if (sourceType !== 'alibaba' || ld.image || isAlibabaProductImage(imageUrl)) addImage(imageUrl);
 
-  for (const match of html.matchAll(/(?:property=["']og:image(?::secure_url)?["']|name=["']twitter:image["'])[^>]*content=["']([^"']+)/gi)) addImage(match[1]);
-  for (const match of html.matchAll(/(?:data-src|data-original|data-image|src)=["']([^"']+\.(?:jpg|jpeg|png|webp)(?:[?&#][^"']*)?)["']/gi)) addImage(match[1]);
+  if (sourceType === 'alibaba') {
+    extractAlibabaGalleryImages(html, addImage);
+  } else {
+    for (const match of html.matchAll(/(?:property=["']og:image(?::secure_url)?["']|name=["']twitter:image["'])[^>]*content=["']([^"']+)/gi)) addImage(match[1]);
+    for (const match of html.matchAll(/(?:data-src|data-original|data-image|src)=["']([^"']+\.(?:jpg|jpeg|png|webp)(?:[?&#][^"']*)?)["']/gi)) addImage(match[1]);
+  }
 
   return {
     title: htmlEntities(title).trim().slice(0, 300),

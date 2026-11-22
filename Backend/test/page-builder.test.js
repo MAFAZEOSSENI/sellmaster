@@ -34,6 +34,35 @@ test('generic extractor parses title, description, Open Graph image and JSON-LD 
   assert.equal(product.price, 12500);
 });
 
+test('Alibaba extraction keeps product gallery images and ignores checkout/payment assets', () => {
+  const url = new URL('https://www.alibaba.com/product-detail/test_123.html');
+  const html = `
+    <meta property="og:title" content="Product test">
+    <meta property="og:image" content="https://sc04.alicdn.com/kf/product-cover.jpg">
+    <div class="product-gallery">
+      <img data-src="https://sc04.alicdn.com/kf/product-side.jpg" alt="Product test">
+      <img src="https://img.alicdn.com/imgextra/i1/product-detail.png" alt="Product detail">
+    </div>
+    <footer>
+      <img src="https://img.alicdn.com/tfs/paypal-logo.png" alt="PayPal">
+      <img src="https://img.alicdn.com/tfs/mastercard-logo.png" alt="Mastercard">
+      <img src="https://static.example.test/card-security.jpg" alt="Secure checkout">
+    </footer>`;
+
+  const product = extractGeneric(html, url);
+
+  assert.deepEqual(product.images, [
+    'https://sc04.alicdn.com/kf/product-cover.jpg',
+    'https://sc04.alicdn.com/kf/product-side.jpg',
+    'https://img.alicdn.com/imgextra/i1/product-detail.png',
+  ]);
+
+  const paymentImageOnly = extractGeneric(`
+    <meta property="og:title" content="Product test">
+    <meta property="og:image" content="https://img.alicdn.com/tfs/paypal-logo.png">`, url);
+  assert.deepEqual(paymentImageOnly.images, []);
+});
+
 test('Gemini configuration uses centralized environment defaults', () => {
   const previous = { ...process.env };
   delete process.env.GOOGLE_AI_API_KEY;
