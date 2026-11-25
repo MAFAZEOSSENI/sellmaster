@@ -73,6 +73,17 @@ export default function PublicPage({ slug }) {
   const benefits = analysis.realBenefits || []
   const selectedVariant = variants.find((variant) => variant.title === form.variant) || variants[0]
   const price = content.offer?.price ?? selectedVariant?.price
+  const storefrontName = String(content.storefront?.brandName || content.product?.vendor || 'Votre boutique').trim()
+  const reviews = (Array.isArray(content.customerReviews) ? content.customerReviews : []).filter((review) => (
+    String(review?.author || '').trim()
+    && String(review?.text || '').trim()
+    && Number.isInteger(Number(review?.rating))
+    && Number(review.rating) >= 1
+    && Number(review.rating) <= 5
+  ))
+  const averageRating = reviews.length
+    ? reviews.reduce((total, review) => total + Number(review.rating), 0) / reviews.length
+    : 0
   const imageForSection = (section, index = 0) => {
     const key = section?.imageType || section?.id
     const choice = content.visualSources?.[key]
@@ -86,6 +97,12 @@ export default function PublicPage({ slug }) {
   const stageLabels = { attention: 'Attention', interest: 'Intérêt', desire: 'Désir', action: 'Action' }
 
   return <main className="public-page" style={{ '--public-accent': page?.theme_json?.accent || '#087b60' }}>
+    <div className="public-announcement">Commande directe · Paiement à la livraison</div>
+    <header className="public-store-header">
+      <a className="public-store-brand" href="#top"><span>{storefrontName.slice(0, 1).toUpperCase()}</span><strong>{storefrontName}</strong></a>
+      <nav aria-label="Navigation produit"><a href="#product-details">Détails</a>{reviews.length > 0 && <a href="#customer-reviews">Avis clients ({reviews.length})</a>}<a href="#public-order">Commander</a></nav>
+      <a className="public-header-cta" href="#public-order">Acheter maintenant</a>
+    </header>
     <section className="public-product-layout" id="public-order">
       <div className="public-product-gallery">
         <div className="public-gallery-main">{activeGalleryImage ? <img src={activeGalleryImage} alt={page.title} /> : <div className="public-gallery-empty">{page.title}</div>}</div>
@@ -111,14 +128,29 @@ export default function PublicPage({ slug }) {
       </div>
     </section>
 
+    <div className="public-trust-strip" aria-label="Informations de commande"><span>Commande transmise au vendeur</span><span>Paiement à la livraison</span><span>Informations de livraison confirmées après commande</span></div>
+
     {sections.filter((section) => section.id !== 'hero' && section.stage !== 'attention').map((section, index) => {
       const image = imageForSection(section, index + 1)
-      return <section className={`public-section ${index % 2 ? 'reverse' : ''}`} key={section.id}>
+      return <section className={`public-section ${index % 2 ? 'reverse' : ''}`} id={index === 0 ? 'product-details' : undefined} key={section.id}>
         <div className="public-section-copy"><span>{stageLabels[section.stage] || 'Détails du produit'}</span><h2>{section.title}</h2>{section.subtitle && <h3>{section.subtitle}</h3>}{section.body && <p>{section.body}</p>}{section.items?.length > 0 && <div className="public-benefit-grid">{section.items.map((item) => <article key={item.title || item.question}><strong>{item.title || item.question}</strong><p>{item.text || item.answer}</p></article>)}</div>}{section.stage === 'action' && <><strong className="public-section-price">{Number(price) > 0 ? `${Number(price).toLocaleString('fr-FR')} FCFA` : 'Prix à confirmer'}</strong><button type="button" onClick={() => document.querySelector('#public-order')?.scrollIntoView({ behavior: 'smooth' })}>{section.cta || 'Commander maintenant'} →</button></>}</div>
         {image && <div className="public-section-media"><img src={image} alt={section.title || page.title} loading="lazy" /></div>}
       </section>
     })}
 
-    <footer><strong>{seo.title || page.title}</strong><span>© {new Date().getFullYear()}</span></footer>
+    {reviews.length > 0 && <section className="public-reviews" id="customer-reviews">
+      <div className="public-reviews-heading"><span>RETOURS CLIENTS</span><h2>Avis clients</h2><p>{averageRating.toFixed(1)} / 5 · {reviews.length} avis fournis par la boutique</p></div>
+      <div className="public-reviews-grid">{reviews.map((review, index) => <article className="public-review" key={`${review.author}-${index}`}>
+        <div className="public-review-stars" aria-label={`${review.rating} étoiles`}>{Array.from({ length: 5 }, (_, star) => <span className={star < Number(review.rating) ? 'filled' : ''} key={star}>★</span>)}</div>
+        <blockquote>{review.text}</blockquote>
+        <strong>{review.author}</strong>
+      </article>)}</div>
+    </section>}
+
+    <footer className="public-store-footer">
+      <div className="public-footer-brand"><a className="public-store-brand" href="#top"><span>{storefrontName.slice(0, 1).toUpperCase()}</span><strong>{storefrontName}</strong></a><p>{seo.description || `Découvrez ${page.title} et contactez la boutique pour toute question sur votre commande.`}</p></div>
+      <nav aria-label="Liens de pied de page"><a href="#product-details">À propos du produit</a>{reviews.length > 0 && <a href="#customer-reviews">Avis clients</a>}<a href="#public-order">Commander</a></nav>
+      <small>{storefrontName}</small>
+    </footer>
   </main>
 }

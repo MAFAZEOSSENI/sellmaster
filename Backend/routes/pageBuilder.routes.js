@@ -12,6 +12,7 @@ const { getAiConfig } = require('../services/pageBuilder/aiConfig');
 const { recordAiUsage, countPageImageUsage } = require('../services/pageBuilder/aiUsage');
 const { buildShopifyPageHtml } = require('../utils/pageBuilderHtml');
 const { normalizeAidaCopy } = require('../utils/pageBuilderAida');
+const { normalizeCustomerReviews } = require('../utils/pageBuilderReviews');
 const Order = require('../models/Order');
 const axios = require('axios');
 const ShopifyConfig = require('../models/ShopifyConfig');
@@ -203,7 +204,12 @@ router.post('/projects/:id/assets/generate', aiLimiter, async (req, res) => {
         id: page.id,
         title: page.title,
         template: page.template,
-        content_json: { ...(req.body?.content || {}), images: successfulUrls, generatedAssets },
+        content_json: {
+          ...(req.body?.content || {}),
+          customerReviews: normalizeCustomerReviews(req.body?.content?.customerReviews),
+          images: successfulUrls,
+          generatedAssets,
+        },
         theme_json: page.theme_json || {},
         seo_json: page.seo_json || {},
         status: page.status,
@@ -270,7 +276,12 @@ router.get('/pages/:id', async (req, res) => {
   return page ? res.json({ page }) : res.status(404).json({ error: 'Page introuvable.' });
 });
 router.put('/pages/:id', async (req, res) => {
-  const page = await PageBuilder.createOrUpdatePage(Number(req.userId), req.body.project_id, { ...req.body, id: req.params.id });
+  const content = req.body?.content_json;
+  const page = await PageBuilder.createOrUpdatePage(Number(req.userId), req.body.project_id, {
+    ...req.body,
+    ...(content ? { content_json: { ...content, customerReviews: normalizeCustomerReviews(content.customerReviews) } } : {}),
+    id: req.params.id,
+  });
   return page ? res.json({ page }) : res.status(404).json({ error: 'Page introuvable.' });
 });
 router.post('/pages/:id/publish', async (req, res) => {

@@ -13,6 +13,7 @@ const {
 const { buildShopifyPageHtml } = require('../utils/pageBuilderHtml');
 const { normalizeAidaCopy } = require('../utils/pageBuilderAida');
 const { resolvePageVisual } = require('../utils/pageBuilderVisuals');
+const { normalizeCustomerReviews } = require('../utils/pageBuilderReviews');
 
 test('page builder accepts only valid HTTPS public product URLs', () => {
   assert.equal(parseHttpsUrl('http://example.com/product')?.protocol, undefined);
@@ -182,6 +183,15 @@ test('AIDA normalization restores canonical stage order and image types', () => 
     ['action', 'action', 'offer'],
   ]);
   assert.equal(result.sections[3].title, 'Commander');
+});
+
+test('customer reviews are optional and only valid seller-provided entries survive', () => {
+  assert.deepEqual(normalizeCustomerReviews(undefined), []);
+  assert.deepEqual(normalizeCustomerReviews([
+    { author: ' Aminata ', text: ' Livraison rapide. ', rating: 5 },
+    { author: 'Invented', text: 'Résultat garanti', rating: 6 },
+    { author: '', text: 'Sans auteur', rating: 4 },
+  ]), [{ author: 'Aminata', text: 'Livraison rapide.', rating: 5 }]);
 });
 
 test('Shopify extractor preserves the full gallery and variant data', () => {

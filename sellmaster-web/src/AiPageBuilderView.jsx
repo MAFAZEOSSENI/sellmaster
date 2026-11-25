@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, ArrowRight, Check, ExternalLink, Image as ImageIcon, LoaderCircle, Link2, Monitor, Pencil, Smartphone, Sparkles, Store, WandSparkles } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, ExternalLink, Image as ImageIcon, LoaderCircle, Link2, Monitor, Pencil, Smartphone, Sparkles, Store, Trash2, WandSparkles } from 'lucide-react'
 import { api, resolveAssetUrl } from './api'
 import './ai-page-builder.css'
 
@@ -9,8 +9,8 @@ function escapeProductHtml(value) {
   return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 }
 
-function buildShopifyProductDescription(sections) {
-  return sections.map((section) => {
+function buildShopifyProductDescription(sections, reviews = [], brandName = '') {
+  const sectionHtml = sections.map((section) => {
     const image = section.previewImage
       ? `<p><img src="${escapeProductHtml(section.previewImage)}" alt="${escapeProductHtml(section.title)}" /></p>`
       : ''
@@ -19,6 +19,12 @@ function buildShopifyProductDescription(sections) {
       : ''
     return `<section><p><strong>${escapeProductHtml(({ attention: 'ATTENTION', interest: 'INTÉRÊT', desire: 'DÉSIR', action: 'ACTION' })[section.stage] || '')}</strong></p>${section.title ? `<h2>${escapeProductHtml(section.title)}</h2>` : ''}${section.subtitle ? `<h3>${escapeProductHtml(section.subtitle)}</h3>` : ''}${section.body ? `<p>${escapeProductHtml(section.body)}</p>` : ''}${items}${image}</section>`
   }).join('')
+  const reviewHtml = reviews.length
+    ? `<section><h2>Avis clients</h2>${reviews.map((review) => `<blockquote><p>${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}</p><p>${escapeProductHtml(review.text)}</p><p><strong>${escapeProductHtml(review.author)}</strong></p></blockquote>`).join('')}</section>`
+    : ''
+  const storefrontHtml = `<header><p><strong>${escapeProductHtml(brandName || 'Votre boutique')}</strong></p><p>Commande directe · Paiement à la livraison</p></header>`
+  const footerHtml = `<footer><p><strong>${escapeProductHtml(brandName || 'Votre boutique')}</strong></p><p>Détails du produit · ${reviews.length ? 'Avis clients · ' : ''}Commande et livraison</p></footer>`
+  return `${storefrontHtml}${sectionHtml}${reviewHtml}${footerHtml}`
 }
 
 function AssetPicker({ assets, setAssets, sourceImages }) {
@@ -42,12 +48,28 @@ function AssetPicker({ assets, setAssets, sourceImages }) {
   </div>
 }
 
-function ProductPagePreview({ sections, productTitle, price, benefits, previewMode }) {
+function CustomerReviewsEditor({ reviews, setReviews }) {
+  return <section className="pb-reviews-editor">
+    <div className="pb-reviews-editor-heading"><div><b>Avis clients</b><small>Ajoute uniquement des avis réels, publiés avec l’autorisation des clients.</small></div><button className="button button-quiet" type="button" onClick={() => setReviews((current) => [...current, { author: '', text: '', rating: 5 }])}>Ajouter un avis</button></div>
+    {reviews.length === 0 && <p className="pb-empty-reviews">Aucun avis ajouté. Cette section restera masquée sur la page tant qu’elle est vide.</p>}
+    {reviews.map((review, index) => <fieldset className="pb-review-fields" key={`review-${index}`}>
+      <label>Nom affiché<input maxLength="80" value={review.author} onChange={(event) => setReviews((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, author: event.target.value } : item))} placeholder="Prénom ou nom autorisé" /></label>
+      <label>Note<select value={review.rating} onChange={(event) => setReviews((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, rating: Number(event.target.value) } : item))}>{[5, 4, 3, 2, 1].map((rating) => <option value={rating} key={rating}>{rating} / 5</option>)}</select></label>
+      <label className="pb-review-text">Avis<textarea rows="3" maxLength="1000" value={review.text} onChange={(event) => setReviews((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, text: event.target.value } : item))} placeholder="Texte de l’avis vérifié" /></label>
+      <button className="pb-review-remove" type="button" aria-label={`Supprimer l’avis ${index + 1}`} onClick={() => setReviews((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Trash2 size={16} /></button>
+    </fieldset>)}
+  </section>
+}
+
+function ProductPagePreview({ sections, productTitle, price, benefits, previewMode, brandName, reviews }) {
   const [activeImage, setActiveImage] = useState(0)
   const hero = sections.find((section) => section.stage === 'attention') || sections[0]
   const gallery = sections.filter((section) => section.previewImage).map((section) => ({ id: section.id, image: section.previewImage, title: section.title }))
 
+  const validReviews = reviews.filter((review) => review.author.trim() && review.text.trim())
   return <article className={`pb-product-preview ${previewMode}`}>
+    <div className="pb-preview-announcement">Commande directe · Paiement à la livraison</div>
+    <header className="pb-preview-header"><strong>{brandName || 'Votre boutique'}</strong><nav><span>Détails</span>{validReviews.length > 0 && <span>Avis clients</span>}<span>Commander</span></nav><button type="button">Acheter maintenant</button></header>
     <div className="pb-preview-product">
       <div className="pb-preview-gallery">
         {gallery[activeImage]?.image ? <img className="pb-preview-main-image" src={gallery[activeImage].image} alt={gallery[activeImage].title || productTitle} /> : <div className="pb-preview-image-empty"><ImageIcon size={28} /></div>}
@@ -63,6 +85,8 @@ function ProductPagePreview({ sections, productTitle, price, benefits, previewMo
       </div>
     </div>
     <div className="pb-preview-aida">{sections.filter((section) => section.stage !== 'attention').map((section) => <section className="pb-preview-aida-section" key={section.id}><span>{({ interest: 'INTÉRÊT', desire: 'DÉSIR', action: 'ACTION' })[section.stage] || section.stage}</span>{section.previewImage && <img src={section.previewImage} alt="" />}{section.title && <h4>{section.title}</h4>}{section.subtitle && <strong>{section.subtitle}</strong>}{section.body && <p>{section.body}</p>}{section.items?.map((item) => <p key={item.title}>{item.title ? <b>{item.title}: </b> : ''}{item.text}</p>)}</section>)}</div>
+    {validReviews.length > 0 && <section className="pb-preview-reviews"><span>RETOURS CLIENTS</span><h4>Avis clients</h4><div>{validReviews.map((review, index) => <article key={`${review.author}-${index}`}><strong>{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</strong><p>{review.text}</p><small>{review.author}</small></article>)}</div></section>}
+    <footer className="pb-preview-footer"><strong>{brandName || 'Votre boutique'}</strong><span>Détails · {validReviews.length > 0 ? 'Avis clients · ' : ''}Commander</span><small>{brandName || 'Votre boutique'}</small></footer>
   </article>
 }
 
@@ -76,6 +100,8 @@ export default function AiPageBuilderView({ onBack }) {
   const [style, setStyle] = useState('direct-conversion')
   const [angle, setAngle] = useState('Problème → Solution')
   const [price, setPrice] = useState('')
+  const [storefrontName, setStorefrontName] = useState('')
+  const [customerReviews, setCustomerReviews] = useState([])
   const [project, setProject] = useState(null)
   const [analysis, setAnalysis] = useState(null)
   const [copy, setCopy] = useState(null)
@@ -121,6 +147,7 @@ export default function AiPageBuilderView({ onBack }) {
         price: product.price == null ? '' : String(product.price),
         variants: (Array.isArray(product.variants) ? product.variants : []).map((variant) => ({ title: variant.title || 'Default Title', price: variant.price == null ? '' : String(variant.price), sku: variant.sku || '' })),
       })
+      setStorefrontName(product.supplier || '')
       setSourceImages((Array.isArray(product.images) ? product.images : []).map((url, index) => ({ id: `${index}-${url}`, url, selected: true })))
       setAssets((current) => current.map((asset, index) => ({ ...asset, selected: false, visualSource: product.images?.length ? 'original' : 'generated', originalImageIndex: Math.min(index, Math.max((product.images?.length || 1) - 1, 0)) })))
       setStep(1)
@@ -178,9 +205,11 @@ export default function AiPageBuilderView({ onBack }) {
     try {
       const selected = assets.filter((item) => item.selected).map((item) => ({ ...item, status: 'pending' }))
       setAssets((current) => current.map((item) => item.selected ? { ...item, status: 'pending', generation_error: '' } : item))
+      const storefront = { brandName: storefrontName.trim() || project.product_data?.supplier || 'Votre boutique' }
+      const reviews = customerReviews.filter((review) => review.author.trim() && review.text.trim() && Number.isInteger(Number(review.rating)) && Number(review.rating) >= 1 && Number(review.rating) <= 5)
       const result = await api.pageBuilderGenerateAssets(project.id, {
-        page: { title: analysis?.commercialName || project.product_data?.title || 'Landing page', template: style === 'minimal-premium' ? 'minimal-premium' : style === 'product-showcase' ? 'product-showcase' : 'direct-response', content_json: { analysis, copy, offer: { price: price ? Number(price) : null }, product: project.product_data, sourceImages: project.product_data?.images || [], visualSources: Object.fromEntries(assets.map((item) => [item.type, { source: item.visualSource || 'original', imageIndex: item.originalImageIndex || 0 }])) }, theme_json: { market, language }, seo_json: { title: analysis?.commercialName || project.product_data?.title, description: analysis?.shortDescription || project.product_data?.description } },
-        content: { analysis, copy, offer: { price: price ? Number(price) : null }, product: project.product_data, sourceImages: project.product_data?.images || [], visualSources: Object.fromEntries(assets.map((item) => [item.type, { source: item.visualSource || 'original', imageIndex: item.originalImageIndex || 0 }])) },
+        page: { title: analysis?.commercialName || project.product_data?.title || 'Landing page', template: style === 'minimal-premium' ? 'minimal-premium' : style === 'product-showcase' ? 'product-showcase' : 'direct-response', content_json: { analysis, copy, offer: { price: price ? Number(price) : null }, product: project.product_data, sourceImages: project.product_data?.images || [], visualSources: Object.fromEntries(assets.map((item) => [item.type, { source: item.visualSource || 'original', imageIndex: item.originalImageIndex || 0 }])), storefront, customerReviews: reviews }, theme_json: { market, language }, seo_json: { title: analysis?.commercialName || project.product_data?.title, description: analysis?.shortDescription || project.product_data?.description } },
+        content: { analysis, copy, offer: { price: price ? Number(price) : null }, product: project.product_data, sourceImages: project.product_data?.images || [], visualSources: Object.fromEntries(assets.map((item) => [item.type, { source: item.visualSource || 'original', imageIndex: item.originalImageIndex || 0 }])), storefront, customerReviews: reviews },
         assets: selected,
       })
       setPage({ id: result.pageId })
@@ -204,7 +233,9 @@ export default function AiPageBuilderView({ onBack }) {
       if (!page?.id) throw new Error('Aucune page à sauvegarder.')
       const generatedAssets = Object.fromEntries(assets.filter((item) => item.source_url).map((item) => [item.type, item.source_url]))
       const visualSources = Object.fromEntries(assets.map((item) => [item.type, { source: item.visualSource || 'original', imageIndex: item.originalImageIndex || 0 }]))
-      const content = { analysis, copy, offer: { price: price ? Number(price) : null }, product: project.product_data, sourceImages: project.product_data?.images || [], generatedAssets, visualSources }
+      const storefront = { brandName: storefrontName.trim() || project.product_data?.supplier || 'Votre boutique' }
+      const reviews = customerReviews.filter((review) => review.author.trim() && review.text.trim() && Number.isInteger(Number(review.rating)) && Number(review.rating) >= 1 && Number(review.rating) <= 5)
+      const content = { analysis, copy, offer: { price: price ? Number(price) : null }, product: project.product_data, sourceImages: project.product_data?.images || [], generatedAssets, visualSources, storefront, customerReviews: reviews }
       const full = await api.pageBuilderSavePage(page.id, { project_id: project.id, id: page.id, title: analysis?.commercialName || project.product_data?.title || 'Landing page', template: style === 'minimal-premium' ? 'minimal-premium' : style === 'product-showcase' ? 'product-showcase' : 'direct-response', content_json: content, theme_json: { market, language, accent: '#00a6b2' }, seo_json: { title: analysis?.commercialName || project.product_data?.title, description: analysis?.shortDescription || project.product_data?.description, image: resolveAssetUrl(generatedAssets.hero) || project.product_data?.images?.[0] }, status: 'draft' })
       setPage(full.page)
     } catch (saveError) { setError(saveError.message) } finally { setBusy(false) }
@@ -231,7 +262,7 @@ export default function AiPageBuilderView({ onBack }) {
         const result = await api.importShopifyProduct({
           storeId: Number(storeId),
           title: analysis?.commercialName || product.title || 'Produit Sellmaster',
-          description: buildShopifyProductDescription(previewSections),
+          description: buildShopifyProductDescription(previewSections, customerReviews.filter((review) => review.author.trim() && review.text.trim()), storefrontName || product.supplier || ''),
           price: Number(price),
           images,
           variants,
@@ -309,7 +340,7 @@ export default function AiPageBuilderView({ onBack }) {
 
     {step === 3 && <section className="pb-panel"><div className="pb-section-heading"><div><span className="panel-overline">ÉTAPE 4 · VISUELS</span><h3>Choisir les images de chaque section</h3></div><span>04</span></div><p className="pb-visual-help">Utilisez les images originales sans génération, ou choisissez Gemini pour créer une illustration par section.</p><AssetPicker assets={assets} setAssets={setAssets} sourceImages={project?.product_data?.images || []} /><div className="pb-prompt-list">{assets.filter((item) => item.selected).map((item, index) => <label key={`${item.type}-${index}`}><b>Prompt Gemini · {item.label}</b><textarea rows="3" value={item.prompt} onChange={(event) => setAssets((current) => current.map((asset) => asset.type === item.type ? { ...asset, prompt: event.target.value } : asset))} /></label>)}</div><div className="pb-actions"><button className="button button-quiet" type="button" onClick={() => setStep(2)}>Retour</button><button className="button button-primary" type="button" disabled={busy} onClick={generateImages}>{busy ? <><LoaderCircle className="spin" size={16} /> Préparation…</> : assets.some((item) => item.selected) ? <><WandSparkles size={16} /> Générer les visuels sélectionnés ({assets.filter((item) => item.selected).length})</> : <>Continuer avec les images d’origine</>}</button></div></section>}
 
-    {step === 4 && <section className="pb-panel"><div className="pb-section-heading"><div><span className="panel-overline">ÉTAPE 5 · PAGE</span><h3>Prévisualiser et personnaliser</h3></div><div className="pb-preview-toggle"><button type="button" className={previewMode === 'desktop' ? 'active' : ''} onClick={() => setPreviewMode('desktop')}><Monitor size={15} /> Desktop</button><button type="button" className={previewMode === 'mobile' ? 'active' : ''} onClick={() => setPreviewMode('mobile')}><Smartphone size={15} /> Mobile</button></div></div><div className="pb-editor-grid"><div className="pb-editor"><label>Titre principal<input value={analysis?.commercialName || ''} readOnly /></label><label>Texte d’accroche<textarea rows="4" value={copy?.sections?.[0]?.subtitle || analysis?.shortDescription || ''} readOnly /></label><label>Prix de vente (FCFA)<input type="number" value={price} onChange={(event) => setPrice(event.target.value)} /></label><button className="button button-quiet" type="button" onClick={savePage} disabled={busy}>{busy ? 'Sauvegarde…' : 'Sauvegarder les modifications'}</button></div><div className={`pb-preview ${previewMode}`}><ProductPagePreview sections={previewSections} productTitle={analysis?.commercialName || project?.product_data?.title || 'Produit'} price={price} benefits={analysis?.realBenefits || []} previewMode={previewMode} /></div></div><div className="pb-actions"><button className="button button-primary" type="button" onClick={() => setStep(5)}><ArrowRight size={16} /> Préparer la publication</button></div></section>}
+    {step === 4 && <section className="pb-panel"><div className="pb-section-heading"><div><span className="panel-overline">ÉTAPE 5 · PAGE</span><h3>Prévisualiser et personnaliser</h3></div><div className="pb-preview-toggle"><button type="button" className={previewMode === 'desktop' ? 'active' : ''} onClick={() => setPreviewMode('desktop')}><Monitor size={15} /> Desktop</button><button type="button" className={previewMode === 'mobile' ? 'active' : ''} onClick={() => setPreviewMode('mobile')}><Smartphone size={15} /> Mobile</button></div></div><div className="pb-editor-grid"><div className="pb-editor"><label>Titre principal<input value={analysis?.commercialName || ''} readOnly /></label><label>Texte d’accroche<textarea rows="4" value={copy?.sections?.[0]?.subtitle || analysis?.shortDescription || ''} readOnly /></label><label>Prix de vente (FCFA)<input type="number" value={price} onChange={(event) => setPrice(event.target.value)} /></label><label>Nom de la boutique<input maxLength="100" value={storefrontName} onChange={(event) => setStorefrontName(event.target.value)} placeholder="Nom affiché dans l’en-tête" /></label><CustomerReviewsEditor reviews={customerReviews} setReviews={setCustomerReviews} /><button className="button button-quiet" type="button" onClick={savePage} disabled={busy}>{busy ? 'Sauvegarde…' : 'Sauvegarder les modifications'}</button></div><div className={`pb-preview ${previewMode}`}><ProductPagePreview sections={previewSections} productTitle={analysis?.commercialName || project?.product_data?.title || 'Produit'} price={price} benefits={analysis?.realBenefits || []} previewMode={previewMode} brandName={storefrontName || project?.product_data?.supplier || ''} reviews={customerReviews.filter((review) => review.author.trim() && review.text.trim())} /></div></div><div className="pb-actions"><button className="button button-primary" type="button" onClick={() => setStep(5)}><ArrowRight size={16} /> Préparer la publication</button></div></section>}
 
     {step === 5 && <section className="pb-panel pb-publish"><div className="pb-publish-icon">{publishedUrl ? <Check size={28} /> : <Sparkles size={28} />}</div><span className="panel-overline">ÉTAPE 6 · PUBLICATION</span><h3>{publishedUrl ? (publishTarget === 'shopify' ? 'Produit créé dans Shopify' : 'Votre page est publiée') : 'Choisir la destination'}</h3>{!publishedUrl && <div className="pb-publish-targets"><button type="button" className={publishTarget === 'sellmaster' ? 'active' : ''} onClick={() => setPublishTarget('sellmaster')}><Store size={18} /><strong>Page Sellmaster</strong><small>URL publique /p/…</small></button><button type="button" className={publishTarget === 'shopify' ? 'active' : ''} onClick={() => setPublishTarget('shopify')}><Link2 size={18} /><strong>Produit Shopify</strong><small>Ajouté au catalogue de la boutique</small></button></div>}<p>{publishedUrl ? (publishTarget === 'shopify' ? 'Le produit et son contenu AIDA ont été ajoutés à Shopify et au catalogue Sellmaster.' : 'Elle est accessible publiquement.') : publishTarget === 'shopify' ? 'Le produit sera créé dans la boutique choisie avec la description AIDA, le prix et les visuels sélectionnés.' : 'La page recevra une URL publique Sellmaster.'}</p>{publishTarget === 'shopify' && !publishedUrl && <label className="pb-publish-store">Boutique Shopify{storesLoading ? <span>Chargement…</span> : stores.length === 0 ? <span>Aucune boutique active</span> : <select value={storeId} onChange={(event) => setStoreId(event.target.value)}>{stores.map((store) => <option key={store.id} value={store.id}>{store.shop_name}</option>)}</select>}</label>}{publishedUrl && <a className="pb-public-url" href={publishedUrl} target="_blank" rel="noreferrer">{publishTarget === 'shopify' ? 'Ouvrir le produit dans Shopify' : publishedUrl} <ExternalLink size={14} /></a>}<div className="pb-actions"><button className="button button-primary" type="button" disabled={busy || Boolean(publishedUrl) || (publishTarget === 'shopify' && (!storeId || storesLoading))} onClick={publishPage}>{busy ? 'Publication…' : publishedUrl ? 'Publié' : publishTarget === 'shopify' ? 'Créer le produit Shopify' : 'Publier sur Sellmaster'}</button></div></section>}
   </div>
