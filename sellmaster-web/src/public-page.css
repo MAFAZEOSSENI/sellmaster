@@ -1,10 +1,10 @@
 .public-page { --public-accent:#087b60; min-height:100vh; background:#f7f8f5; color:#172238; }
 .public-page-loading,.public-page-error { min-height:100vh; display:grid; place-content:center; text-align:center; padding:24px; }
 .public-announcement { padding:9px 16px; background:#173d35; color:#f7fbf8; text-align:center; font-size:12px; font-weight:700; }
-.public-store-header { position:sticky; top:0; z-index:20; min-height:72px; padding:12px max(24px,calc((100vw - 1240px)/2)); display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:24px; border-bottom:1px solid #e3e8e4; background:#fff; }
-.public-store-brand { display:inline-flex; align-items:center; gap:10px; color:#172238; text-decoration:none; }
+.public-store-header { position:sticky; top:0; z-index:20; min-height:72px; padding:12px max(24px,calc((100vw - 1240px)/2)); display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:24px; border-bottom:1px solid #e3e8e4; background:#fff; }
+.public-store-brand { display:inline-flex; align-items:center; gap:10px; min-width:0; color:#172238; text-decoration:none; }
 .public-store-brand>span { display:grid; place-items:center; width:34px; height:34px; border-radius:50%; background:var(--public-accent); color:#fff; font-family:Georgia,serif; font-size:17px; }
-.public-store-brand strong { font-family:Georgia,serif; font-size:17px; }
+.public-store-brand strong { overflow-wrap:anywhere; font-family:Georgia,serif; font-size:17px; }
 .public-store-header nav,.public-store-footer nav { display:flex; flex-wrap:wrap; justify-content:center; gap:22px; }
 .public-store-header nav a,.public-store-footer nav a { color:#46544e; text-decoration:none; font-size:13px; }
 .public-store-header nav a:hover,.public-store-footer nav a:hover { color:var(--public-accent); }
@@ -20,7 +20,7 @@
 .public-gallery-thumbs img { width:100%; height:100%; object-fit:cover; }
 .public-product-buy { display:grid; gap:12px; align-content:start; }
 .public-product-buy>span,.public-section-copy>span,.public-order-form>strong { color:var(--public-accent); font-size:11px; font-weight:800; text-transform:uppercase; }
-.public-product-buy h1 { margin:0; font-size:36px; line-height:1.15; }
+.public-product-buy h1 { margin:0; font-size:36px; line-height:1.15; overflow-wrap:anywhere; }
 .public-product-buy>p { margin:0; color:#596675; line-height:1.65; }
 .public-product-subtitle { font-size:17px; }
 .public-product-benefits { display:grid; gap:8px; margin:4px 0; padding:0; list-style:none; }
@@ -71,9 +71,16 @@
 .public-order-section form>button { border:0; border-radius:10px; padding:14px; background:var(--public-accent); color:#fff; font-weight:800; }
 .public-form-error { color:#b42318; }
 .public-success { display:grid; align-content:center; text-align:center; border-radius:18px; background:#e7f5ed; color:#087b60; }
-.public-page footer.public-store-footer { display:grid; grid-template-columns:1.2fr 1fr auto; align-items:center; gap:28px; padding:32px max(24px,calc((100vw - 1240px)/2)); border-top:1px solid #dfe5e1; background:#fff; }
+.public-page footer.public-store-footer { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) auto; align-items:center; gap:28px; padding:32px max(24px,calc((100vw - 1240px)/2)); border-top:1px solid #dfe5e1; background:#fff; }
 .public-footer-brand p { max-width:340px; margin:10px 0 0; color:#69766f; font-size:12px; line-height:1.6; }
 .public-store-footer>small { color:#69766f; white-space:nowrap; }
+@media(max-width:900px){
+  .public-product-layout { grid-template-columns:minmax(0,1fr); max-width:720px; gap:26px; }
+  .public-section { grid-template-columns:minmax(0,1fr); max-width:820px; }
+  .public-section.reverse .public-section-media { order:0; }
+  .public-page footer.public-store-footer { grid-template-columns:minmax(0,1fr) minmax(0,1fr); padding:28px 24px; }
+  .public-store-footer>small { grid-column:1/-1; }
+}
 @media(max-width:760px){
   .public-store-header { position:static; grid-template-columns:1fr auto; gap:12px; padding:12px 16px; }
   .public-store-header nav { grid-column:1/-1; grid-row:2; justify-content:flex-start; overflow-x:auto; gap:18px; padding:4px 0; }
@@ -84,13 +91,33 @@
   .public-reviews-heading h2 { font-size:27px; }
   .public-page footer.public-store-footer { grid-template-columns:1fr; gap:18px; padding:24px 18px; }
   .public-store-footer nav { justify-content:flex-start; gap:14px 20px; }
-  .public-product-layout,.public-hero,.public-section,.public-order-section { grid-template-columns:1fr; }
-  .public-product-layout { gap:22px; padding:22px 16px 36px; }
+  .public-product-layout,.public-hero,.public-section,.public-order-section { grid-template-columns:minmax(0,1fr); }
+  .public-product-layout { gap:20px; padding:20px 16px 32px; }
   .public-gallery-main { min-height:0; }
+  .public-gallery-main img { max-height:min(112vw,560px); }
+  .public-gallery-thumbs { gap:8px; padding:10px 0; }
+  .public-gallery-thumbs button { flex-basis:64px; width:64px; }
+  .public-product-buy { gap:10px; }
+  .public-product-buy h1 { font-size:clamp(26px,7vw,34px); }
+  .public-order-form { padding:14px; }
   .public-hero { min-height:auto; padding-top:30px; }
   .public-hero h1 { font-size:42px; }
   .public-section { gap:22px; padding:30px 20px; }
-  .public-section.reverse .public-section-media { order:0; }
   .public-benefit-grid { grid-template-columns:1fr; }
   .public-section h2,.public-order-section h2 { font-size:30px; }
+}
+@media(max-width:420px){
+  .public-announcement { padding:8px 12px; font-size:11px; }
+  .public-store-header { padding:10px 12px; }
+  .public-store-brand { gap:7px; }
+  .public-store-brand strong { font-size:15px; }
+  .public-store-brand>span { width:30px; height:30px; }
+  .public-header-cta { padding:10px 11px; font-size:11px; }
+  .public-store-header nav { gap:14px; }
+  .public-store-header nav a { font-size:12px; }
+  .public-trust-strip { padding:14px 16px; font-size:11px; }
+  .public-section { padding:26px 16px; }
+  .public-reviews { padding:22px 16px; }
+  .public-review { padding:16px; }
+  .public-page footer.public-store-footer { padding:22px 16px; }
 }
