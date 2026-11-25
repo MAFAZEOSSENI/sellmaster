@@ -108,7 +108,7 @@ function Sidebar({ active, onNavigate, user, onLogout, navItems, mobileNavItems 
   )
 }
 
-function MoreView({ user, canAccessShopify, onNavigate, onLogout }) {
+function MoreView({ user, canAccessShopify, canAccessPageBuilder, onNavigate, onLogout }) {
   const roles = normalizeRoles(user?.roles || user?.role || [])
   const roleLabels = { owner: 'Propriétaire', manager: 'Manager', closer: 'Closer', courier: 'Livreur' }
   const roleLabel = roles.map((role) => roleLabels[role] || role).join(' · ') || 'Compte Sellmaster'
@@ -121,6 +121,7 @@ function MoreView({ user, canAccessShopify, onNavigate, onLogout }) {
       </section>
       <nav className="more-links" aria-label="Autres destinations">
         {canAccessShopify && <button type="button" className="more-link" onClick={() => onNavigate('shopify')}><span className="more-link-icon"><ShoppingBag size={18} /></span><span><strong>Boutiques Shopify</strong><small>Connexions et synchronisations</small></span><ChevronDown className="more-link-arrow" size={16} /></button>}
+        {canAccessPageBuilder && <button type="button" className="more-link" onClick={() => onNavigate('page-builder')}><span className="more-link-icon"><Sparkles size={18} /></span><span><strong>AI Page Builder</strong><small>Créer une page produit</small></span><ChevronDown className="more-link-arrow" size={16} /></button>}
         <a className="more-link" href="mailto:support@sellmaster.app"><span className="more-link-icon"><CircleHelp size={18} /></span><span><strong>Support</strong><small>Contacter l’équipe Sellmaster</small></span><ExternalLink className="more-link-arrow" size={15} /></a>
         <button type="button" className="more-link more-logout" onClick={onLogout}><span className="more-link-icon"><LogOut size={18} /></span><span><strong>Se déconnecter</strong><small>Fermer cette session</small></span></button>
       </nav>
@@ -971,7 +972,7 @@ function App() {
           {activePage === 'shopify' && canAccessShopify && <ShopifyStoresView stores={stores} loading={storesLoading} error={shopifyError} notice={shopifyNotice} busyStoreId={busyStoreId} onRefresh={() => { setStoresLoading(true); setShopifyError(''); void loadStores() }} onConnect={() => setConnectDialogOpen(true)} onSyncOrders={(store) => syncShopifyStore(store, 'orders')} onSyncProducts={(store) => syncShopifyStore(store, 'products')} onDelete={deleteShopifyStore} />}
           {activePage === 'team' && <>{mutationMessage && <div className="mutation-notice" role="status">{mutationMessage}<button className="notice-dismiss" onClick={() => setMutationMessage('')} aria-label="Fermer">×</button></div>}<TeamView members={teamMembers} loading={teamLoading} error={teamError} isMemberView={isTeamMemberView} canInvite={isTeamOwner} canEditCommission={canEditCommission} acceptingId={acceptingInvitationId} onAccept={acceptTeamInvitation} onInvite={() => setInviteDialogOpen(true)} onRefresh={loadTeam} onUpdateMyTeam={updateMyTeam} onUpdateCommission={updateCloserCommission} /></>}
           {activePage === 'page-builder' && canAccessPageBuilder && <AiPageBuilderView onBack={() => setActivePage('products')} />}
-          {activePage === 'more' && <MoreView user={user} canAccessShopify={canAccessShopify} onNavigate={navigateToPage} onLogout={logout} />}
+          {activePage === 'more' && <MoreView user={user} canAccessShopify={canAccessShopify} canAccessPageBuilder={canAccessPageBuilder} onNavigate={navigateToPage} onLogout={logout} />}
         </>}
         <footer className="workspace-footer"><span>SELLMASTER WEB</span><span>Gestion e-commerce, sans détour.</span></footer>
       </div>
