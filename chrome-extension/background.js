@@ -5,17 +5,26 @@ const TOKEN_KEY = 'sellmaster_jwt';
 const OAUTH_TABS_KEY = 'sellmaster_oauth_tabs';
 
 function sendApi(path, method, body, sendResponse) {
-  const allowed = path === '/shopify/auth/start'
-    || path === '/shopify/register-store-credentials'
-    || path === '/creative-visual/index'
-    || path === '/creative-visual/search'
-    || path === '/ad-research-snapshots'
-    || path === '/product-research/jobs'
-    || /^\/product-research\/jobs\/\d+$/.test(path)
-    || /^\/product-research\/jobs\/\d+\/cancel$/.test(path)
-    || /^\/product-research\/jobs\/\d+\/progress$/.test(path)
-    || /^\/product-research\/jobs\/\d+\/ads\/ingest$/.test(path);
-  if (!allowed || !['GET', 'POST', 'PATCH'].includes(method)) {
+  const exactMethods = new Map([
+    ['/shopify/auth/start', ['GET']],
+    ['/shopify/register-store-credentials', ['POST']],
+    ['/creative-visual/index', ['POST']],
+    ['/creative-visual/search', ['POST']],
+    ['/ad-research-snapshots', ['POST']],
+    ['/product-research/jobs', ['POST']],
+    ['/product-research/ads/favorites', ['GET', 'POST']],
+    ['/product-research/ads', ['GET']],
+    ['/product-research/ads/import', ['POST']],
+  ]);
+  const dynamicMethods = [
+    [/^\/product-research\/jobs\/\d+$/, ['GET']],
+    [/^\/product-research\/jobs\/\d+\/cancel$/, ['PATCH']],
+    [/^\/product-research\/jobs\/\d+\/progress$/, ['PATCH']],
+    [/^\/product-research\/ads\/\d{1,19}\/favorite$/, ['DELETE']],
+  ];
+  const allowedMethods = exactMethods.get(path)
+    || dynamicMethods.find(([pattern]) => pattern.test(path))?.[1];
+  if (!allowedMethods?.includes(method)) {
     sendResponse({ ok: false, error: 'Requête refusée par la politique de l’extension.' });
     return;
   }
@@ -23,20 +32,32 @@ function sendApi(path, method, body, sendResponse) {
   chrome.storage.local.get(TOKEN_KEY).then(async stored => {
     if (!stored[TOKEN_KEY]) throw new Error('Connectez-vous à Sellmaster depuis le popup de l’extension.');
     const url = new URL(API_BASE + path);
-    if (method === 'GET' && body?.shopDomain) url.searchParams.set('shop', body.shopDomain);
+    if (method === 'GET') {
+      const query = body?.query && typeof body.query === 'object' ? body.query : {};
+      if (body?.shopDomain && path === '/shopify/auth/start') url.searchParams.set('shop', String(body.shopDomain));
+      if (query.limit != null && /^\d{1,3}$/.test(String(query.limit)) && Number(query.limit) >= 1 && Number(query.limit) <= 100) {
+        url.searchParams.set('limit', String(query.limit));
+      }
+      if (query.cursor != null && /^\d{1,19}$/.test(String(query.cursor))) url.searchParams.set('cursor', String(query.cursor));
+      if (path === '/product-research/ads' && query.platform === 'meta') url.searchParams.set('platform', 'meta');
+    }
     const response = await fetch(url, {
       method,
       headers: {
         Authorization: `Bearer ${stored[TOKEN_KEY]}`,
         Accept: 'application/json',
-        ...(['POST', 'PATCH'].includes(method) ? { 'Content-Type': 'application/json' } : {}),
+        ...(['POST', 'PATCH', 'PUT', 'DELETE'].includes(method) && body ? { 'Content-Type': 'application/json' } : {}),
       },
-      ...(['POST', 'PATCH'].includes(method) ? { body: JSON.stringify(body || {}) } : {}),
+      ...(['POST', 'PATCH', 'PUT'].includes(method) ? { body: JSON.stringify(body || {}) } : {}),
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || `Sellmaster a répondu ${response.status}.`);
-    sendResponse({ ok: true, data });
-  }).catch(error => sendResponse({ ok: false, error: error.message || 'Erreur de connexion à Sellmaster.' }));
+    if (!response.ok) {
+      if (response.status === 401) await chrome.storage.local.remove([TOKEN_KEY, 'sellmaster_user']);
+      sendResponse({ ok: false, status: response.status, data, error: data.error || `Sellmaster a répondu ${response.status}.` });
+      return;
+    }
+    sendResponse({ ok: true, status: response.status, data });
+  }).catch(error => sendResponse({ ok: false, status: 0, networkError: true, error: error.message || 'Erreur de connexion à Sellmaster.' }));
 }
 
 async function getShopifyProductDetails(productUrl) {
@@ -155,6 +176,10 @@ function buildCreativeQueryUrl(query) {
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === 'SELLMASTER_API') {
+    if (String(message.path || '').startsWith('/product-research/') && !isAdsLibraryTab(_sender)) {
+      sendResponse({ ok: false, status: 403, error: 'API Product Research autorisée uniquement depuis Meta Ads Library.' });
+      return false;
+    }
     sendApi(message.path, message.method, message.body, sendResponse);
     return true;
   }

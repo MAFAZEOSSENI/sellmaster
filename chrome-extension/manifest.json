@@ -47,7 +47,7 @@
     },
     {
       "matches": ["https://www.facebook.com/ads/library/*"],
-      "js": ["visual-hash.js", "ads-library.js"],
+      "js": ["visual-hash.js", "selection-state.js", "ads-library.js"],
       "run_at": "document_idle"
     },
     {

@@ -6,6 +6,7 @@ const ResearchProduct = require('../models/ResearchProduct');
 const ResearchLibrary = require('../models/ResearchLibrary');
 const { fetchShopifyPublicProduct } = require('../services/productResearch/shopifyPublicSource');
 const ResearchAd = require('../models/ResearchAd');
+const numericId = ResearchAd.numericId;
 
 const router = express.Router();
 router.use(authMiddleware, requireRole('owner'));
@@ -28,10 +29,14 @@ const jobLimiter = rateLimit({
   message: { error: 'Limite de recherches créées atteinte.' },
 });
 
-function numericId(value) {
-  const id = Number(value);
-  return Number.isInteger(id) && id > 0 ? id : null;
-}
+const adImportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 30,
+  keyGenerator: (req) => `product-research-ad-import:${req.userId}`,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'Limite d’importations publicitaires atteinte. Réessayez plus tard.' },
+});
 
 router.post('/import-url', importLimiter, async (req, res) => {
   try {
@@ -267,9 +272,13 @@ router.get('/jobs/:id/ads', async (req, res) => {
 router.patch('/jobs/:id/cancel', async (req, res) => {
   const jobId = numericId(req.params.id);
   if (!jobId) return res.status(400).json({ error: 'Identifiant job invalide.' });
-  const job = await ResearchAd.cancelJob(Number(req.userId), jobId);
-  if (!job) return res.status(404).json({ error: 'Recherche introuvable ou déjà terminée.' });
-  return res.json({ success: true, job });
+  const result = await ResearchAd.cancelJob(Number(req.userId), jobId);
+  if (result.outcome === 'not_found') return res.status(404).json({ error: 'Recherche introuvable.' });
+  if (result.outcome === 'invalid') return res.status(400).json({ error: 'Identifiant job invalide.' });
+  if (result.outcome === 'terminal') {
+    return res.status(409).json({ error: 'Cette recherche est déjà terminée.', code: 'JOB_TERMINAL', job: result.job });
+  }
+  return res.json({ success: true, job: result.job });
 });
 
 router.patch('/jobs/:id/progress', async (req, res) => {
@@ -278,20 +287,93 @@ router.patch('/jobs/:id/progress', async (req, res) => {
   const allowedStatus = new Set(['running', 'completed', 'failed', 'cancelled']);
   const status = String(req.body?.status || 'running');
   if (!allowedStatus.has(status)) return res.status(400).json({ error: 'Statut job invalide.' });
-  const job = await ResearchAd.updateProgress(Number(req.userId), jobId, req.body || {});
-  if (!job) return res.status(404).json({ error: 'Recherche introuvable.' });
-  return res.json({ success: true, job });
+
+  const result = await ResearchAd.updateProgress(Number(req.userId), jobId, req.body || {});
+  if (result.outcome === 'invalid' || result.outcome === 'invalid_status') {
+    return res.status(400).json({ error: 'Identifiant ou statut job invalide.' });
+  }
+  if (result.outcome === 'not_found') return res.status(404).json({ error: 'Recherche introuvable.' });
+  if (result.outcome === 'terminal') {
+    return res.status(409).json({ error: 'Cette recherche est déjà terminée.', code: 'JOB_TERMINAL', job: result.job });
+  }
+  if (result.outcome !== 'updated') {
+    return res.status(409).json({ error: 'Cette recherche ne peut plus être modifiée.', code: 'JOB_NOT_MODIFIABLE', job: result.job });
+  }
+  return res.json({ success: true, job: result.job });
+});
+
+router.get('/ads/favorites', async (req, res) => {
+  try {
+    const result = await ResearchAd.listFavorites(Number(req.userId), {
+      limit: req.query.limit,
+      cursor: req.query.cursor,
+    });
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    return res.status(400).json({ error: error.message || 'Impossible de charger les publicités favorites.' });
+  }
+});
+
+router.post('/ads/favorites', async (req, res) => {
+  try {
+    const result = await ResearchAd.addFavorite(Number(req.userId), req.body?.ad || req.body);
+    return res.status(result.alreadySaved ? 200 : 201).json({ success: true, ...result });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({ error: error.message || 'Impossible d’ajouter cette publicité aux favoris.' });
+  }
+});
+
+router.delete('/ads/:id/favorite', async (req, res) => {
+  const adId = numericId(req.params.id);
+  if (!adId) return res.status(400).json({ error: 'Identifiant publicité invalide.' });
+  try {
+    const removed = await ResearchAd.removeFavorite(Number(req.userId), adId);
+    if (!removed) return res.status(404).json({ error: 'Favori introuvable.' });
+    return res.json({ success: true, saved: false, researchAdId: adId });
+  } catch (_) {
+    return res.status(500).json({ error: 'Impossible de retirer cette publicité des favoris.' });
+  }
+});
+
+router.post('/ads/import', adImportLimiter, async (req, res) => {
+  if (req.body?.selectionConfirmed !== true) {
+    return res.status(400).json({ error: 'Confirmation explicite de la sélection requise.' });
+  }
+  const ads = req.body?.ads;
+  if (!Array.isArray(ads) || ads.length === 0) {
+    return res.status(400).json({ error: 'Sélectionnez au moins une publicité à importer.' });
+  }
+  if (ads.length > 200) return res.status(400).json({ error: 'Limite de 200 publicités par lot dépassée.' });
+  const researchJobId = req.body?.researchJobId ?? null;
+  if (researchJobId !== null && !numericId(researchJobId)) {
+    return res.status(400).json({ error: 'Identifiant job invalide.' });
+  }
+
+  try {
+    const result = await ResearchAd.ingestAds(Number(req.userId), researchJobId, ads);
+    const hasFailures = result.rejected > 0 || result.failed > 0;
+    return res.status(hasFailures ? 207 : 200).json({ success: !hasFailures, ...result });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({ error: error.message || 'Importation impossible.' });
+  }
 });
 
 router.post('/jobs/:id/ads/ingest', jobLimiter, async (req, res) => {
   try {
     const jobId = numericId(req.params.id);
     if (!jobId) return res.status(400).json({ error: 'Identifiant job invalide.' });
-    if (!Array.isArray(req.body?.ads)) return res.status(400).json({ error: 'Liste d’annonces requise.' });
+    if (req.body?.selectionConfirmed !== true) {
+      return res.status(400).json({ error: 'Confirmation explicite de la sélection requise.' });
+    }
+    if (!Array.isArray(req.body?.ads) || req.body.ads.length === 0) {
+      return res.status(400).json({ error: 'Sélectionnez au moins une publicité à importer.' });
+    }
+    if (req.body.ads.length > 200) return res.status(400).json({ error: 'Limite de 200 publicités par lot dépassée.' });
     const result = await ResearchAd.ingestAds(Number(req.userId), jobId, req.body.ads);
-    return res.status(201).json({ success: true, ...result });
+    const hasFailures = result.rejected > 0 || result.failed > 0;
+    return res.status(hasFailures ? 207 : 200).json({ success: !hasFailures, ...result });
   } catch (error) {
-    return res.status(error.statusCode || 400).json({ error: error.message || 'Ingestion impossible.' });
+    return res.status(error.statusCode || 500).json({ error: error.message || 'Ingestion impossible.' });
   }
 });
 

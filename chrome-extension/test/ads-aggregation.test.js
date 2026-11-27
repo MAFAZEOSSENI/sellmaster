@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 
 const sandbox = { console, Date, Map, Set, URL, Math, Intl, Number, Boolean, Array, Object, String };
-vm.runInNewContext(`
+vm.runInNewContext(String.raw`
   const COD_PATTERN = /paiement\s+a\s+la\s+(?:livraison|reception)|payez\s+a\s+la\s+(?:livraison|reception)|livraison\s+gratuite|cash\s+on\s+delivery|cod\b/i;
   const LOCAL_CURRENCY_PATTERN = /\b(?:fcfa|cfa|xof|xaf)\b/i;
   const WEIGHTS = { days: 10, ads: 14, pages: 6, cod: 8, local: 5, soldOut: 40 };

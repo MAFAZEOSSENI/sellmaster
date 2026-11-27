@@ -69,6 +69,18 @@
         <p class="visual-note">Recherche parmi les créations déjà collectées par vos scans Sellmaster. La bibliothèque se remplit au fil des analyses Ads Library.</p>
         <button type="button" class="action" data-visual-search disabled>Comparer à la bibliothèque visuelle</button>
       </section>
+      <section class="ad-selection-toolbar" aria-label="Sélection des publicités">
+        <div class="selection-actions">
+          <button type="button" class="action secondary" data-select-all disabled>Tout sélectionner</button>
+          <button type="button" class="action secondary" data-clear-selection disabled>Tout désélectionner</button>
+          <button type="button" class="action" data-import-selected disabled>Importer la sélection</button>
+          <button type="button" class="action secondary" data-finish-job hidden>Terminer sans importer</button>
+          <button type="button" class="action secondary" data-retry-sync hidden>Réessayer la synchronisation</button>
+        </div>
+        <strong class="selection-count" aria-live="polite">0 annonce sélectionnée</strong>
+        <span class="sync-status" role="status" aria-live="polite">Synchronisation Sellmaster…</span>
+        <div class="import-results" hidden aria-live="polite"></div>
+      </section>
       <div class="status" role="status" aria-live="polite">Lancez l’analyse pour parcourir progressivement les annonces chargées. Le nombre récupéré est limité à 200.</div>
       <div class="results"><div class="empty">Aucun résultat analysé.</div></div>
       <div class="controls" style="margin-top:9px;grid-template-columns:1fr 1fr">
@@ -78,7 +90,16 @@
       </div>
     </div>`;
   panel.querySelector('style').textContent += '#sellmaster-ads-library .mode-tabs{display:flex;gap:6px;margin-bottom:12px}#sellmaster-ads-library .mode-tabs button[aria-pressed="true"]{background:#087f83;border-color:#087f83;color:#fff}#sellmaster-ads-library .visual-research{padding:12px;border:1px solid #dce6e1;border-radius:6px;background:#f7faf8}#sellmaster-ads-library .visual-research[hidden]{display:none}#sellmaster-ads-library #sm-visual-image{display:block;width:100%;margin:6px 0 8px;font-size:12px}#sellmaster-ads-library .visual-preview{max-width:100%;max-height:150px;object-fit:contain;margin:4px 0 8px}#sellmaster-ads-library .visual-note{margin:4px 0 10px;color:#53645f;font-size:11px}#sellmaster-ads-library .text-research[hidden]{display:none}#sellmaster-ads-library .creative-search-start,#sellmaster-ads-library .visual-source-start{display:inline-flex;align-items:center;margin:5px 4px 0 0;padding:5px 7px;border:1px solid #b5d9d4;border-radius:5px;background:#eaf7f4;color:#075e64;font:700 10px system-ui;cursor:pointer}#sellmaster-ads-library .match-confidence{display:inline-block;padding:3px 6px;border-radius:4px;background:#eaf7ef;color:#24623f;font-weight:700}#sellmaster-ads-library .match-confidence.medium{background:#fff6df;color:#755b15}#sellmaster-ads-library .match-confidence.low{background:#f1f3f4;color:#5c686b}';
+  panel.querySelector('style').textContent += '#sellmaster-ads-library .ad-selection-toolbar{margin:10px 0;padding:10px;border:1px solid #dce6e1;border-radius:6px;background:#f7faf8}.ad-selection-toolbar .selection-actions{display:flex;flex-wrap:wrap;gap:6px}.ad-selection-toolbar .selection-count{display:block;margin-top:8px;color:#193333}.ad-selection-toolbar .sync-status{display:block;margin-top:4px;color:#53645f;font-size:11px}.ad-selection-toolbar .sync-status.error{color:#a33220}.ad-selection-toolbar .import-results{max-height:150px;margin-top:8px;overflow:auto;border-top:1px solid #dce6e1}.ad-selection-toolbar .import-results ul{margin:6px 0;padding-left:20px}.ad-selection-toolbar .import-results li{padding:2px 0;font-size:11px}.ad-selection-toolbar .import-results .result-error{color:#a33220}';
   document.documentElement.append(panel);
+
+  const cardOverlayHost = document.createElement('div');
+  cardOverlayHost.id = 'sellmaster-ad-card-controls';
+  const cardOverlayShadow = cardOverlayHost.attachShadow({ mode: 'closed' });
+  cardOverlayShadow.innerHTML = `<style>:host{all:initial}.layer{position:fixed;inset:0;z-index:2147483646;pointer-events:none}.control{position:fixed;display:flex;gap:4px;pointer-events:auto}button{display:grid;place-items:center;min-width:30px;height:30px;padding:0 6px;border:1px solid #bdceca;border-radius:5px;background:#fff;color:#173e3b;box-shadow:0 2px 8px #0003;font:700 17px/1 system-ui,sans-serif;cursor:pointer}button[aria-pressed="true"]{background:#dff3ea;border-color:#16845c;color:#126a49}button.favorite[aria-pressed="true"]{background:#fff4d3;border-color:#d6a52c;color:#946d00}button.imported{background:#e8f4ec;border-color:#7baa8b;color:#27623b}button:disabled{opacity:.55;cursor:not-allowed}</style><div class="layer"></div>`;
+  document.documentElement.append(cardOverlayHost);
+  const cardOverlayLayer = cardOverlayShadow.querySelector('.layer');
+  const cardControls = new Map();
 
   const countrySelect = panel.querySelector('#sm-country');
   const status = panel.querySelector('.status');
@@ -97,6 +118,14 @@
   const textResearchPanel = panel.querySelector('.text-research');
   const visualTab = panel.querySelector('[data-research-mode="visual"]');
   const textTab = panel.querySelector('[data-research-mode="text"]');
+  const selectAllButton = panel.querySelector('[data-select-all]');
+  const clearSelectionButton = panel.querySelector('[data-clear-selection]');
+  const importSelectedButton = panel.querySelector('[data-import-selected]');
+  const finishJobButton = panel.querySelector('[data-finish-job]');
+  const retrySyncButton = panel.querySelector('[data-retry-sync]');
+  const selectionCount = panel.querySelector('.selection-count');
+  const syncStatus = panel.querySelector('.sync-status');
+  const importResultsContainer = panel.querySelector('.import-results');
   const authNotice = panel.querySelector('.auth-required');
   const toolContent = panel.querySelector('.tool-content');
   const scanOptionsStorageKey = 'sellmaster_ads_scan_options';
@@ -115,6 +144,26 @@
   const adCategorySelect = panel.querySelector('#sm-ad-category');
   let results = [];
   let resultsMode = 'standard';
+  const selectionState = globalThis.SellmasterAdSelection.createSelectionState();
+  const detectedAds = new Map();
+  const importedAdIds = new Set();
+  const favoritesByLibraryId = new Map();
+  const favoriteOperations = new Set();
+  const importResultsByLibraryId = new Map();
+  let importedState = 'loading';
+  let favoritesState = 'loading';
+  let importedLoadPromise = null;
+  let favoritesLoadPromise = null;
+  let serverStateLoaded = false;
+  let serverStateGeneration = 0;
+  let authGeneration = 0;
+  let isImportingSelection = false;
+  let isFinishingJob = false;
+  let researchJobStatus = productResearchJobId ? 'unknown' : 'none';
+  let cardObserver = null;
+  let cardRefreshTimer = null;
+  let searchWatchTimer = null;
+  let searchFingerprint = '';
   let visualReferenceBlob = null;
   let visualReferenceUrl = '';
   let lastScanOptions = { limit: 20, activeDays: 10 };
@@ -172,6 +221,152 @@
     });
   }
 
+  async function callSellmasterApi(path, method = 'GET', body = undefined) {
+    const response = await sendRuntimeMessage({ type: 'SELLMASTER_API', path, method, body });
+    if (!response?.ok) {
+      const error = new Error(response?.error || 'Erreur de communication avec Sellmaster.');
+      error.status = Number(response?.status) || 0;
+      error.data = response?.data || null;
+      error.networkError = response?.networkError === true;
+      throw error;
+    }
+    return { status: Number(response.status) || 200, data: response.data || {} };
+  }
+
+  async function loadAllAdPages(path, query) {
+    const items = [];
+    const seenCursors = new Set();
+    let cursor = '';
+    for (let pageNumber = 0; pageNumber < 10000; pageNumber += 1) {
+      const pageQuery = { ...query, limit: 100, ...(cursor ? { cursor } : {}) };
+      const { data } = await callSellmasterApi(path, 'GET', { query: pageQuery });
+      if (!Array.isArray(data.items)) throw new Error('Réponse de pagination Sellmaster invalide.');
+      items.push(...data.items);
+      const nextCursor = data.nextCursor == null ? '' : String(data.nextCursor);
+      if (!nextCursor) return items;
+      if (seenCursors.has(nextCursor)) throw new Error('Le serveur a renvoyé un curseur de pagination répété.');
+      seenCursors.add(nextCursor);
+      cursor = nextCursor;
+    }
+    throw new Error('La pagination Sellmaster dépasse la limite de sécurité.');
+  }
+
+  function favoriteKey(platform, externalAdId) {
+    const normalizedId = globalThis.SellmasterAdSelection.normalizeLibraryId(externalAdId);
+    return normalizedId ? `${String(platform || 'meta').toLowerCase()}:${normalizedId}` : '';
+  }
+
+  function mergeDetectedAd(existing, item) {
+    return globalThis.SellmasterAdSelection.mergeDetectedAd(existing, item);
+  }
+
+  function setSyncStatus(text, isError = false) {
+    syncStatus.textContent = text;
+    syncStatus.classList.toggle('error', isError);
+  }
+
+  function renderSelectionSummary() {
+    const count = selectionState.size;
+    selectionCount.textContent = `${count} annonce${count === 1 ? '' : 's'} sélectionnée${count === 1 ? '' : 's'}`;
+    selectAllButton.disabled = importedState !== 'loaded' || isImportingSelection || detectedAds.size === 0;
+    clearSelectionButton.disabled = count === 0 || isImportingSelection;
+    importSelectedButton.textContent = `Importer les ${count} annonces sélectionnées`;
+    importSelectedButton.disabled = count === 0 || importedState !== 'loaded' || isImportingSelection;
+    retrySyncButton.hidden = importedState !== 'error' && favoritesState !== 'error';
+    retrySyncButton.disabled = isImportingSelection;
+    if (productResearchJobId) {
+      finishJobButton.hidden = !['running', 'unknown'].includes(researchJobStatus) || scanButton.disabled;
+      finishJobButton.disabled = isFinishingJob || isImportingSelection || scanButton.disabled;
+    }
+
+    if (importResultsByLibraryId.size) {
+      importResultsContainer.hidden = false;
+      const list = document.createElement('ul');
+      for (const [libraryId, result] of importResultsByLibraryId) {
+        const row = document.createElement('li');
+        row.textContent = `#${libraryId} : ${result.statusLabel}${result.reason ? ` (${result.reason})` : ''}`;
+        if (result.status === 'rejected' || result.status === 'error') row.className = 'result-error';
+        list.append(row);
+      }
+      importResultsContainer.replaceChildren(list);
+    } else {
+      importResultsContainer.hidden = true;
+      importResultsContainer.replaceChildren();
+    }
+  }
+
+  async function loadFavoriteState(generation) {
+    const items = await loadAllAdPages('/product-research/ads/favorites', {});
+    const nextFavorites = new Map();
+    for (const ad of items) {
+      const key = favoriteKey(ad.platform, ad.external_ad_id);
+      const researchAdId = ad.id == null ? '' : String(ad.id);
+      if (key && /^\d{1,19}$/.test(researchAdId)) nextFavorites.set(key, researchAdId);
+    }
+    if (generation === serverStateGeneration) {
+      favoritesByLibraryId.clear();
+      for (const [key, researchAdId] of nextFavorites) favoritesByLibraryId.set(key, researchAdId);
+      favoritesState = 'loaded';
+    }
+  }
+
+  async function loadImportedAdState(generation) {
+    const items = await loadAllAdPages('/product-research/ads', { platform: 'meta' });
+    const nextImportedIds = new Set();
+    for (const ad of items) {
+      const id = globalThis.SellmasterAdSelection.normalizeLibraryId(ad.external_ad_id);
+      if (String(ad.platform || '').toLowerCase() === 'meta' && id) nextImportedIds.add(id);
+    }
+    if (generation === serverStateGeneration) {
+      importedAdIds.clear();
+      for (const id of nextImportedIds) importedAdIds.add(id);
+      selectionState.remove(importedAdIds);
+      importedState = 'loaded';
+    }
+  }
+
+  async function synchronizeServerState(force = false) {
+    if (force) {
+      serverStateGeneration += 1;
+      serverStateLoaded = false;
+      favoritesState = 'loading';
+      importedState = 'loading';
+      favoritesByLibraryId.clear();
+      importedAdIds.clear();
+      favoritesLoadPromise = null;
+      importedLoadPromise = null;
+    }
+    if (serverStateLoaded) return;
+    const generation = serverStateGeneration;
+    setSyncStatus('Vérification des annonces importées et des favoris…');
+
+    favoritesLoadPromise ||= loadFavoriteState(generation).catch(error => {
+      if (generation !== serverStateGeneration) return;
+      favoritesState = 'error';
+      console.warn('[Sellmaster] Impossible de charger les favoris:', error);
+    });
+    importedLoadPromise ||= loadImportedAdState(generation).catch(error => {
+      if (generation !== serverStateGeneration) return;
+      importedState = 'error';
+      console.warn('[Sellmaster] Impossible de vérifier les annonces importées:', error);
+    });
+    await Promise.all([favoritesLoadPromise, importedLoadPromise]);
+    if (generation !== serverStateGeneration) return;
+    serverStateLoaded = favoritesState === 'loaded' && importedState === 'loaded';
+
+    if (importedState !== 'loaded' && favoritesState !== 'loaded') {
+      setSyncStatus('Impossible de vérifier les annonces importées et les favoris. Réessayez.', true);
+    } else if (importedState !== 'loaded') {
+      setSyncStatus('Impossible de vérifier les annonces déjà importées. Réessayez avant import.', true);
+    } else if (favoritesState !== 'loaded') {
+      setSyncStatus('Favoris indisponibles. L’import reste vérifié; réessayez pour synchroniser les étoiles.', true);
+    } else {
+      setSyncStatus(`${importedAdIds.size} annonces déjà importées · ${favoritesByLibraryId.size} favoris synchronisés.`);
+    }
+    refreshCardControls();
+    renderSelectionSummary();
+  }
+
   async function ensureOwnerSession() {
     try {
       const response = await sendRuntimeMessage({ type: 'SELLMASTER_VALIDATE_ADS_SESSION' });
@@ -184,13 +379,32 @@
     authNotice.classList.toggle('hidden', isAuthorized);
     if (!isAuthorized) {
       authNotice.textContent = 'Connectez-vous avec un compte owner Sellmaster depuis le popup de l’extension, puis rechargez cette page. Une session active est nécessaire pour utiliser la recherche et exporter les résultats.';
+      cardOverlayHost.hidden = true;
+    } else {
+      cardOverlayHost.hidden = false;
+      startCardObserver();
+      void synchronizeServerState();
     }
     return isAuthorized;
   }
 
   ensureOwnerSession();
   chrome.storage?.onChanged?.addListener((changes, areaName) => {
-    if (areaName === 'local' && (changes.sellmaster_jwt || changes.sellmaster_user)) ensureOwnerSession();
+    if (areaName === 'local' && (changes.sellmaster_jwt || changes.sellmaster_user)) {
+      const tokenChanged = changes.sellmaster_jwt?.newValue !== changes.sellmaster_jwt?.oldValue;
+      if (tokenChanged) {
+        authGeneration += 1;
+        favoritesByLibraryId.clear();
+        importedAdIds.clear();
+        selectionState.clear();
+        favoritesState = 'loading';
+        importedState = 'loading';
+        serverStateLoaded = false;
+      }
+      ensureOwnerSession().then(authenticated => {
+        if (authenticated && tokenChanged) return synchronizeServerState(true);
+      });
+    }
   });
 
   function decodedDestination(rawHref) {
@@ -448,7 +662,8 @@
           }
         })();
         const details = productPath ? await requestShopifyProductDetails(item.store) : null;
-        item.imageUrl = details?.imageUrl || item.adImageUrl || '';
+        item.productImageUrl = details?.imageUrl || '';
+        item.imageUrl = item.productImageUrl || item.adImageUrl || '';
         if (details) {
           Object.assign(item, {
             price: details.price,
@@ -918,6 +1133,368 @@
     return [...cards];
   }
 
+  function currentSearchFingerprint() {
+    const searchParams = new URLSearchParams(location.search);
+    return ['q', 'country', 'ad_type', 'active_status', 'media_type']
+      .map(key => `${key}=${searchParams.get(key) || ''}`)
+      .join('&');
+  }
+
+  function resetForSearchChange() {
+    const nextFingerprint = currentSearchFingerprint();
+    if (!searchFingerprint) {
+      searchFingerprint = nextFingerprint;
+      return;
+    }
+    if (nextFingerprint === searchFingerprint) return;
+    searchFingerprint = nextFingerprint;
+    selectionState.clear();
+    detectedAds.clear();
+    importResultsByLibraryId.clear();
+    renderSelectionSummary();
+    void synchronizeServerState(true);
+  }
+
+  function updateCardControlState(control, libraryId) {
+    const imported = importedAdIds.has(libraryId);
+    const selected = selectionState.has(libraryId);
+    const favoriteId = favoritesByLibraryId.get(favoriteKey('meta', libraryId));
+    control.selectButton.disabled = importedState !== 'loaded' || imported || isImportingSelection;
+    control.selectButton.textContent = imported ? '✓' : selected ? '☑' : '☐';
+    control.selectButton.title = imported
+      ? 'Déjà importée dans Product Research'
+      : selected ? 'Désélectionner cette publicité' : 'Sélectionner cette publicité';
+    control.selectButton.setAttribute('aria-label', control.selectButton.title);
+    control.selectButton.setAttribute('aria-pressed', String(selected));
+    control.selectButton.classList.toggle('imported', imported);
+    control.favoriteButton.disabled = favoritesState !== 'loaded' || isImportingSelection;
+    control.favoriteButton.textContent = favoriteId ? '★' : '☆';
+    control.favoriteButton.title = favoriteId ? 'Retirer des favoris' : 'Ajouter aux favoris';
+    control.favoriteButton.setAttribute('aria-label', control.favoriteButton.title);
+    control.favoriteButton.setAttribute('aria-pressed', String(Boolean(favoriteId)));
+  }
+
+  function positionCardControls() {
+    for (const [card, control] of cardControls) {
+      if (!card.isConnected) continue;
+      const rect = card.getBoundingClientRect();
+      const visible = rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.top < window.innerHeight && rect.right > 0 && rect.left < window.innerWidth;
+      control.root.hidden = !visible;
+      if (visible) {
+        const controlWidth = 66;
+        let left = rect.right + 8;
+        if (left + controlWidth > window.innerWidth) left = rect.left - controlWidth - 8;
+        if (left < 4) left = Math.max(4, Math.min(window.innerWidth - controlWidth - 4, rect.right - controlWidth));
+        control.root.style.left = `${left}px`;
+        control.root.style.top = `${Math.max(4, rect.top + 8)}px`;
+      }
+    }
+  }
+
+  function createCardControl(card) {
+    const root = document.createElement('div');
+    root.className = 'control';
+    const selectButton = document.createElement('button');
+    selectButton.type = 'button';
+    const favoriteButton = document.createElement('button');
+    favoriteButton.type = 'button';
+    favoriteButton.className = 'favorite';
+    root.append(selectButton, favoriteButton);
+    cardOverlayLayer.append(root);
+    const control = { root, selectButton, favoriteButton, libraryId: '' };
+
+    selectButton.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const libraryId = control.libraryId;
+      if (!libraryId || importedState !== 'loaded' || importedAdIds.has(libraryId)) return;
+      selectionState.set(libraryId, !selectionState.has(libraryId));
+      updateCardControlState(control, libraryId);
+      renderSelectionSummary();
+    });
+    favoriteButton.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (control.libraryId) void toggleAdFavorite(control.libraryId, control);
+    });
+    return control;
+  }
+
+  function refreshCardControls() {
+    resetForSearchChange();
+    if (!isAuthorized) return [];
+    const cards = findAdCards();
+    const seenCards = new Set();
+
+    cards.forEach(card => {
+      const item = getCardValue(card, lastScanOptions.activeDays);
+      if (!item) return;
+      const libraryId = globalThis.SellmasterAdSelection.normalizeLibraryId(item.libraryId);
+      if (!libraryId) return;
+      const existing = detectedAds.get(libraryId);
+      detectedAds.set(libraryId, mergeDetectedAd(existing, item));
+      seenCards.add(card);
+      let control = cardControls.get(card);
+      if (!control) {
+        control = createCardControl(card);
+        cardControls.set(card, control);
+      }
+      control.libraryId = libraryId;
+      updateCardControlState(control, libraryId);
+    });
+
+    for (const [card, control] of cardControls) {
+      if (seenCards.has(card)) continue;
+      control.root.remove();
+      cardControls.delete(card);
+    }
+
+    positionCardControls();
+    renderSelectionSummary();
+    return cards;
+  }
+
+  function scheduleCardRefresh() {
+    if (cardRefreshTimer) return;
+    cardRefreshTimer = setTimeout(() => {
+      cardRefreshTimer = null;
+      refreshCardControls();
+    }, 180);
+  }
+
+  function startCardObserver() {
+    if (cardObserver || !document.body || !panel.isConnected) return;
+    cardObserver = new MutationObserver(records => {
+      const pageChanged = records.some(record => !cardOverlayHost.contains(record.target));
+      if (pageChanged) scheduleCardRefresh();
+    });
+    cardObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+    window.addEventListener('scroll', positionCardControls, { passive: true });
+    window.addEventListener('resize', positionCardControls, { passive: true });
+    window.addEventListener('popstate', scheduleCardRefresh);
+    window.addEventListener('hashchange', scheduleCardRefresh);
+    searchWatchTimer = window.setInterval(() => {
+      if (searchFingerprint && currentSearchFingerprint() !== searchFingerprint) scheduleCardRefresh();
+    }, 750);
+    refreshCardControls();
+  }
+
+  function stopCardObserver() {
+    cardObserver?.disconnect();
+    cardObserver = null;
+    if (cardRefreshTimer) clearTimeout(cardRefreshTimer);
+    cardRefreshTimer = null;
+    if (searchWatchTimer) clearInterval(searchWatchTimer);
+    searchWatchTimer = null;
+    window.removeEventListener('scroll', positionCardControls);
+    window.removeEventListener('resize', positionCardControls);
+    window.removeEventListener('popstate', scheduleCardRefresh);
+    window.removeEventListener('hashchange', scheduleCardRefresh);
+    cardControls.clear();
+    cardOverlayHost.remove();
+  }
+
+  async function toggleAdFavorite(libraryId, control) {
+    if (favoritesState !== 'loaded') {
+      setSyncStatus('Impossible de connaître l’état du favori. Relancez la synchronisation.', true);
+      return;
+    }
+    if (favoriteOperations.has(libraryId)) return;
+    const item = detectedAds.get(libraryId);
+    if (!item) return;
+    const operationAuthGeneration = authGeneration;
+    favoriteOperations.add(libraryId);
+    for (const cardControl of cardControls.values()) {
+      if (cardControl.libraryId === libraryId) cardControl.favoriteButton.disabled = true;
+    }
+    try {
+      await hydrateProductImages([item]);
+      const key = favoriteKey('meta', libraryId);
+      const researchAdId = favoritesByLibraryId.get(key);
+      if (researchAdId) {
+        await callSellmasterApi(`/product-research/ads/${encodeURIComponent(researchAdId)}/favorite`, 'DELETE');
+        if (operationAuthGeneration !== authGeneration) return;
+        favoritesByLibraryId.delete(key);
+        importResultsByLibraryId.delete(libraryId);
+        setSyncStatus('Favori retiré et synchronisé avec Sellmaster.');
+      } else {
+        const { data } = await callSellmasterApi('/product-research/ads/favorites', 'POST', {
+          ad: buildBackendAd(item),
+        });
+        if (operationAuthGeneration !== authGeneration) return;
+        const savedResearchAdId = data.researchAdId == null ? '' : String(data.researchAdId);
+        if (!/^\d{1,19}$/.test(savedResearchAdId) || data.saved !== true) {
+          throw new Error('Sellmaster n’a pas confirmé le favori avec un identifiant interne valide.');
+        }
+        favoritesByLibraryId.set(key, savedResearchAdId);
+        selectionState.set(libraryId, false);
+        importResultsByLibraryId.delete(libraryId);
+        setSyncStatus(data.alreadySaved ? 'Favori déjà présent et sélection retirée.' : 'Publicité ajoutée aux favoris; sélection retirée.');
+      }
+    } catch (error) {
+      setSyncStatus(`Échec de synchronisation du favori : ${error.message}`, true);
+      await synchronizeServerState(true);
+    } finally {
+      favoriteOperations.delete(libraryId);
+      for (const cardControl of cardControls.values()) {
+        if (cardControl.libraryId === libraryId) updateCardControlState(cardControl, libraryId);
+      }
+      renderSelectionSummary();
+    }
+  }
+
+  function buildBackendAd(item) {
+    return globalThis.SellmasterAdSelection.buildAdPayload(item);
+  }
+
+  function selectAllDetectedAds() {
+    if (importedState !== 'loaded') return;
+    selectionState.selectAll([...detectedAds.keys()].filter(libraryId => !importedAdIds.has(libraryId)));
+    refreshCardControls();
+  }
+
+  function clearSelectedAds() {
+    selectionState.clear();
+    refreshCardControls();
+  }
+
+  function resultStatusLabel(result) {
+    if (result.status === 'created') return 'Importée';
+    if (result.status === 'existing') return 'Déjà existante';
+    if (result.status === 'rejected') return 'Rejetée';
+    return 'Erreur';
+  }
+
+  async function finishResearchJobWithoutImport() {
+    if (!productResearchJobId || !['running', 'unknown'].includes(researchJobStatus) || isFinishingJob || scanButton.disabled) return;
+    isFinishingJob = true;
+    renderSelectionSummary();
+    try {
+      await updateResearchJob(productResearchJobId, {
+        status: 'completed',
+        progress: 100,
+        resultSummary: { adsObserved: detectedAds.size, adsImported: 0, finishedWithoutImport: true },
+      });
+      researchJobStatus = 'completed';
+      setSyncStatus('Recherche terminée sans importer les annonces non sélectionnées.');
+    } catch (error) {
+      setSyncStatus(`Impossible de terminer le job : ${error.message}`, true);
+    } finally {
+      isFinishingJob = false;
+      renderSelectionSummary();
+    }
+  }
+
+  async function importSelectedAds() {
+    if (isImportingSelection || importedState !== 'loaded') return;
+    const operationAuthGeneration = authGeneration;
+    const selectedIds = selectionState.ids();
+    if (!selectedIds.length) return;
+    const selectedItems = selectedIds.map(libraryId => ({ libraryId, item: detectedAds.get(libraryId) }));
+    const invalid = selectedItems.filter(({ libraryId, item }) => !item || !buildBackendAd({ ...item, libraryId }));
+    for (const { libraryId } of invalid) {
+      importResultsByLibraryId.set(libraryId, { status: 'rejected', statusLabel: 'Rejetée', reason: 'Annonce absente ou identifiants Meta invalides.' });
+    }
+    const eligible = selectedItems.filter(({ item }) => Boolean(item)).filter(({ libraryId, item }) => Boolean(buildBackendAd({ ...item, libraryId })));
+    let allBatchesFullySucceeded = invalid.length === 0;
+    if (!eligible.length) {
+      renderSelectionSummary();
+      return;
+    }
+
+    isImportingSelection = true;
+    renderSelectionSummary();
+    try {
+      await hydrateProductImages(eligible.map(({ item }) => item));
+      const batches = globalThis.SellmasterAdSelection.chunkItems(eligible, 200);
+      for (const batch of batches) {
+        const ads = batch.map(({ libraryId, item }) => buildBackendAd({ ...item, libraryId }));
+        const body = {
+          selectionConfirmed: true,
+          ...(researchJobStatus === 'running' && /^\d+$/.test(String(productResearchJobId || ''))
+            ? { researchJobId: String(productResearchJobId) }
+            : {}),
+          ads,
+        };
+        let response;
+        try {
+          response = await callSellmasterApi('/product-research/ads/import', 'POST', body);
+        } catch (error) {
+          allBatchesFullySucceeded = false;
+          for (const { libraryId } of batch) {
+            importResultsByLibraryId.set(libraryId, {
+              status: 'error', statusLabel: 'Erreur', reason: error.message || 'Erreur réseau; sélection conservée.',
+            });
+          }
+          if (error.status === 409 && error.data?.code === 'JOB_TERMINAL') {
+            researchJobStatus = String(error.data?.job?.status || 'completed');
+            setSyncStatus('Job déjà terminé ou annulé. Les annonces sélectionnées sont conservées et l’import peut être réessayé sans rattachement au job.', true);
+          } else {
+            setSyncStatus(`Échec réseau de l’import (${error.status || 'connexion'}). La sélection non confirmée est conservée.`, true);
+          }
+          break;
+        }
+        if (operationAuthGeneration !== authGeneration) {
+          allBatchesFullySucceeded = false;
+          setSyncStatus('La session Sellmaster a changé pendant l’import; l’état sera resynchronisé.', true);
+          break;
+        }
+
+        const resultsById = new Map((Array.isArray(response.data.results) ? response.data.results : [])
+          .map(result => [String(result.externalAdId || ''), result]));
+        let batchFullySucceeded = response.status === 200 && response.data.success === true && resultsById.size === batch.length;
+        for (const { libraryId } of batch) {
+          const result = resultsById.get(libraryId);
+          if (!result) {
+            batchFullySucceeded = false;
+            importResultsByLibraryId.set(libraryId, { status: 'error', statusLabel: 'Erreur', reason: 'Résultat individuel absent; sélection conservée.' });
+            continue;
+          }
+          const statusLabel = resultStatusLabel(result);
+          importResultsByLibraryId.set(libraryId, {
+            status: result.status,
+            statusLabel,
+            reason: result.reason || '',
+          });
+          if (globalThis.SellmasterAdSelection.isImportSettled(result.status)) {
+            importedAdIds.add(libraryId);
+            selectionState.set(libraryId, false);
+          } else {
+            batchFullySucceeded = false;
+          }
+        }
+        if (!batchFullySucceeded) {
+          allBatchesFullySucceeded = false;
+          setSyncStatus(`Import partiel (${response.status}) : les annonces non confirmées restent sélectionnées.`, true);
+        } else {
+          setSyncStatus(`Lot importé : ${batch.length} annonce(s) créée(s) ou déjà présente(s).`);
+        }
+        refreshCardControls();
+      }
+
+      if (allBatchesFullySucceeded && productResearchJobId && researchJobStatus === 'running') {
+        try {
+          await updateResearchJob(productResearchJobId, {
+            status: 'completed',
+            progress: 100,
+            resultSummary: { adsObserved: detectedAds.size, adsImported: selectedIds.length },
+          });
+          researchJobStatus = 'completed';
+          setSyncStatus('Sélection importée et recherche terminée.');
+        } catch (error) {
+          researchJobStatus = 'unknown';
+          setSyncStatus(`Annonces importées, mais clôture du job non confirmée : ${error.message}`, true);
+        }
+      }
+    } catch (error) {
+      setSyncStatus(`Import impossible : ${error.message}. La sélection restante est conservée.`, true);
+    } finally {
+      isImportingSelection = false;
+      renderSelectionSummary();
+      refreshCardControls();
+    }
+  }
+
   function setResearchMode(mode) {
     const isVisual = mode === 'visual';
     textResearchPanel.hidden = isVisual;
@@ -1050,19 +1627,27 @@
     resultsMode = 'standard';
     const products = new Map();
     const scannedAds = new Map();
-    const processed = new WeakSet();
+    const processed = new WeakMap();
     let previousCardCount = 0;
     let idleRounds = 0;
 
     try {
       if (!await ensureOwnerSession()) return;
       if (productResearchJobId) {
-        await sendRuntimeMessage({
-          type: 'SELLMASTER_API',
-          path: `/product-research/jobs/${encodeURIComponent(productResearchJobId)}/progress`,
-          method: 'PATCH',
-          body: { status: 'running', progress: 5, attemptCount: 1 },
-        }).catch(() => {});
+        try {
+          const { data } = await callSellmasterApi(`/product-research/jobs/${encodeURIComponent(productResearchJobId)}`);
+          if (['completed', 'failed', 'cancelled'].includes(data.job?.status)) {
+            researchJobStatus = 'completed';
+            setSyncStatus('Ce job est déjà terminé; un import éventuel sera envoyé sans researchJobId.', true);
+          } else {
+            await updateResearchJob(productResearchJobId, { status: 'running', progress: 5, attemptCount: 1 });
+            researchJobStatus = 'running';
+          }
+        } catch (error) {
+          researchJobStatus = 'unknown';
+          setSyncStatus(`État du job indisponible; le scan continue sans rattacher les prochains imports à ce job : ${error.message}`, true);
+        }
+        renderSelectionSummary();
       }
       await settingsReady;
       const options = readScanOptions();
@@ -1070,25 +1655,30 @@
       lastScanOptions = options;
       await persistScanOptions(options);
       for (let round = 0; round < 30; round += 1) {
-        const cards = findAdCards();
+        const cards = refreshCardControls();
         cards.forEach(card => {
-          if (processed.has(card)) return;
           const item = getCardValue(card, options.activeDays);
           if (!item) return;
-          if (item.store) processed.add(card);
-          if (item.libraryId) scannedAds.set(item.libraryId, item);
+          if (processed.get(card) === item.libraryId) return;
+          if (item.store) processed.set(card, item.libraryId);
+          if (item.libraryId) {
+            scannedAds.set(item.libraryId, item);
+            const existing = detectedAds.get(item.libraryId);
+            detectedAds.set(item.libraryId, mergeDetectedAd(existing, item));
+          }
           ingestAd(products, item);
         });
 
         results = rankProducts(products).slice(0, options.limit);
         render();
         notify(`Parcours en cours : ${cards.length} cartes visibles, ${products.size} produits candidats, ${results.length}/${options.limit} résultats retenus.`, '');
-        if (productResearchJobId && round % 5 === 0) {
-          await updateResearchJob(productResearchJobId, {
+        if (productResearchJobId && round % 5 === 0 && researchJobStatus === 'running') {
+          const progressResult = await updateResearchJob(productResearchJobId, {
             status: 'running',
             progress: Math.min(75, 10 + round * 2),
             resultSummary: { products: results.length, adsObserved: scannedAds.size },
-          }).catch(() => {});
+          }).catch(() => null);
+          if (progressResult?.terminal) researchJobStatus = String(progressResult.job?.status || 'completed');
         }
         if (products.size >= Math.min(options.limit * 3, 300)) break;
 
@@ -1122,36 +1712,38 @@
         console.warn('[Sellmaster] Impossible d’enregistrer l’historique du scan:', error);
       }
       if (productResearchJobId) {
-        try {
-          const adsSaved = await ingestResearchAds(productResearchJobId, [...scannedAds.values()]);
-          await updateResearchJob(productResearchJobId, {
-            status: 'completed',
-            progress: 100,
-            resultSummary: { products: results.length, adsObserved: scannedAds.size, adsSaved },
+        if (researchJobStatus === 'running') {
+          const finalProgress = await updateResearchJob(productResearchJobId, {
+            status: 'running',
+            progress: 90,
+            resultSummary: { products: results.length, adsObserved: scannedAds.size, awaitingManualImport: true },
+          }).catch(error => {
+            researchJobStatus = 'unknown';
+            console.warn('[Sellmaster] Progression de fin de scan indisponible:', error.message);
+            return null;
           });
-        } catch (error) {
-          await updateResearchJob(productResearchJobId, {
-            status: 'failed',
-            progress: 100,
-            errorCode: 'INGEST_FAILED',
-            errorMessage: error.message || 'Ingestion des annonces impossible.',
-            resultSummary: { products: results.length, adsObserved: scannedAds.size },
-          }).catch(() => {});
-          throw error;
+          if (finalProgress?.terminal) researchJobStatus = String(finalProgress.job?.status || 'completed');
         }
       }
       const summary = `${results.length}/${options.limit} annonce(s) qualifiée(s), actives depuis au moins ${options.activeDays} jour(s). Les cartes sans date lisible sont exclues.`;
-      notify(summary, results.length ? 'success' : '');
+      renderSelectionSummary();
+      notify(`${summary} Sélectionnez les publicités à importer manuellement.`, results.length ? 'success' : '');
     } catch (error) {
       if (productResearchJobId) {
-        await updateResearchJob(productResearchJobId, {
-          status: 'failed', progress: 100, errorCode: 'SCAN_FAILED',
-          errorMessage: error.message || 'La collecte Ads Library a échoué.',
-        }).catch(() => {});
+        try {
+          await updateResearchJob(productResearchJobId, {
+            status: 'failed', progress: 100, errorCode: 'SCAN_FAILED',
+            errorMessage: error.message || 'La collecte Ads Library a échoué.',
+          });
+          researchJobStatus = 'failed';
+        } catch (_) {
+          researchJobStatus = 'unknown';
+        }
       }
       notify(`Analyse interrompue : ${error.message || 'erreur inconnue'}`, 'error');
     } finally {
       scanButton.disabled = false;
+      renderSelectionSummary();
     }
   }
 
@@ -1214,7 +1806,10 @@
     printWindow.addEventListener('load', () => printWindow.print(), { once: true });
   }
 
-  panel.querySelector('.close').addEventListener('click', () => panel.remove());
+  panel.querySelector('.close').addEventListener('click', () => {
+    stopCardObserver();
+    panel.remove();
+  });
   textTab.addEventListener('click', () => setResearchMode('text'));
   visualTab.addEventListener('click', () => setResearchMode('visual'));
   visualImageInput.addEventListener('change', () => {
@@ -1255,73 +1850,35 @@
   scanButton.addEventListener('click', scanAds);
   csvButton.addEventListener('click', exportCsv);
   pdfButton.addEventListener('click', exportPdf);
+  selectAllButton.addEventListener('click', selectAllDetectedAds);
+  clearSelectionButton.addEventListener('click', clearSelectedAds);
+  importSelectedButton.addEventListener('click', importSelectedAds);
+  finishJobButton.addEventListener('click', finishResearchJobWithoutImport);
+  retrySyncButton.addEventListener('click', () => synchronizeServerState(true));
+  renderSelectionSummary();
   resumeCreativeResearch().catch(error => notify(error.message || 'Impossible de reprendre Recherche Créa.', 'error'));
 
   async function updateResearchJob(jobId, payload) {
-    const response = await sendRuntimeMessage({
-      type: 'SELLMASTER_API',
-      path: `/product-research/jobs/${encodeURIComponent(jobId)}/progress`,
-      method: 'PATCH',
-      body: payload,
-    });
-    if (!response?.ok) throw new Error(response?.error || 'Mise à jour de la recherche impossible.');
-    return response.data;
-  }
-
-  async function ingestResearchAds(jobId, items) {
-    const ads = items.map(item => {
-      const libraryId = item.libraryId || (() => {
-        try { return new URL(item.adLibraryUrl).searchParams.get('id') || ''; } catch (_) { return ''; }
-      })();
-      return {
-        externalAdId: libraryId,
-        originalUrl: item.adLibraryUrl || '',
-        advertiserName: item.page || '',
-        advertiserPageUrl: item.pageLinkUrl || '',
-        productUrl: item.productPageUrl || item.store || '',
-        format: item.videoUrl ? 'video' : 'image',
-        reportedLaunchAt: item.startedAt instanceof Date ? item.startedAt.toISOString() : null,
-        firstSeenAt: new Date().toISOString(),
-        creativeUrl: item.imageUrl || item.adImageUrl || '',
-        creativeType: item.videoUrl ? 'video' : 'image',
-        platform: 'meta',
-        metadata: {
-          productName: item.product || '',
-          country: item.country || '',
-          adCount: Number(item.adCount || item.libraryIds?.size || 1),
-          pageCount: Number(item.pageCount || item.pages?.size || 1),
-        },
-      };
-    }).filter(ad => ad.originalUrl);
-    if (!ads.length) return 0;
-    let inserted = 0;
-    for (let offset = 0; offset < ads.length; offset += 200) {
-      const response = await sendRuntimeMessage({
-        type: 'SELLMASTER_API',
-        path: `/product-research/jobs/${encodeURIComponent(jobId)}/ads/ingest`,
-        method: 'POST',
-        body: { ads: ads.slice(offset, offset + 200) },
-      });
-      if (!response?.ok) throw new Error(response?.error || 'Ingestion des annonces impossible.');
-      inserted += Number(response.data?.inserted || 0);
-    }
-    return inserted;
-  }
-
-  if (productResearchJobId) {
-    setTimeout(async () => {
-      try {
-        await settingsReady;
-        const requestedLimit = Number(params.get('sm_limit'));
-        const requestedDays = Number(params.get('sm_active_days'));
-        if (Number.isInteger(requestedLimit) && requestedLimit >= 1 && requestedLimit <= 200) adLimitInput.value = String(requestedLimit);
-        if (Number.isInteger(requestedDays) && requestedDays >= 0 && requestedDays <= 3650) activeDaysInput.value = String(requestedDays);
-        if (currentKeyword) keywordInput.value = currentKeyword;
-        keywordInput.dispatchEvent(new Event('input'));
-        if (await ensureOwnerSession()) await scanAds();
-      } catch (error) {
-        notify(error.message || 'Impossible de démarrer la recherche demandée.', 'error');
+    try {
+      const { data } = await callSellmasterApi(
+        `/product-research/jobs/${encodeURIComponent(jobId)}/progress`,
+        'PATCH',
+        payload,
+      );
+      return data;
+    } catch (error) {
+      if (error.status === 409 && error.data?.code === 'JOB_TERMINAL') {
+        const terminalStatus = String(error.data?.job?.status || 'completed');
+        researchJobStatus = terminalStatus;
+        setSyncStatus(
+          terminalStatus === 'cancelled'
+            ? 'Job annulé. Les annonces restent sélectionnées; elles pourront être importées sans rattachement au job.'
+            : 'Job déjà terminé. Aucun autre progrès ne sera envoyé pour ce job.',
+          true,
+        );
+        return { terminal: true, job: error.data.job };
       }
-    }, 900);
+      throw error;
+    }
   }
 })();
