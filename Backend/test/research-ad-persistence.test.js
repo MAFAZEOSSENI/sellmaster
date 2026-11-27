@@ -154,6 +154,48 @@ test('research ad persistence, selected import and favorite isolation', {
     assert.ok(jobAds.items.some(item => String(item.external_ad_id) === selectedOnlyId));
     assert.equal(await ResearchAd.removeFavorite(ownerA, firstFavorite.researchAdId), true);
     assert.equal(await ResearchAd.removeFavorite(ownerA, firstFavorite.researchAdId), false);
+
+    const jobProgressRunning = await ResearchAd.updateProgress(ownerA, job.id, { status: 'running', progress: 25, attemptCount: 1 });
+    assert.equal(jobProgressRunning.outcome, 'updated');
+
+    const jobCompleted = await ResearchAd.updateProgress(ownerA, job.id, { status: 'completed', progress: 100 });
+    assert.equal(jobCompleted.outcome, 'updated');
+
+    const cancelledJob = await ResearchAd.createJob(ownerA, { queryText: `${marker}-cancelled`, sourceType: 'manual' });
+    const cancelled = await ResearchAd.cancelJob(ownerA, cancelledJob.id);
+    assert.equal(cancelled.outcome, 'updated');
+
+    const cancelledToRunning = await ResearchAd.updateProgress(ownerA, cancelledJob.id, { status: 'running', progress: 40 });
+    assert.equal(cancelledToRunning.outcome, 'terminal');
+    assert.equal(cancelledToRunning.job.status, 'cancelled');
+
+    const cancelledToCompleted = await ResearchAd.updateProgress(ownerA, cancelledJob.id, { status: 'completed', progress: 100 });
+    assert.equal(cancelledToCompleted.outcome, 'terminal');
+    assert.equal(cancelledToCompleted.job.status, 'cancelled');
+
+    const completedToFailed = await ResearchAd.updateProgress(ownerA, job.id, { status: 'failed', progress: 100, errorCode: 'LATE_ERROR' });
+    assert.equal(completedToFailed.outcome, 'terminal');
+    assert.equal(completedToFailed.job.status, 'completed');
+
+    const failedJob = await ResearchAd.createJob(ownerA, { queryText: `${marker}-failed`, sourceType: 'manual' });
+    const failed = await ResearchAd.updateProgress(ownerA, failedJob.id, { status: 'failed', progress: 100, errorCode: 'TEST_FAILURE' });
+    assert.equal(failed.outcome, 'updated');
+    const failedToRunning = await ResearchAd.updateProgress(ownerA, failedJob.id, { status: 'running', progress: 10 });
+    assert.equal(failedToRunning.outcome, 'terminal');
+    assert.equal(failedToRunning.job.status, 'failed');
+
+    const foreignTransition = await ResearchAd.updateProgress(ownerB, job.id, { status: 'running', progress: 50 });
+    assert.equal(foreignTransition.outcome, 'not_found');
+
+    const concurrentJob = await ResearchAd.createJob(ownerA, { queryText: `${marker}-concurrent`, sourceType: 'manual' });
+    const concurrentResults = await Promise.all([
+      ResearchAd.updateProgress(ownerA, concurrentJob.id, { status: 'completed', progress: 100 }),
+      ResearchAd.updateProgress(ownerA, concurrentJob.id, { status: 'failed', progress: 100, errorCode: 'RACE' }),
+    ]);
+    assert.ok(concurrentResults.some(result => result.outcome === 'updated'));
+    assert.ok(concurrentResults.every(result => result.outcome === 'updated' || result.outcome === 'terminal'));
+    const concurrentFinal = await ResearchAd.getJob(ownerA, concurrentJob.id);
+    assert.ok(['completed', 'failed'].includes(concurrentFinal.status));
   } finally {
     const cleanupErrors = [];
     const cleanup = async operation => {

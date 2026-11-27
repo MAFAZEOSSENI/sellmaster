@@ -1370,13 +1370,23 @@
     isFinishingJob = true;
     renderSelectionSummary();
     try {
-      await updateResearchJob(productResearchJobId, {
+      const result = await updateResearchJob(productResearchJobId, {
         status: 'completed',
         progress: 100,
         resultSummary: { adsObserved: detectedAds.size, adsImported: 0, finishedWithoutImport: true },
       });
-      researchJobStatus = 'completed';
-      setSyncStatus('Recherche terminée sans importer les annonces non sélectionnées.');
+      if (result?.terminal) {
+        researchJobStatus = String(result.job?.status || 'completed');
+        setSyncStatus(
+          researchJobStatus === 'cancelled'
+            ? 'Job annulé : aucune nouvelle clôture n’a été appliquée.'
+            : 'Job déjà terminé : aucune nouvelle clôture n’a été appliquée.',
+          true,
+        );
+      } else {
+        researchJobStatus = 'completed';
+        setSyncStatus('Recherche terminée sans importer les annonces non sélectionnées.');
+      }
     } catch (error) {
       setSyncStatus(`Impossible de terminer le job : ${error.message}`, true);
     } finally {
@@ -1474,16 +1484,26 @@
 
       if (allBatchesFullySucceeded && productResearchJobId && researchJobStatus === 'running') {
         try {
-          await updateResearchJob(productResearchJobId, {
+          const closingResult = await updateResearchJob(productResearchJobId, {
             status: 'completed',
             progress: 100,
             resultSummary: { adsObserved: detectedAds.size, adsImported: selectedIds.length },
           });
-          researchJobStatus = 'completed';
-          setSyncStatus('Sélection importée et recherche terminée.');
+          if (closingResult?.terminal) {
+            researchJobStatus = String(closingResult.job?.status || 'completed');
+            setSyncStatus(
+              researchJobStatus === 'cancelled'
+                ? 'Import terminé, mais le job avait été annulé. Aucun rattachement ultérieur ne sera tenté.'
+                : 'Import terminé, mais le job était déjà terminal. Aucun rattachement ultérieur ne sera tenté.',
+              true,
+            );
+          } else {
+            researchJobStatus = 'completed';
+            setSyncStatus('Sélection importée et recherche terminée.');
+          }
         } catch (error) {
           researchJobStatus = 'unknown';
-          setSyncStatus(`Annonces importées, mais clôture du job non confirmée : ${error.message}`, true);
+          setSyncStatus(`Annonces potentiellement importées, mais clôture du job non confirmée : ${error.message}`, true);
         }
       }
     } catch (error) {
@@ -1637,11 +1657,20 @@
         try {
           const { data } = await callSellmasterApi(`/product-research/jobs/${encodeURIComponent(productResearchJobId)}`);
           if (['completed', 'failed', 'cancelled'].includes(data.job?.status)) {
-            researchJobStatus = 'completed';
-            setSyncStatus('Ce job est déjà terminé; un import éventuel sera envoyé sans researchJobId.', true);
+            researchJobStatus = String(data.job.status);
+            setSyncStatus(
+              researchJobStatus === 'cancelled'
+                ? 'Ce job est annulé; les annonces pourront être importées sans rattachement au job.'
+                : 'Ce job est déjà terminé; un import éventuel sera envoyé sans researchJobId.',
+              true,
+            );
           } else {
-            await updateResearchJob(productResearchJobId, { status: 'running', progress: 5, attemptCount: 1 });
-            researchJobStatus = 'running';
+            const progressResult = await updateResearchJob(productResearchJobId, { status: 'running', progress: 5, attemptCount: 1 });
+            if (progressResult?.terminal) {
+              researchJobStatus = String(progressResult.job?.status || 'completed');
+            } else {
+              researchJobStatus = 'running';
+            }
           }
         } catch (error) {
           researchJobStatus = 'unknown';
