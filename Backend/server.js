@@ -7,6 +7,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const createTables = require('./database/init');
+const runMigrations = require('./database/migrations/runner');
 const { getConnection } = require('./config/database');
 const app = express();
 app.set('trust proxy', 1);
@@ -824,6 +825,7 @@ app.use('/api/admin', adminRoutes);
 async function startServer() {
   try {  
     await createTables();
+    await runMigrations();
     await Order.ensureAssignmentColumns();
     
     app.listen(PORT, () => {
@@ -838,6 +840,7 @@ async function startServer() {
     });
   } catch (error) {
     console.error('❌ Erreur démarrage serveur:', error);
+    process.exitCode = 1;
   }
 }
 

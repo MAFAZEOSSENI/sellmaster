@@ -504,6 +504,7 @@ async function createTables() {
     console.log('✅ Tables créées avec succès!');
   } catch (error) {
     console.error('❌ Erreur création tables:', error);
+    throw error;
   } finally {
     if (conn) conn.release();
   }
